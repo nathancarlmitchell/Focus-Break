@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <style>
+        canvas {
+            border:1px solid #d3d3d3;
+            background-color: #f1f1f1;
+        }
+    </style>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body onload="onLoad()">
+    <div class="wrapper">
+    <button class="button" id="startButton" onclick="startGame()">START</button>
+    </div>
+    <audio  id="audio" style="visibility:hidden" loop="loop">
+        // http://kiwi6.com/artists/Oddioblender
+        <source src="Green Hill Zone.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+<script>
+
+var myGamePiece;
+var myObstacles = [];
+var myObstacles2 = [];
+var score = 0;
+var deaths = 0;
+
+function onLoad() {
+
+}
+
+function startGame() {
+    unloadScrollBars();
+    document.getElementById("startButton").style.visibility = "hidden";
+    document.getElementById("audio").play();    
+    document.getElementById("audio").volume = 0.2;    
+    myGamePiece = new component(20, 20, "red", 10, 120);
+    myGameArea.start();
+}
+
+function wait() {
+    setTimeout(myTimeout1, 2000)
+}
+function myTimeout1() {
+    //myGameArea.canvas.getContext("2d").fillText("waited",400,400); 
+    myGameArea.clear();
+    startGame();        
+}
+
+function gameOver() {
+    deaths += 1;
+    myGameArea.stop();
+    myGameArea.clear();
+    myObstacles = [];
+    myObstacles2 = [];
+    ctx = myGameArea.canvas;
+    ctx.getContext("2d").font = "60px Arial";
+    ctx.getContext("2d").fillText("Score: "+score,200,200);
+    ctx.style.cursor = "default";
+    if (score >= 1000){
+        //you win
+        ctx.getContext("2d").fillText("Now what..",200,100);    
+    } else {
+        if (score >= 850){
+            ctx.getContext("2d").fillText("so close",200,100);    
+        }else{
+            if (score <= 100){
+                ctx.getContext("2d").fillText("...",200,100);
+            }
+            else{
+            ctx.getContext("2d").fillText("Try Again",200,100);   
+            } 
+        }
+        wait();
+    }
+    score = 0;
+}
+
+var myGameArea = {
+    canvas : document.createElement("canvas"),
+    start : function() {
+        this.canvas.width = document.body.clientWidth;
+        this.canvas.height = window.innerHeight;
+        this.canvas.style.cursor = "none"; //hide the original cursor
+        this.context = this.canvas.getContext("2d");
+        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+        this.frameNo = 0;
+        this.interval = setInterval(updateGameArea, 20);
+        window.addEventListener('mousemove', function (e) {
+            myGameArea.x = e.pageX;
+            myGameArea.y = e.pageY;
+        })
+        window.addEventListener('dblclick', function (e) {
+             
+        })
+        },
+    clear : function() {
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    },
+    stop : function() {
+        clearInterval(this.interval);
+    }
+}
+
+function component(width, height, color, x, y) {
+    this.width = width;
+    this.height = height;
+    this.speedX = 0;
+    this.speedY = 0;    
+    this.x = x;
+    this.y = y;    
+    this.update = function() {
+        ctx = myGameArea.context;
+        ctx.fillStyle = color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+
+    this.crashWith = function(otherobj) {
+        var myleft = this.x;
+        var myright = this.x + (this.width);
+        var mytop = this.y;
+        var mybottom = this.y + (this.height);
+        var otherleft = otherobj.x;
+        var otherright = otherobj.x + (otherobj.width);
+        var othertop = otherobj.y;
+        var otherbottom = otherobj.y + (otherobj.height);
+        var crash = true;
+        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
+            crash = false;
+        }
+        return crash;
+    }
+}
+    
+
+
+function updateGameArea() {
+    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
+    for (i = 0; i < myObstacles.length; i += 1) {
+        if (myGamePiece.crashWith(myObstacles[i])) { // collision
+            gameOver();
+            return;
+        } 
+    }
+    for (i = 0; i < myObstacles2.length; i += 1) {
+        if (myGamePiece.crashWith(myObstacles2[i])) { // collision
+            gameOver();
+            return;
+        } 
+    }
+
+    myGameArea.clear();
+    myGameArea.frameNo += 1;
+    
+    if (myGameArea.frameNo == 1 || everyinterval(25)) { // distance of green bars
+        x = myGameArea.canvas.width;
+        minHeight = 20;
+        maxHeight = 680;
+        height = Math.floor(Math.random()*(maxHeight-minHeight+1)+minHeight);
+        minGap = 60;
+        maxGap = 100;
+        gap = Math.floor(Math.random()*(maxGap-minGap+1)+minGap);
+        myObstacles.push(new component(20, height, "green", x, 0));
+        myObstacles.push(new component(20, x - height - gap, "green", x, height + gap));
+    }
+
+    if (myGameArea.frameNo == 1 || everyinterval(5)) {
+        myObstacles.push(new component(10, 10, "red", document.body.clientWidth, Math.random()*700));
+     }
+
+      if (myGameArea.frameNo == 1 || everyinterval(10)) {
+        myObstacles2.push(new component(25, 25, "blue", document.body.clientWidth, Math.random()*700));
+     }
+
+    for (i = 0; i < myObstacles.length; i += 1) {
+        myObstacles[i].x += -4; // speed of obstacles
+        myObstacles[i].update();
+    }
+  for (i = 0; i < myObstacles2.length; i += 1) {
+        myObstacles2[i].x += -8; // speed of obstacles
+        myObstacles2[i].update();
+  }
+    if (myGameArea.x && myGameArea.y) {
+        myGamePiece.x = myGameArea.x;
+        myGamePiece.y = myGameArea.y;
+    }
+    score++;
+    myGamePiece.update();
+}
+
+function everyinterval(n) {
+    if ((myGameArea.frameNo / n) % 2 == 0) {return true;}
+    return false;
+}
+
+function reloadScrollBars() {
+    document.documentElement.style.overflow = 'auto';  // firefox, chrome
+    document.body.scroll = "yes"; // ie only
+}
+
+function unloadScrollBars() {
+    document.documentElement.style.overflow = 'hidden';  // firefox, chrome
+    document.body.scroll = "no"; // ie only
+}
+
+</script>
+</body>
+</html>

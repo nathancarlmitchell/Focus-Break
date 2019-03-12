@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF8"  />
+</head>
+<body onload="onLoad()" onmousemove="mouseMove()" oncontextmenu="return false;">
+    <!--    <iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/users/5333822&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
+    iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/531718938&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
+    -->
+    <iframe src="music\fx 11.wav" allow="autoplay" style="display:none" id="iframeAudio"></iframe> 
+    <audio id="audio1" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 01 Before U Go.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio2" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 02 Reflex.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio3" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 03 Blood (feat. Fifty Grand).mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio4" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 04 Undefined.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio5" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 05 Lay.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio6" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 06 Kitty Kat.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio7" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 07 Too Late.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio8" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 08 Midnight (Cavalier Version).mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio9" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 09 Commas.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio10" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 10 Gone.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="audio11" style="visibility:hidden" >
+        <source src="music\Cavalier - Vol. 8 - 11 Love U.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+    <audio id="bombSFX" style="visibility:hidden">
+        <source src="music\BOMB_SIREN-BOMB_SIREN-247265934.wav" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="fx11" style="visibility:hidden">
+        <source src="music\fx 11.wav" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="fx14" style="visibility:hidden">
+        <source src="music\fx 14.wav" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="perfection" style="visibility:hidden">
+        <source src="music\Perfection!.wav" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="danger" style="visibility:hidden">
+        <source src="music\72.wav" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+    <audio id="menusound2" style="visibility:hidden">
+        <source src="music\Menu Sounds_2.wav" type="audio/mpeg"> Your browser does not support the audio element.
+    </audio>
+<script>
+var myGamePiece;
+var myObstacles = [];
+var myObstacles2 = [];
+var myObstacles3 = [];
+var myObstacles4 = [];
+var score = 0;
+var deaths = 0;
+var invincibleTime = 0;
+var perfectClear = 0;
+var level = 1;
+var speed = 1;
+var invincible = false;
+var gameStart = false;
+var alive = false;
+var focused = false;
+var firstRun = true;
+var startDate;
+var slogan = Math.floor(Math.random() * 18) + 1;
+var sloganY = 120;
+var sloganX = 100;
+var sloganText = "";
+var deathSlogan = "";
+var currentSong = 0;
+var aud = document.getElementById("audio1");
+var aud2 = document.getElementById("audio2");
+var aud3 = document.getElementById("audio3");
+var aud4 = document.getElementById("audio4");
+var aud5 = document.getElementById("audio5");
+var aud6 = document.getElementById("audio6");
+var aud7 = document.getElementById("audio7");
+var aud8 = document.getElementById("audio8");
+var aud9 = document.getElementById("audio9");
+var aud10 = document.getElementById("audio10");
+var aud11 = document.getElementById("audio11");
+
+function audjustAudioSpeed(x){ // set audio playback rate for all songs
+    aud.playbackRate = x;
+    aud2.playbackRate = x;
+    aud3.playbackRate = x;
+    aud4.playbackRate = x;
+    aud5.playbackRate = x;
+    aud6.playbackRate = x;
+    aud7.playbackRate = x;
+    aud8.playbackRate = x;
+    aud9.playbackRate = x;
+    aud10.playbackRate = x;
+    aud11.playbackRate = x;
+}
+
+function mouseMove() { // detect mouse on start screen
+    if (event.clientX > (window.innerWidth / 2) && event.clientY > ((window.innerHeight / 2) +38)){  //detect mouse position
+        ctx.getContext("2d").fillStyle = getRandomColor();
+        ctx.getContext("2d").fillText("FOCUS BREAK", event.clientX, event.clientY);
+    }
+    else {
+        if (firstRun){
+            drawStartScreen();
+        }
+    }
+}
+
+function onLoad() { // draw the start screen
+    myGameArea.load();
+    unloadScrollBars();
+    switch (slogan) { // slogans
+        case 1:sloganText = "TOO HARD";break;
+        case 2:sloganText = "Now in Color!";break;
+        case 3:sloganText = "Vegan!";break;
+        case 4:sloganText = "Siezure inducing!";break;
+        case 5:sloganText = "Advanced!";break;
+        case 6:sloganText = "Fresh!";break;
+        case 7:sloganText = "Spicy!";break;
+        case 8:sloganText = "Gotta Go Fast!";break;
+        case 9:sloganText = "Classic";break;
+        case 10:sloganText = "Coming Soon!";break;
+        case 11:sloganText = "4K 1080p";break;
+        case 12:sloganText = "Lite";break;
+        case 13:sloganText = "今は日本語です！";break;
+        case 14:sloganText = "Version 2";break;
+        case 15:sloganText = "Bug Free!";break;
+        case 16:sloganText = "Not Lame!";break;
+        case 17:sloganText = "...";break;
+        case 18:sloganText = "ULTRA";break;
+        case 19:sloganText = "";break;
+    }
+    drawStartScreen();
+}
+
+function drawStartScreen() {
+    var x = window.innerWidth;
+    var y = window.innerHeight;
+    ctx = myGameArea.canvas;
+    ctx.getContext("2d").fillStyle = "#ffffff";
+    ctx.getContext("2d").font = "80px Arial";
+    ctx.getContext("2d").fillRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.getContext("2d").fillStyle = "#00FFFF";
+    for (count = 120; count < 130; count++){ // Bold effect
+        ctx.getContext("2d").fillText("FOCUS BREAK", count, count+80);
+        ctx.getContext("2d").fillText("焦点を絞る", count+100, count+180);
+    }
+    ctx.getContext("2d").fillRect(x/2, y/2, 272, 40);
+    ctx.getContext("2d").fillRect(x/2, y/2+60, 272, 40);
+    ctx.getContext("2d").fillRect(x/2, y/2+120, 272, 40);
+    ctx.getContext("2d").fillStyle = "#ff00ff";
+    ctx.getContext("2d").fillText("FOCUS BREAK", count, count+80);
+    ctx.getContext("2d").fillText("焦点を絞る", count+100, count+180);
+    ctx.getContext("2d").font = "25px Arial";
+    ctx.getContext("2d").fillStyle = "black";
+    ctx.getContext("2d").fillText("CLICK TO START", (x / 2)-400, (y / 2));
+    ctx.getContext("2d").fillText("クリックして開始", (x / 2)-400, (y / 2)+65);
+    ctx.getContext("2d").fillRect((x / 2)-450,(y / 2)+25, (300), 2);
+    ctx.getContext("2d").font = "40px Impact";
+    ctx.getContext("2d").fillStyle = "#ff00ff";
+    ctx.getContext("2d").globalAlpha = 0.5;
+    ctx.getContext("2d").fillText("Space to Break", x / 2 , y / 2 +38);
+    ctx.getContext("2d").fillText("Shift to Focus", x / 2, y / 2 + 100);
+    ctx.getContext("2d").fillText("Click to warp", x / 2, y / 2 + 160);
+    //ctx.getContext("2d").fillText(window.innerWidth +" x "+ window.innerHeight, x / 2, y / 2 + 0); // display screen resolution
+    ctx.getContext("2d").globalAlpha = 1.0;
+    ctx.getContext("2d").font = "40px Arial";
+    ctx.getContext("2d").fillStyle = "#00FFFF";
+    ctx.getContext("2d").fillRect(0,34, window.innerWidth, 30);
+    ctx.getContext("2d").fillRect(0,window.innerHeight - 66, window.innerWidth, 30);
+    ctx.getContext("2d").fillStyle = "#ff00ff";
+    ctx.getContext("2d").fillRect(0,40, window.innerWidth, 20);
+    ctx.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
+    ctx.getContext("2d").fillStyle = "black";
+    ctx.getContext("2d").globalAlpha = 0.7;
+    ctx.getContext("2d").fillRect(0,y - 40, x, 2);
+    ctx.getContext("2d").fillRect(0,60,x, 2);
+    ctx.getContext("2d").globalAlpha = 1.0;
+    ctx.getContext("2d").fillStyle = "#ff00ff";
+    ctx.getContext("2d").fillText(sloganText,sloganX,sloganY);
+    if (sloganText == "Bug Free!"){
+        for (count = 1; count < 40; count++){ // Bold effect
+                ctx.getContext("2d").fillText("Bug Free!",sloganX-40+count,sloganY-40+count);
+                ctx.getContext("2d").fillStyle = getRandomColor();
+            }
+    }
+}
+
+function loadAudio(){ 
+    var musicVolume = 0.35;
+    aud.volume = musicVolume;
+    aud2.volume =musicVolume;
+    aud3.volume = musicVolume;
+    aud4.volume = musicVolume;
+    aud5.volume = musicVolume;
+    aud6.volume = musicVolume;
+    aud7.volume = musicVolume;
+    aud8.volume = musicVolume;
+    aud9.volume = musicVolume;
+    aud10.volume = musicVolume;
+    aud11.volume = musicVolume;
+    aud.onended = function() {
+        aud2.play();
+    };
+    aud2.onended = function() {       
+        aud3.play();
+    };
+    aud3.onended = function() {
+        aud4.play();
+    };
+    aud4.onended = function() {;
+        aud5.play();
+    };
+    aud5.onended = function() {;
+        aud6.play();
+    };
+    aud6.onended = function() {;
+        aud7.play();
+    };
+    aud7.onended = function() {;
+        aud8.play();
+    };
+    aud8.onended = function() {;
+        aud9.play();
+    };
+    aud9.onended = function() {;
+        aud10.play();
+    };
+    aud10.onended = function() {;
+        aud11.play();
+    };
+    aud11.onended = function() {;
+        aud.play();
+    };
+    if (firstRun){
+        aud.play();
+    }
+}
+
+function startGame() {
+    startDate = new Date();
+    loadAudio();
+    myGamePiece = new component(20 - perfectClear, 20 - perfectClear, "red", 400, 400);
+    myGameArea.start();
+    firstRun = false;
+    gameStart = true;
+    alive = true;
+}
+
+function wait(x) {
+    setTimeout(myTimeout1, x)
+}
+
+function myTimeout1() {
+    myGameArea.clear();
+    startGame();
+    aud.volume = 0.2;
+}
+
+function millisToMinutesAndSeconds(millis) { // ms conversions
+  var minutes = Math.floor(millis / 60000);
+  var seconds = ((millis % 60000) / 1000).toFixed(0);
+  return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
+}
+
+function gameOver() { // you dies
+    alive = false;
+    resumeSpeed();
+    aud.volume = 0.2;
+    myGameArea.stop();
+    myGameArea.clear();
+    myObstacles = [];  // overcome all obstacles
+    myObstacles2 = [];
+    myObstacles3 = [];
+    myObstacles4 = [];
+    var x = window.innerWidth;
+    var y = window.innerHeight;
+    ctx = myGameArea.canvas;
+    ctx.getContext("2d").font = "60px Arial";
+    ctx.getContext("2d").fillStyle = "red";
+    ctx.style.cursor = "default";
+    if (score >= 1000) { // Next level
+        level++; 
+        if (level == 16){ // true finish
+            var endDate = new Date();
+            var completionTime = endDate - startDate;
+            ctx.getContext("2d").fillText("Time: "+millisToMinutesAndSeconds(completionTime), x / 2 - 350, y / 2);
+            if (deaths == 0){
+                ctx.getContext("2d").fillText("Flawless Victory", x / 2 - 350, y / 2 - 175);
+            } else {
+                ctx.getContext("2d").fillText("Can you continue?", x / 2 - 350, y / 2 - 175);
+                ctx.getContext("2d").fillText(deaths+" mistakes", x / 2 - 350, y / 2 - 87);
+            }
+            return;
+        } else if (level == 10){ // you win
+            ctx.getContext("2d").fillStyle = "Black";
+            ctx.getContext("2d").fillText("Victory is a state of mind", x / 2 - 350, y / 2 - 175);
+            ctx.getContext("2d").fillText("勝利は心の状態です", x / 2 - 275, y / 2 - 75);
+            myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 20);
+            myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
+            wait(5000);
+        } else if (level == 9){
+            aud.volume = 0.0;
+            aud2.volume = 0.0;
+            var audBomb = document.getElementById("bombSFX");
+                audBomb.volume = 0.4;
+                audBomb.play();
+            ctx.getContext("2d").font = "80px Arial";
+            ctx.getContext("2d").fillStyle = "red";
+            for (count = 0; count < 3; count++){ // bold effect
+                ctx.getContext("2d").fillText("WARNING 警告", (x / 2 - 300)+count, (y / 2 - 175)+count);
+                ctx.getContext("2d").fillText("多数の敵が接近する", (x / 2 - 400)+count, (y / 2 - 75)+count);
+            }
+            ctx.getContext("2d").fillText("WARNING 警告", (x / 2 - 300), (y / 2 - 175));
+            ctx.getContext("2d").fillText("多数の敵が接近する", (x / 2 - 400), (y / 2 - 75));
+            
+            myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 30);
+            myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
+            wait(3500);
+        } else if (deaths == 0) { // perfect clear
+            ctx.getContext("2d").fillStyle = "#48D1CC";
+            ctx.getContext("2d").font = "60px Arial";
+            if (perfectClear < 10){ // decrease hitbox size
+                perfectClear++;
+                ctx.getContext("2d").fillText("Hitbox size decreased!", (x / 2 - 325), (y / 2 - 75));
+                ctx.getContext("2d").fillText("ヒットボックスを減らす!", (x / 2 - 325), (y / 2 + 50));       
+            }
+            for (count = 0; count < 7; count++){
+                var menuSound = document.getElementById("menusound2");
+                menuSound.volume = 0.2;
+                menuSound.play();
+                ctx.getContext("2d").fillText(count+"Perfect 完全"+count, (x / 2 - 200), (y / 2 - 175));
+            }  
+            myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 20);
+            myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
+            wait(3000);
+        } else {
+            ctx.getContext("2d").fillText("Enemies Approaching", x / 2 - 300, y / 2 - 175);
+            ctx.getContext("2d").fillText("非常に大きな敵に接近する危険!", x / 2 - 425, y / 2 - 50);
+            ctx.getContext("2d").fillText("慎重に進んでください!", x / 2 - 300, y / 2 + 25);
+            wait(3000);
+        }
+    } else { // you lose
+        deaths += 1; 
+        var audDeath = document.getElementById("fx11");
+            audDeath.volume = 0.25;
+        var audDeath = document.getElementById("fx14");
+            audDeath.volume = 0.1;
+            audDeath.play();
+        ctx.getContext("2d").fillText("Score: " + score, x / 2 - 200, y / 2 - 75);
+        if (score >= 850) {
+            ctx.getContext("2d").fillText("So Close", x / 2 - 200, y / 2 - 175);
+        } else {
+            if (score == 420) {
+                ctx.getContext("2d").fillText("blaze it", x / 2 - 150, y / 2 - 175);
+            } else if(score == 666) {
+                ctx.getContext("2d").fillText("praise it", x / 2 - 150, y / 2 - 175);
+            } else if(score == 69){
+                ctx.getContext("2d").fillText("lol", x / 2 - 150, y / 2 - 175);
+            } else if(score == 911){
+                ctx.getContext("2d").fillText("決して忘れない", x / 2 - 150, y / 2 - 175);
+            }
+            else if (score <= 100) {
+                ctx.getContext("2d").fillText("...", x / 2 - 100, y / 2 - 175);
+            }
+            else {
+                ctx.getContext("2d").fillStyle = "red";
+                ctx.getContext("2d").fillText("Try Again", x / 2 - 200, y / 2 - 175);
+                ctx.getContext("2d").fillText("再試行する", x / 2 - 200, y / 2 +25);   
+            }
+            //ctx.getContext("2d").fillText(deathSlogan, x / 2 - 200, y / 2 +25);   
+        }
+        wait(2000);
+    }
+    score = 0;
+}
+
+function resumeSpeed() {
+    focused = false;
+    myGamePiece.width = 20 - perfectClear;
+    myGamePiece.height = 20 - perfectClear;
+    speed = 1;
+    audjustAudioSpeed(1);
+}
+
+function setSlowSpeed(){
+    focused = true;
+    myGamePiece.width = 15 - perfectClear;
+    myGamePiece.height = 15 - perfectClear;
+    speed = 0.3;
+    audjustAudioSpeed(0.75);
+}
+
+function setFastSpeed(){
+    focused = true;
+    myGamePiece.width = 15 - perfectClear;
+    myGamePiece.height = 15 - perfectClear;
+    speed = 2;
+    audjustAudioSpeed(1.2);
+}
+
+function setBreak(){
+    if (!invincible) {
+        invincible = true;
+        score += -200;
+        audjustAudioSpeed(1.0);
+    }
+}
+
+var myGameArea = {
+    canvas: document.createElement("canvas"),
+    load: function () {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.context = this.canvas.getContext("2d");
+        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+        window.addEventListener('click', function (e) {
+            if (gameStart == false) {
+                startGame();
+            }
+        })
+        window.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+             if (alive) {
+                if (e.which == 3) { // mouse right click
+                    setFastSpeed();
+                }
+                if (e.which == 1) { // mouse left click
+                    setSlowSpeed();
+                }
+                if (e.which == 2) { // mouse middle click
+                    if (alive) {
+                        setBreak();
+                    }
+                }
+            }
+        })
+        window.addEventListener('mouseup', function (e) {
+            e.preventDefault;
+            resumeSpeed();
+        })
+    },
+    start: function () {
+        this.canvas.style.cursor = "none"; // hide the original cursor
+        this.context = this.canvas.getContext("2d");
+        this.frameNo = 0;
+        this.interval = setInterval(updateGameArea, 20);
+        window.addEventListener('mousemove', function (e) {
+            myGameArea.x = e.pageX;
+            myGameArea.y = e.pageY;
+            if (invincible) {
+                myGamePiece.height = 20 - perfectClear;
+                myGamePiece.width = 20 - perfectClear;
+                myGamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), e.pageX, e.pageY);
+                myGameArea.canvas.getContext("2d").fillRect(myGamePiece.x -50 + invincibleTime, myGamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
+            } else {
+                if (focused){
+                    myGamePiece.height = 15 - perfectClear;
+                    myGamePiece.width = 15 - perfectClear;
+                } else {
+                    myGamePiece.height = 20 - perfectClear;
+                    myGamePiece.width = 20 - perfectClear;
+                    myGamePiece = new component(20 - perfectClear, 20 - perfectClear, "red", e.pageX, e.pageY);
+                }
+            }
+        })
+        window.addEventListener('keypress', function (e) {
+            if (e.which == 32 || e.keyCode == 32) { // spacebar
+                e.preventDefault(); // prevent scrolling in Firefox
+                if (alive) {
+                    setBreak();
+                }
+            }
+        })
+        window.addEventListener('keydown', function (e) {
+            if (e.shiftKey) {
+                if (alive) {
+                    setSlowSpeed();
+                }
+            }
+            if (e.ctrlKey) {
+                if (alive) {
+                    setFastSpeed();
+                }
+            }
+        })
+        window.addEventListener('keyup', function (e) {
+            if (focused){
+                resumeSpeed();
+            } 
+        })
+    },
+    clear: function () {
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    },
+    stop: function () {
+        clearInterval(this.interval);
+    }
+}
+function component(width, height, color, x, y) {
+    this.width = width;
+    this.height = height;
+    this.speedX = 0;
+    this.speedY = 0;
+    this.x = x;
+    this.y = y;
+    this.update = function () {
+        ctx = myGameArea.context;
+        ctx.fillStyle = color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+
+    this.crashWith = function (otherobj) {
+        var myleft = this.x;
+        var myright = this.x + (this.width);
+        var mytop = this.y;
+        var mybottom = this.y + (this.height);
+        var otherleft = otherobj.x;
+        var otherright = otherobj.x + (otherobj.width);
+        var othertop = otherobj.y;
+        var otherbottom = otherobj.y + (otherobj.height);
+        var crash = true;
+        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
+            crash = false;
+        }
+        return crash;
+    }
+}
+
+function updateGameArea() {
+    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
+    if (!invincible) { // detect collision
+        for (i = 0; i < myObstacles.length; i += 1) {
+            if (myGamePiece.crashWith(myObstacles[i])) { // collision
+                gameOver();
+                return;
+            }
+        }
+        for (i = 0; i < myObstacles2.length; i += 1) {
+            if (myGamePiece.crashWith(myObstacles2[i])) { // collision
+                gameOver();
+                return;
+            }
+        }
+        for (i = 0; i < myObstacles3.length; i += 1) {
+            if (myGamePiece.crashWith(myObstacles3[i])) { // collision
+                gameOver();
+                return;
+            }
+        }
+        for (i = 0; i < myObstacles4.length; i += 1) {
+            if (myGamePiece.crashWith(myObstacles4[i])) { // collision
+                gameOver();
+                return;
+            }
+        }
+    }
+
+    myGameArea.clear();
+    myGameArea.frameNo += 1;
+    if (invincible) {
+        invincibleTime += 1;
+        myGamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), myGamePiece.pageX, myGamePiece.pageY);
+        if (invincibleTime >= 75) {
+            invincible = false;
+            invincibleTime = 0;
+            audjustAudioSpeed(1.0);
+        }
+    }
+
+    myGameArea.canvas.getContext("2d").fillStyle = "black";
+    myGameArea.canvas.getContext("2d").font = "40px Arial";
+
+    switch (level) { // level names
+        case 1:
+            myGameArea.canvas.getContext("2d").fillText("Breath Easy", 80, window.innerHeight - 60);
+                break;
+        case 2:
+            myGameArea.canvas.getContext("2d").fillText("Clear Your Mind", 80, window.innerHeight - 60);
+                break;
+        case 3:
+            myGameArea.canvas.getContext("2d").fillText("Looking Inward", 80, window.innerHeight - 60);
+                break;
+        case 4:
+            myGameArea.canvas.getContext("2d").fillText("Flow", 80, window.innerHeight - 60);
+                break;
+        case 5:
+            myGameArea.canvas.getContext("2d").fillText("Reaching", 80, window.innerHeight - 60);
+                break;
+        case 6:
+            if (deaths == 0){
+                myGameArea.canvas.getContext("2d").fillText("Seeking Perfection", 80, window.innerHeight - 60);
+            } else {
+                myGameArea.canvas.getContext("2d").fillText("Past mistakes", 80, window.innerHeight - 60);
+            }
+                break;
+        case 7:
+            myGameArea.canvas.getContext("2d").fillText("Looking Outward", 80, window.innerHeight - 60);
+                break;
+        case 8:
+            myGameArea.canvas.getContext("2d").fillText("Memory Advance", 80, window.innerHeight - 60);
+                break;
+        case 9:
+            myGameArea.canvas.getContext("2d").fillText("Self Destruct", 80, window.innerHeight - 60);
+                break;
+        case 10:
+            if (deaths == 0){
+                myGameArea.canvas.getContext("2d").fillText("Perfection", 80, window.innerHeight - 60);
+            } else {
+                myGameArea.canvas.getContext("2d").fillText("Remains", 80, window.innerHeight - 60);
+            }
+                break;
+        case 11:
+            myGameArea.canvas.getContext("2d").fillText("Afterlife", 80, window.innerHeight - 60);
+                break;
+        case 12:
+            myGameArea.canvas.getContext("2d").fillText("Desolation", 80, window.innerHeight - 60);
+                break;
+        case 13:
+            myGameArea.canvas.getContext("2d").fillStyle = "red";
+            myGameArea.canvas.getContext("2d").fillRect(900, 0, 100, window.innerHeight);
+            myGameArea.canvas.getContext("2d").fillStyle = "black";
+            myGameArea.canvas.getContext("2d").fillText("Rebirth", 80, window.innerHeight - 60);
+                break;
+        case 14:
+            myGameArea.canvas.getContext("2d").fillRect(900, 0, 100, window.innerHeight);
+            myGameArea.canvas.getContext("2d").fillRect(1100, 0, 2000, window.innerHeight);
+            myGameArea.canvas.getContext("2d").fillText("...", 80, window.innerHeight - 60);
+                break;
+        default:
+            myGameArea.canvas.getContext("2d").fillText("How did this happen?", 80, window.innerHeight - 60);
+                break;
+        }
+    if (level >= 1) { // level 1 vertical black bars
+        if (myGameArea.frameNo == 1 || everyinterval(25 / (speed +2))) { // distance vertical bars
+            x = myGameArea.canvas.width;
+            minHeight = 20;
+            maxHeight = window.innerHeight - 60;
+            height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
+            minGap = 85-(level*2);
+            maxGap = 125-(level*2);
+            gap = Math.floor(Math.random() * (maxGap - minGap + 1) + minGap);
+            myObstacles.push(new component(20, height, "black", x, 0));
+            myObstacles.push(new component(20, x - height - gap, "black", x, height + gap));
+        }
+    }
+    if (level >= 2) { // level 2 black slow moving large
+        if (myGameArea.frameNo == 1 || everyinterval(50 / speed)) {
+            myObstacles3.push(new component(window.innerHeight / 8, window.innerHeight / 8, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+        }
+    }
+    if (level >= 3) { // level 3 black medium
+        if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)) {
+            myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+        }
+    }
+    if (level >= 4) { // level 4 red small
+        if (myGameArea.frameNo == 1 || everyinterval(10 / speed)) {
+            myObstacles.push(new component(10, 10, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+        }
+    }
+    if (level >= 5) { // level 5 black medium
+        if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)){
+            myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight))
+        }
+    }
+    if (level >= 9){ // level 9 red mediun
+        if (myGameArea.frameNo == 1 || everyinterval((25 - level) / speed)){
+            myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
+        }
+    }
+    if (level == 10){
+        if (myGameArea.frameNo == 1 || everyinterval((1) / speed)){
+            myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
+        }
+    }
+    if (level >= 10){ // level 10 red big
+        if (myGameArea.frameNo == 1 || everyinterval(100 / speed)) {
+            myObstacles4.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+        }
+    }
+    if (level >= 12) { // level 12 black small
+        if (myGameArea.frameNo == 1 || everyinterval(10 / speed)) {
+            myObstacles.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+        }
+    }
+    if (level >= 13) { // level 13 red medium
+        if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)) {
+            myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+        }
+    }
+    if (level >= 14){ // level 14 red big, black medium
+        if (myGameArea.frameNo == 1 || everyinterval(75 / speed)) {
+            myObstacles4.push(new component(window.innerHeight / 8, window.innerHeight / 8, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+        } 
+        if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)){
+            myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+        }
+    }    
+    if (level >= 15) { // level 15 red and black medium
+        if (myGameArea.frameNo == 1 || everyinterval((10) / speed)) {
+            myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+            myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+        }
+    }
+
+    for (i = 0; i < myObstacles.length; i += 1) { // move ovstacles 
+        myObstacles[i].x += -4 * speed; // speed of obstacles
+        myObstacles[i].update();
+    }
+    for (i = 0; i < myObstacles2.length; i += 1) {
+        myObstacles2[i].x += -8 * speed; // speed of obstacles
+        myObstacles2[i].update();
+    }
+    for (i = 0; i < myObstacles3.length; i += 1) {
+        myObstacles3[i].x += -10 * speed; // speed of obstacles
+        myObstacles3[i].update();
+    }
+    for (i = 0; i < myObstacles4.length; i += 1) {
+        myObstacles4[i].x += -2 * speed; // speed of obstacles
+        myObstacles4[i].update();
+    }
+    if (myGameArea.x && myGameArea.y) {
+        myGamePiece.x = myGameArea.x;
+        myGamePiece.y = myGameArea.y;
+    }
+    if (invincible) { // BREAK
+        myGameArea.canvas.getContext("2d").fillStyle = getRandomColor();
+        myGameArea.canvas.getContext("2d").globalAlpha = 0.75;
+        myGameArea.canvas.getContext("2d").font = "60px Arial";
+        if (everyinterval(1)) {
+        myGameArea.canvas.getContext("2d").fillText("BREAK! 壊れる", 200, 200);
+        }
+        myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 20);
+        myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
+        myGameArea.canvas.getContext("2d").font = "40px Arial";
+        myGameArea.canvas.getContext("2d").globalAlpha = 0.8;
+        myGameArea.canvas.getContext("2d").fillText(deaths, 50, 200); // show deaths
+        myGameArea.canvas.getContext("2d").fillText("Level " + level, 50, 300); // show level
+        myGameArea.canvas.getContext("2d").fillStyle = "red"; // color
+        myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
+        myGameArea.canvas.getContext("2d").globalAlpha = 1.0;
+    } else {
+        myGameArea.canvas.getContext("2d").fillStyle = "black"; // color
+        myGameArea.canvas.getContext("2d").fillText(score, 50, 100); // show score
+        myGameArea.canvas.getContext("2d").fillText(deaths, 50, 200); // show deaths
+        myGameArea.canvas.getContext("2d").fillText("Level " + level, 50, 300); // show level
+    } if (speed == 1) {
+        score++;
+    } else if (speed == 0.3) { // FOCUS
+        myGameArea.canvas.getContext("2d").globalAlpha = 0.75;
+        myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 30);
+        myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
+        myGameArea.canvas.getContext("2d").fillStyle = "red";
+        myGameArea.canvas.getContext("2d").font = "60px Arial";
+        myGameArea.canvas.getContext("2d").fillText("FOCUS! 焦点", 200, 200);
+        myGameArea.canvas.getContext("2d").font = "40px Arial";
+        myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
+        myGameArea.canvas.getContext("2d").globalAlpha = 1.0;
+    } else if (speed == 2 ){
+        var danger = document.getElementById("danger");
+            danger.volume = 0.1;
+            danger.play();
+        myGameArea.canvas.getContext("2d").fillStyle = "red";
+        myGameArea.canvas.getContext("2d").globalAlpha = 0.8;
+        myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 30);
+        myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
+        myGameArea.canvas.getContext("2d").globalAlpha = 1.0;
+        myGameArea.canvas.getContext("2d").font = "60px Arial";
+        if (everyinterval(2)) {
+            myGameArea.canvas.getContext("2d").fillText("DANGER! 危険", 200, 200);
+        }
+        myGameArea.canvas.getContext("2d").font = "40px Arial";
+        myGameArea.canvas.getContext("2d").fillStyle = getRandomColor();
+        myGameArea.canvas.getContext("2d").fillText("+", 120, 100);
+        myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
+        score += 3;
+    }
+    myGamePiece.update();
+    if (score >= 1000) { // score limit reached
+        if (level == 9){ // play until you die
+            myGameArea.canvas.getContext("2d").fillStyle = getRandomColor();
+            myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
+        } else {
+            gameOver();
+        }
+    }
+}
+function everyinterval(n) {
+    if ((((myGameArea.frameNo) / (n)) % 2) == 0) { return true; }
+    return false;
+}
+function reloadScrollBars() {
+    document.documentElement.style.overflow = 'auto';  // firefox, chrome
+    document.body.scroll = "yes"; // ie only
+}
+function unloadScrollBars() {
+    document.documentElement.style.overflow = 'hidden';  // firefox, chrome
+    document.body.scroll = "no"; // ie only
+}
+function getRandomColor() {  // generate a random color
+    var letters = '0123456789ABCDEF';
+    var color = '#';
+    for (var i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+</script>
+</body>
+</html>

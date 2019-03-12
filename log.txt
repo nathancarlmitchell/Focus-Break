@@ -1,0 +1,19 @@
+-sprites
+-circle?
+-lives
+-audio [] ? set playback for all 		songs at once
+-focus decreases size xx center 			over cursor
+-pause 
+-touch control
+-indepent sizing
+-difficulty:
+	easy - 3 lives, defualt
+	normal - defualt
+	hard - 3 powers per level
+	true - no powers
+- Horizontal black bars blocking visibility of vertical black bars 
+- Add a scoreboard or header at the top or to the left t move score, level, deaths, etc. to a less involved area. 
+- Increase difficulty on later levels, specifically 14 and 15. I thought 9 and 13 were both harder. (But maybe that was just me improving) 
+- Add other elements to difficulty. Forced hyperspeed, limit ability uses, etc. Possibly restricted for "hard mode"  
+- Resize screen on mouse move
+
