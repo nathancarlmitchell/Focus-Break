@@ -3,7 +3,7 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF8"  />
 </head>
-<body onload="onLoad()" onmousemove="mouseMove()" oncontextmenu="return false;">
+<body onload="onLoad()" onresize="windowResize()" onmousemove="mouseMove()" oncontextmenu="return false;">
     <!--    <iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/users/5333822&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
     iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/531718938&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
     -->
@@ -147,6 +147,10 @@ function onLoad() { // draw the start screen
     drawStartScreen();
 }
 
+function windowResize() {
+    myGameArea.load();
+}
+
 function drawStartScreen() {
     var x = window.innerWidth;
     var y = window.innerHeight;
@@ -283,10 +287,6 @@ function gameOver() { // you dies
     aud.volume = 0.2;
     myGameArea.stop();
     myGameArea.clear();
-    myObstacles = [];  // overcome all obstacles
-    myObstacles2 = [];
-    myObstacles3 = [];
-    myObstacles4 = [];
     var x = window.innerWidth;
     var y = window.innerHeight;
     ctx = myGameArea.canvas;
