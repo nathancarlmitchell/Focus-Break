@@ -715,6 +715,7 @@ function updateGameArea() {
         if (myGameArea.frameNo == 1 || everyinterval((10) / speed)) {
             myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+            setFastSpeed();
         }
     }
 
