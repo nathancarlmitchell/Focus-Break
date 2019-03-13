@@ -149,6 +149,9 @@ function onLoad() { // draw the start screen
 
 function windowResize() {
     myGameArea.load();
+    if (!gameStart) {
+        drawStartScreen();
+    }
 }
 
 function drawStartScreen() {
