@@ -1,12 +1,12 @@
 # Focus-Break
 
-##Runs best in Google Chrome, Enter full screen (F11), then refresh (F5)
+## Runs best in Google Chrome, Enter full screen (F11), then refresh (F5)
 
-###Objective:
+### Objective:
 
 Complete all levels without a mistake.  Every level completed with no deaths slightly decreases the size of your hitbox.
 
-###Controls:
+### Controls:
 
 	-Shift / left click: FOCUS - Slows time and decrease hitbox size.  Earn no score, use in a tight spot.
 	
@@ -14,7 +14,7 @@ Complete all levels without a mistake.  Every level completed with no deaths sli
 	
 	-Ctrl / right click: WARP - Speeds up time.  Earn double score, you madman.
 
-###Credits:
+### Credits:
 
 	Music by Cavaliar
 	Developed by Nathan Mitchell
