@@ -287,6 +287,10 @@ function gameOver() { // you dies
     aud.volume = 0.2;
     myGameArea.stop();
     myGameArea.clear();
+    myObstacles = [];  // overcome all obstacles
+    myObstacles2 = [];
+    myObstacles3 = [];
+    myObstacles4 = [];
     var x = window.innerWidth;
     var y = window.innerHeight;
     ctx = myGameArea.canvas;
