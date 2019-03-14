@@ -81,7 +81,9 @@ var sloganY = 120;
 var sloganX = 100;
 var sloganText = "";
 var deathSlogan = "";
+var deathSlogan = score;
 var currentSong = 0;
+var pause = false;
 var aud = document.getElementById("audio1");
 var aud2 = document.getElementById("audio2");
 var aud3 = document.getElementById("audio3");
@@ -331,17 +333,14 @@ function gameOver() { // you dies
             for (count = 0; count < 3; count++){ // bold effect
                 ctx.getContext("2d").fillText("WARNING 警告", (x / 2 - 300)+count, (y / 2 - 175)+count);
                 ctx.getContext("2d").fillText("多数の敵が接近する", (x / 2 - 400)+count, (y / 2 - 75)+count);
-            }
-            ctx.getContext("2d").fillText("WARNING 警告", (x / 2 - 300), (y / 2 - 175));
-            ctx.getContext("2d").fillText("多数の敵が接近する", (x / 2 - 400), (y / 2 - 75));
-            
+            }            
             myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 30);
             myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
             wait(3500);
         } else if (deaths == 0) { // perfect clear
             ctx.getContext("2d").fillStyle = "#48D1CC";
             ctx.getContext("2d").font = "60px Arial";
-            if (perfectClear < 10){ // decrease hitbox size
+            if (perfectClear < 7){ // decrease hitbox size
                 perfectClear++;
                 ctx.getContext("2d").fillText("Hitbox size decreased!", (x / 2 - 325), (y / 2 - 75));
                 ctx.getContext("2d").fillText("ヒットボックスを減らす!", (x / 2 - 325), (y / 2 + 50));       
@@ -363,33 +362,27 @@ function gameOver() { // you dies
         }
     } else { // you lose
         deaths += 1; 
-        var audDeath = document.getElementById("fx11");
-            audDeath.volume = 0.25;
         var audDeath = document.getElementById("fx14");
             audDeath.volume = 0.1;
             audDeath.play();
         ctx.getContext("2d").fillText("Score: " + score, x / 2 - 200, y / 2 - 75);
-        if (score >= 850) {
+        switch (deathSlogan) { // slogans
+            case 69:deathSlogan = "😂";break;
+            case 666:deathSlogan = " ";break;
+            case 420:deathSlogan = "blaze it";break;
+            case 911:deathSlogan = "TOO SOON";break;
+            case 999:deathSlogan = "TOO HARD";break;
+            default: deathSlogan = "";break;
+        }
+        ctx.getContext("2d").fillText(deathSlogan, x / 2 -100, y / 2 +25);  
+        if (score >= 900) {
             ctx.getContext("2d").fillText("So Close", x / 2 - 200, y / 2 - 175);
+        } else if (score <= 100) {
+            ctx.getContext("2d").fillText("...", x / 2 - 100, y / 2 - 175);
         } else {
-            if (score == 420) {
-                ctx.getContext("2d").fillText("blaze it", x / 2 - 150, y / 2 - 175);
-            } else if(score == 666) {
-                ctx.getContext("2d").fillText("praise it", x / 2 - 150, y / 2 - 175);
-            } else if(score == 69){
-                ctx.getContext("2d").fillText("lol", x / 2 - 150, y / 2 - 175);
-            } else if(score == 911){
-                ctx.getContext("2d").fillText("決して忘れない", x / 2 - 150, y / 2 - 175);
-            }
-            else if (score <= 100) {
-                ctx.getContext("2d").fillText("...", x / 2 - 100, y / 2 - 175);
-            }
-            else {
-                ctx.getContext("2d").fillStyle = "red";
-                ctx.getContext("2d").fillText("Try Again", x / 2 - 200, y / 2 - 175);
-                ctx.getContext("2d").fillText("再試行する", x / 2 - 200, y / 2 +25);   
-            }
-            //ctx.getContext("2d").fillText(deathSlogan, x / 2 - 200, y / 2 +25);   
+            ctx.getContext("2d").fillStyle = "red";
+            ctx.getContext("2d").fillText("Try Again", x / 2 - 200, y / 2 - 175);
+            ctx.getContext("2d").fillText("再試行する", x / 2 - 200, y / 2 +25);   
         }
         wait(2000);
     }
@@ -492,6 +485,14 @@ var myGameArea = {
                     setBreak();
                 }
             }
+            if (e.which == 112 || e.keyCode == 112) { // p
+                if (pause){
+                    pause = false;
+                } else {
+                    pause = true;
+                }
+            }
+
         })
         window.addEventListener('keydown', function (e) {
             if (e.shiftKey) {
@@ -549,264 +550,269 @@ function component(width, height, color, x, y) {
 }
 
 function updateGameArea() {
-    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
-    if (!invincible) { // detect collision
-        for (i = 0; i < myObstacles.length; i += 1) {
-            if (myGamePiece.crashWith(myObstacles[i])) { // collision
-                gameOver();
-                return;
+    if (!pause){
+        var x, height, gap, minHeight, maxHeight, minGap, maxGap;
+        if (!invincible) { // detect collision
+            for (i = 0; i < myObstacles.length; i += 1) {
+                if (myGamePiece.crashWith(myObstacles[i])) { // collision
+                    gameOver();
+                    return;
+                }
             }
+            for (i = 0; i < myObstacles2.length; i += 1) {
+                if (myGamePiece.crashWith(myObstacles2[i])) { // collision
+                    gameOver();
+                    return;
+                }
+            }
+            for (i = 0; i < myObstacles3.length; i += 1) {
+                if (myGamePiece.crashWith(myObstacles3[i])) { // collision
+                    gameOver();
+                    return;
+                }
+            }
+            for (i = 0; i < myObstacles4.length; i += 1) {
+                if (myGamePiece.crashWith(myObstacles4[i])) { // collision
+                    gameOver();
+                    return;
+                }
+            }
+        }
+
+        myGameArea.clear();
+        myGameArea.frameNo += 1;
+        if (invincible) {
+            invincibleTime += 1;
+            myGamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), myGamePiece.pageX, myGamePiece.pageY);
+            if (invincibleTime >= 75) {
+                invincible = false;
+                invincibleTime = 0;
+                audjustAudioSpeed(1.0);
+            }
+        }
+
+        myGameArea.canvas.getContext("2d").fillStyle = "black";
+        myGameArea.canvas.getContext("2d").font = "40px Arial";
+
+        switch (level) { // level names
+            case 1:
+                myGameArea.canvas.getContext("2d").fillText("Breath Easy", 80, window.innerHeight - 60);
+                    break;
+            case 2:
+                myGameArea.canvas.getContext("2d").fillText("Clear Your Mind", 80, window.innerHeight - 60);
+                    break;
+            case 3:
+                myGameArea.canvas.getContext("2d").fillText("Looking Inward", 80, window.innerHeight - 60);
+                    break;
+            case 4:
+                myGameArea.canvas.getContext("2d").fillText("Flow", 80, window.innerHeight - 60);
+                    break;
+            case 5:
+                myGameArea.canvas.getContext("2d").fillText("Reaching", 80, window.innerHeight - 60);
+                    break;
+            case 6:
+                if (deaths == 0){
+                    myGameArea.canvas.getContext("2d").fillText("Seeking Perfection", 80, window.innerHeight - 60);
+                } else {
+                    myGameArea.canvas.getContext("2d").fillText("Past mistakes", 80, window.innerHeight - 60);
+                }
+                    break;
+            case 7:
+                myGameArea.canvas.getContext("2d").fillText("Looking Outward", 80, window.innerHeight - 60);
+                    break;
+            case 8:
+                myGameArea.canvas.getContext("2d").fillText("Memory Advance", 80, window.innerHeight - 60);
+                    break;
+            case 9:
+                myGameArea.canvas.getContext("2d").fillText("Self Destruct", 80, window.innerHeight - 60);
+                    break;
+            case 10:
+                if (deaths == 0){
+                    myGameArea.canvas.getContext("2d").fillText("Perfection", 80, window.innerHeight - 60);
+                } else {
+                    myGameArea.canvas.getContext("2d").fillText("Remains", 80, window.innerHeight - 60);
+                }
+                    break;
+            case 11:
+                myGameArea.canvas.getContext("2d").fillText("Afterlife", 80, window.innerHeight - 60);
+                    break;
+            case 12:
+                myGameArea.canvas.getContext("2d").fillText("Desolation", 80, window.innerHeight - 60);
+                    break;
+            case 13:
+                myGameArea.canvas.getContext("2d").fillStyle = "red";
+                myGameArea.canvas.getContext("2d").fillRect(900, 0, 100, window.innerHeight);
+                myGameArea.canvas.getContext("2d").fillStyle = "black";
+                myGameArea.canvas.getContext("2d").fillText("Rebirth", 80, window.innerHeight - 60);
+                    break;
+            case 14:
+                myGameArea.canvas.getContext("2d").fillRect(900, 0, 100, window.innerHeight);
+                myGameArea.canvas.getContext("2d").fillRect(1100, 0, 2000, window.innerHeight);
+                myGameArea.canvas.getContext("2d").fillText("...", 80, window.innerHeight - 60);
+                    break;
+            default:
+                myGameArea.canvas.getContext("2d").fillText("How did this happen?", 80, window.innerHeight - 60);
+                    break;
+            }
+        if (level >= 1) { // level 1 vertical black bars
+            if (myGameArea.frameNo == 1 || everyinterval(25 / (speed +2))) { // distance vertical bars
+                x = myGameArea.canvas.width;
+                minHeight = 20;
+                maxHeight = window.innerHeight - 60;
+                height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
+                minGap = 85-(level*2);
+                maxGap = 125-(level*2);
+                gap = Math.floor(Math.random() * (maxGap - minGap + 1) + minGap);
+                myObstacles.push(new component(20, height, "black", x, 0));
+                myObstacles.push(new component(20, x - height - gap, "black", x, height + gap));
+            }
+        }
+        if (level >= 2) { // level 2 black slow moving large
+            if (myGameArea.frameNo == 1 || everyinterval(50 / speed)) {
+                myObstacles3.push(new component(window.innerHeight / 8, window.innerHeight / 8, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+            }
+        }
+        if (level >= 3) { // level 3 black medium
+            if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)) {
+                myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+            }
+        }
+        if (level >= 4) { // level 4 red small
+            if (myGameArea.frameNo == 1 || everyinterval(10 / speed)) {
+                myObstacles.push(new component(10, 10, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+            }
+        }
+        if (level >= 5) { // level 5 black medium
+            if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)){
+                myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight))
+            }
+        }
+        if (level >= 9){ // level 9 red mediun
+            if (myGameArea.frameNo == 1 || everyinterval((25 - level) / speed)){
+                myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
+            }
+        }
+        if (level == 10){
+            if (myGameArea.frameNo == 1 || everyinterval((1) / speed)){
+                myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
+            }
+        }
+        if (level >= 10){ // level 10 red big
+            if (myGameArea.frameNo == 1 || everyinterval(100 / speed)) {
+                myObstacles4.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+            }
+        }
+        if (level >= 12) { // level 12 black small
+            if (myGameArea.frameNo == 1 || everyinterval(10 / speed)) {
+                myObstacles.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+            }
+        }
+        if (level >= 13) { // level 13 red medium
+            if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)) {
+                myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+            }
+        }
+        if (level >= 14){ // level 14 red big, black medium
+            if (myGameArea.frameNo == 1 || everyinterval(75 / speed)) {
+                myObstacles4.push(new component(window.innerHeight / 8, window.innerHeight / 8, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+            } 
+            if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)){
+                myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+            }
+        }    
+        if (level >= 15) { // level 15 red and black medium
+            if (myGameArea.frameNo == 1 || everyinterval((10) / speed)) {
+                myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                setFastSpeed();
+            }
+        }
+
+        for (i = 0; i < myObstacles.length; i += 1) { // move ovstacles 
+            myObstacles[i].x += -4 * speed; // speed of obstacles
+            myObstacles[i].update();
         }
         for (i = 0; i < myObstacles2.length; i += 1) {
-            if (myGamePiece.crashWith(myObstacles2[i])) { // collision
-                gameOver();
-                return;
-            }
+            myObstacles2[i].x += -8 * speed; // speed of obstacles
+            myObstacles2[i].update();
         }
         for (i = 0; i < myObstacles3.length; i += 1) {
-            if (myGamePiece.crashWith(myObstacles3[i])) { // collision
-                gameOver();
-                return;
-            }
+            myObstacles3[i].x += -10 * speed; // speed of obstacles
+            myObstacles3[i].update();
         }
         for (i = 0; i < myObstacles4.length; i += 1) {
-            if (myGamePiece.crashWith(myObstacles4[i])) { // collision
-                gameOver();
-                return;
-            }
+            myObstacles4[i].x += -2 * speed; // speed of obstacles
+            myObstacles4[i].update();
         }
-    }
-
-    myGameArea.clear();
-    myGameArea.frameNo += 1;
-    if (invincible) {
-        invincibleTime += 1;
-        myGamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), myGamePiece.pageX, myGamePiece.pageY);
-        if (invincibleTime >= 75) {
-            invincible = false;
-            invincibleTime = 0;
-            audjustAudioSpeed(1.0);
+        if (myGameArea.x && myGameArea.y) {
+            myGamePiece.x = myGameArea.x;
+            myGamePiece.y = myGameArea.y;
         }
-    }
-
-    myGameArea.canvas.getContext("2d").fillStyle = "black";
-    myGameArea.canvas.getContext("2d").font = "40px Arial";
-
-    switch (level) { // level names
-        case 1:
-            myGameArea.canvas.getContext("2d").fillText("Breath Easy", 80, window.innerHeight - 60);
-                break;
-        case 2:
-            myGameArea.canvas.getContext("2d").fillText("Clear Your Mind", 80, window.innerHeight - 60);
-                break;
-        case 3:
-            myGameArea.canvas.getContext("2d").fillText("Looking Inward", 80, window.innerHeight - 60);
-                break;
-        case 4:
-            myGameArea.canvas.getContext("2d").fillText("Flow", 80, window.innerHeight - 60);
-                break;
-        case 5:
-            myGameArea.canvas.getContext("2d").fillText("Reaching", 80, window.innerHeight - 60);
-                break;
-        case 6:
-            if (deaths == 0){
-                myGameArea.canvas.getContext("2d").fillText("Seeking Perfection", 80, window.innerHeight - 60);
-            } else {
-                myGameArea.canvas.getContext("2d").fillText("Past mistakes", 80, window.innerHeight - 60);
-            }
-                break;
-        case 7:
-            myGameArea.canvas.getContext("2d").fillText("Looking Outward", 80, window.innerHeight - 60);
-                break;
-        case 8:
-            myGameArea.canvas.getContext("2d").fillText("Memory Advance", 80, window.innerHeight - 60);
-                break;
-        case 9:
-            myGameArea.canvas.getContext("2d").fillText("Self Destruct", 80, window.innerHeight - 60);
-                break;
-        case 10:
-            if (deaths == 0){
-                myGameArea.canvas.getContext("2d").fillText("Perfection", 80, window.innerHeight - 60);
-            } else {
-                myGameArea.canvas.getContext("2d").fillText("Remains", 80, window.innerHeight - 60);
-            }
-                break;
-        case 11:
-            myGameArea.canvas.getContext("2d").fillText("Afterlife", 80, window.innerHeight - 60);
-                break;
-        case 12:
-            myGameArea.canvas.getContext("2d").fillText("Desolation", 80, window.innerHeight - 60);
-                break;
-        case 13:
-            myGameArea.canvas.getContext("2d").fillStyle = "red";
-            myGameArea.canvas.getContext("2d").fillRect(900, 0, 100, window.innerHeight);
-            myGameArea.canvas.getContext("2d").fillStyle = "black";
-            myGameArea.canvas.getContext("2d").fillText("Rebirth", 80, window.innerHeight - 60);
-                break;
-        case 14:
-            myGameArea.canvas.getContext("2d").fillRect(900, 0, 100, window.innerHeight);
-            myGameArea.canvas.getContext("2d").fillRect(1100, 0, 2000, window.innerHeight);
-            myGameArea.canvas.getContext("2d").fillText("...", 80, window.innerHeight - 60);
-                break;
-        default:
-            myGameArea.canvas.getContext("2d").fillText("How did this happen?", 80, window.innerHeight - 60);
-                break;
-        }
-    if (level >= 1) { // level 1 vertical black bars
-        if (myGameArea.frameNo == 1 || everyinterval(25 / (speed +2))) { // distance vertical bars
-            x = myGameArea.canvas.width;
-            minHeight = 20;
-            maxHeight = window.innerHeight - 60;
-            height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
-            minGap = 85-(level*2);
-            maxGap = 125-(level*2);
-            gap = Math.floor(Math.random() * (maxGap - minGap + 1) + minGap);
-            myObstacles.push(new component(20, height, "black", x, 0));
-            myObstacles.push(new component(20, x - height - gap, "black", x, height + gap));
-        }
-    }
-    if (level >= 2) { // level 2 black slow moving large
-        if (myGameArea.frameNo == 1 || everyinterval(50 / speed)) {
-            myObstacles3.push(new component(window.innerHeight / 8, window.innerHeight / 8, "black", document.body.clientWidth, Math.random() * window.innerHeight));
-        }
-    }
-    if (level >= 3) { // level 3 black medium
-        if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)) {
-            myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
-        }
-    }
-    if (level >= 4) { // level 4 red small
-        if (myGameArea.frameNo == 1 || everyinterval(10 / speed)) {
-            myObstacles.push(new component(10, 10, "red", document.body.clientWidth, Math.random() * window.innerHeight));
-        }
-    }
-    if (level >= 5) { // level 5 black medium
-        if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)){
-            myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight))
-        }
-    }
-    if (level >= 9){ // level 9 red mediun
-        if (myGameArea.frameNo == 1 || everyinterval((25 - level) / speed)){
-            myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
-        }
-    }
-    if (level == 10){
-        if (myGameArea.frameNo == 1 || everyinterval((1) / speed)){
-            myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
-        }
-    }
-    if (level >= 10){ // level 10 red big
-        if (myGameArea.frameNo == 1 || everyinterval(100 / speed)) {
-            myObstacles4.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
-        }
-    }
-    if (level >= 12) { // level 12 black small
-        if (myGameArea.frameNo == 1 || everyinterval(10 / speed)) {
-            myObstacles.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
-        }
-    }
-    if (level >= 13) { // level 13 red medium
-        if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)) {
-            myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
-        }
-    }
-    if (level >= 14){ // level 14 red big, black medium
-        if (myGameArea.frameNo == 1 || everyinterval(75 / speed)) {
-            myObstacles4.push(new component(window.innerHeight / 8, window.innerHeight / 8, "red", document.body.clientWidth, Math.random() * window.innerHeight));
-        } 
-        if (myGameArea.frameNo == 1 || everyinterval((10 - level) / speed)){
-            myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
-        }
-    }    
-    if (level >= 15) { // level 15 red and black medium
-        if (myGameArea.frameNo == 1 || everyinterval((10) / speed)) {
-            myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
-            myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
-            setFastSpeed();
-        }
-    }
-
-    for (i = 0; i < myObstacles.length; i += 1) { // move ovstacles 
-        myObstacles[i].x += -4 * speed; // speed of obstacles
-        myObstacles[i].update();
-    }
-    for (i = 0; i < myObstacles2.length; i += 1) {
-        myObstacles2[i].x += -8 * speed; // speed of obstacles
-        myObstacles2[i].update();
-    }
-    for (i = 0; i < myObstacles3.length; i += 1) {
-        myObstacles3[i].x += -10 * speed; // speed of obstacles
-        myObstacles3[i].update();
-    }
-    for (i = 0; i < myObstacles4.length; i += 1) {
-        myObstacles4[i].x += -2 * speed; // speed of obstacles
-        myObstacles4[i].update();
-    }
-    if (myGameArea.x && myGameArea.y) {
-        myGamePiece.x = myGameArea.x;
-        myGamePiece.y = myGameArea.y;
-    }
-    if (invincible) { // BREAK
-        myGameArea.canvas.getContext("2d").fillStyle = getRandomColor();
-        myGameArea.canvas.getContext("2d").globalAlpha = 0.75;
-        myGameArea.canvas.getContext("2d").font = "60px Arial";
-        if (everyinterval(1)) {
-        myGameArea.canvas.getContext("2d").fillText("BREAK! 壊れる", 200, 200);
-        }
-        myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 20);
-        myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
-        myGameArea.canvas.getContext("2d").font = "40px Arial";
-        myGameArea.canvas.getContext("2d").globalAlpha = 0.8;
-        myGameArea.canvas.getContext("2d").fillText(deaths, 50, 200); // show deaths
-        myGameArea.canvas.getContext("2d").fillText("Level " + level, 50, 300); // show level
-        myGameArea.canvas.getContext("2d").fillStyle = "red"; // color
-        myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
-        myGameArea.canvas.getContext("2d").globalAlpha = 1.0;
-    } else {
-        myGameArea.canvas.getContext("2d").fillStyle = "black"; // color
-        myGameArea.canvas.getContext("2d").fillText(score, 50, 100); // show score
-        myGameArea.canvas.getContext("2d").fillText(deaths, 50, 200); // show deaths
-        myGameArea.canvas.getContext("2d").fillText("Level " + level, 50, 300); // show level
-    } if (speed == 1) {
-        score++;
-    } else if (speed == 0.3) { // FOCUS
-        myGameArea.canvas.getContext("2d").globalAlpha = 0.75;
-        myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 30);
-        myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
-        myGameArea.canvas.getContext("2d").fillStyle = "red";
-        myGameArea.canvas.getContext("2d").font = "60px Arial";
-        myGameArea.canvas.getContext("2d").fillText("FOCUS! 焦点", 200, 200);
-        myGameArea.canvas.getContext("2d").font = "40px Arial";
-        myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
-        myGameArea.canvas.getContext("2d").globalAlpha = 1.0;
-    } else if (speed == 2 ){
-        var danger = document.getElementById("danger");
-            danger.volume = 0.1;
-            danger.play();
-        myGameArea.canvas.getContext("2d").fillStyle = "red";
-        myGameArea.canvas.getContext("2d").globalAlpha = 0.8;
-        myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 30);
-        myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
-        myGameArea.canvas.getContext("2d").globalAlpha = 1.0;
-        myGameArea.canvas.getContext("2d").font = "60px Arial";
-        if (everyinterval(2)) {
-            myGameArea.canvas.getContext("2d").fillText("DANGER! 危険", 200, 200);
-        }
-        myGameArea.canvas.getContext("2d").font = "40px Arial";
-        myGameArea.canvas.getContext("2d").fillStyle = getRandomColor();
-        myGameArea.canvas.getContext("2d").fillText("+", 120, 100);
-        myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
-        score += 3;
-    }
-    myGamePiece.update();
-    if (score >= 1000) { // score limit reached
-        if (level == 9){ // play until you die
+        if (invincible) { // BREAK
             myGameArea.canvas.getContext("2d").fillStyle = getRandomColor();
+            myGameArea.canvas.getContext("2d").globalAlpha = 0.75;
+            myGameArea.canvas.getContext("2d").font = "60px Arial";
+            if (everyinterval(1)) {
+            myGameArea.canvas.getContext("2d").fillText("BREAK! 壊れる", 200, 200);
+            }
+            myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 20);
+            myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
+            myGameArea.canvas.getContext("2d").font = "40px Arial";
+            myGameArea.canvas.getContext("2d").globalAlpha = 0.8;
+            myGameArea.canvas.getContext("2d").fillText(deaths, 50, 200); // show deaths
+            myGameArea.canvas.getContext("2d").fillText("Level " + level, 50, 300); // show level
+            myGameArea.canvas.getContext("2d").fillStyle = "red"; // color
             myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
+            myGameArea.canvas.getContext("2d").globalAlpha = 1.0;
         } else {
-            gameOver();
+            myGameArea.canvas.getContext("2d").fillStyle = "black"; // color
+            myGameArea.canvas.getContext("2d").fillText(score, 50, 100); // show score
+            myGameArea.canvas.getContext("2d").fillText(deaths, 50, 200); // show deaths
+            myGameArea.canvas.getContext("2d").fillText("Level " + level, 50, 300); // show level
+        } if (speed == 1) {
+            score++;
+        } else if (speed == 0.3) { // FOCUS
+            myGameArea.canvas.getContext("2d").globalAlpha = 0.75;
+            myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 30);
+            myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
+            myGameArea.canvas.getContext("2d").fillStyle = "red";
+            myGameArea.canvas.getContext("2d").font = "60px Arial";
+            myGameArea.canvas.getContext("2d").fillText("FOCUS! 焦点", 200, 200);
+            myGameArea.canvas.getContext("2d").font = "40px Arial";
+            myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
+            myGameArea.canvas.getContext("2d").globalAlpha = 1.0;
+        } else if (speed == 2 ){
+            var danger = document.getElementById("danger");
+                danger.volume = 0.1;
+                danger.play();
+            myGameArea.canvas.getContext("2d").fillStyle = "red";
+            myGameArea.canvas.getContext("2d").globalAlpha = 0.8;
+            myGameArea.canvas.getContext("2d").fillRect(0,40, window.innerWidth, 30);
+            myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
+            myGameArea.canvas.getContext("2d").globalAlpha = 1.0;
+            myGameArea.canvas.getContext("2d").font = "60px Arial";
+            if (everyinterval(2)) {
+                myGameArea.canvas.getContext("2d").fillText("DANGER! 危険", 200, 200);
+            }
+            myGameArea.canvas.getContext("2d").font = "40px Arial";
+            myGameArea.canvas.getContext("2d").fillStyle = getRandomColor();
+            myGameArea.canvas.getContext("2d").fillText("+", 120, 100);
+            myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
+            score += 3;
         }
-    }
+        myGamePiece.update();
+        if (score >= 1000) { // score limit reached
+            if (level == 9){ // play until you die
+                myGameArea.canvas.getContext("2d").fillStyle = getRandomColor();
+                myGameArea.canvas.getContext("2d").fillText(score, 50, 100);
+            } else {
+                gameOver();
+            }
+        }
+    }  else {  // pause
+        myGameArea.canvas.getContext("2d").fillText("PAUSED", 156, 156);
+    } 
+
 }
 function everyinterval(n) {
     if ((((myGameArea.frameNo) / (n)) % 2) == 0) { return true; }
