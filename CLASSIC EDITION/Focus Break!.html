@@ -7,10 +7,17 @@
             border:1px solid #d3d3d3;
             background-color: #f1f1f1;
         }
+        .wrapper {
+            text-align: center;
+        }
+        .button {
+            position: absolute;
+            top: 50%;
+        }
     </style>
     <link rel="stylesheet" href="styles.css">
 </head>
-<body onload="onLoad()">
+<body onload="onLoad()" oncontextmenu="return false;">
     <div class="wrapper">
     <button class="button" id="startButton" onclick="startGame()">START</button>
     </div>
@@ -36,7 +43,7 @@ function startGame() {
     document.getElementById("startButton").style.visibility = "hidden";
     document.getElementById("audio").play();    
     document.getElementById("audio").volume = 0.2;    
-    myGamePiece = new component(20, 20, "red", 10, 120);
+    myGamePiece = new component(20, 20, "red", document.body.clientWidth/2, window.innerHeight/2);
     myGameArea.start();
 }
 
