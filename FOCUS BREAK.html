@@ -465,7 +465,6 @@ var myGameArea = {
             if (invincible) {
                 myGamePiece.height = 20 - perfectClear;
                 myGamePiece.width = 20 - perfectClear;
-                myGamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), e.pageX, e.pageY);
                 myGameArea.canvas.getContext("2d").fillRect(myGamePiece.x -50 + invincibleTime, myGamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
             } else {
                 if (focused){
@@ -585,6 +584,7 @@ function updateGameArea() {
             invincibleTime += 1;
             myGamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), myGamePiece.pageX, myGamePiece.pageY);
             if (invincibleTime >= 75) {
+                myGamePiece = new component(20 - perfectClear, 20 - perfectClear, "red", myGamePiece.pageX, myGamePiece.pageY);
                 invincible = false;
                 invincibleTime = 0;
                 audjustAudioSpeed(1.0);
