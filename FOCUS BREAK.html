@@ -260,11 +260,13 @@ function loadAudio(){
     }
 }
 
-function startGame() {
-    startDate = new Date();
+function startGame(e) {
     loadAudio();
-    myGamePiece = new component(20 - perfectClear, 20 - perfectClear, "red", 400, 400);
     myGameArea.start();
+    if (firstRun){
+        startDate = new Date();
+        myGamePiece = new component(20 - perfectClear, 20 - perfectClear, "red", e.pageX, e.pageY);
+    }
     firstRun = false;
     gameStart = true;
     alive = true;
@@ -430,7 +432,7 @@ var myGameArea = {
         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
         window.addEventListener('click', function (e) {
             if (gameStart == false) {
-                startGame();
+                startGame(e);
             }
         })
         window.addEventListener('mousedown', function (e) {
@@ -459,6 +461,9 @@ var myGameArea = {
         this.context = this.canvas.getContext("2d");
         this.frameNo = 0;
         this.interval = setInterval(updateGameArea, 20);
+        if (invincible) {
+            
+        }
         window.addEventListener('mousemove', function (e) {
             myGameArea.x = e.pageX;
             myGameArea.y = e.pageY;
@@ -518,6 +523,7 @@ var myGameArea = {
         clearInterval(this.interval);
     }
 }
+
 function component(width, height, color, x, y) {
     this.width = width;
     this.height = height;
@@ -583,6 +589,7 @@ function updateGameArea() {
         if (invincible) {
             invincibleTime += 1;
             myGamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), myGamePiece.pageX, myGamePiece.pageY);
+            myGameArea.canvas.getContext("2d").fillRect(myGamePiece.x -50 + invincibleTime, myGamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
             if (invincibleTime >= 75) {
                 myGamePiece = new component(20 - perfectClear, 20 - perfectClear, "red", myGamePiece.pageX, myGamePiece.pageY);
                 invincible = false;
