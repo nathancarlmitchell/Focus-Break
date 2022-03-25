@@ -60,6 +60,7 @@
     </audio>
 <script>
 var myGamePiece;
+var gamePieceColor = "blue";
 var myObstacles = [];
 var myObstacles2 = [];
 var myObstacles3 = [];
@@ -265,7 +266,7 @@ function startGame(e) {
     myGameArea.start();
     if (firstRun){
         startDate = new Date();
-        myGamePiece = new component(20 - perfectClear, 20 - perfectClear, "red", e.pageX, e.pageY);
+        myGamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, e.pageX, e.pageY);
     }
     firstRun = false;
     gameStart = true;
@@ -478,7 +479,7 @@ var myGameArea = {
                 } else {
                     myGamePiece.height = 20 - perfectClear;
                     myGamePiece.width = 20 - perfectClear;
-                    myGamePiece = new component(20 - perfectClear, 20 - perfectClear, "red", e.pageX, e.pageY);
+                    myGamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, e.pageX, e.pageY);
                 }
             }
         })
