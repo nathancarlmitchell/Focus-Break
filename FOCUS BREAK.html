@@ -112,9 +112,54 @@ function audjustAudioSpeed(x){ // set audio playback rate for all songs
 }
 
 function mouseMove() { // detect mouse on start screen
-    if (event.clientX > (window.innerWidth / 2) && event.clientY > ((window.innerHeight / 2) +38)){  //detect mouse position
+    var x = window.innerWidth;
+    var y = window.innerHeight;
+    var mouseX = event.clientX - 8;
+    var mouseY = event.clientY - 8;
+    //if (event.clientX > (window.innerWidth / 2) && event.clientY > ((window.innerHeight / 2) +38)){  //detect mouse position
+    //    ctx.getContext("2d").fillStyle = getRandomColor();
+    //    ctx.getContext("2d").fillText("FOCUS BREAK", event.clientX, event.clientY);
+    //}
+    if(mouseX > (x / 2) - 410 && mouseX < (x / 2) - 190 && mouseY > (y / 2) - 32 && mouseY < (y / 2) + 14) {
+        ctx.getContext("2d").globalAlpha = 0.2;
         ctx.getContext("2d").fillStyle = getRandomColor();
-        ctx.getContext("2d").fillText("FOCUS BREAK", event.clientX, event.clientY);
+        ctx.getContext("2d").fillRect((x / 2)-410,(y / 2) - 32, (220), 44);
+        ctx.getContext("2d").font = "25px Arial";
+        ctx.getContext("2d").fillStyle = "#ff00ff";
+        ctx.getContext("2d").globalAlpha = 0.5;
+        ctx.getContext("2d").globalAlpha = 1.0;
+        ctx.getContext("2d").fillStyle = "black";
+        ctx.getContext("2d").fillText("CLICK TO START", (x / 2)-400, (y / 2));
+    }
+    else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) && mouseY < (y / 2) + 40) {
+        ctx.getContext("2d").fillStyle = getRandomColor();
+        ctx.getContext("2d").fillStyle = "#000000";
+        ctx.getContext("2d").fillRect(x/2, y/2, 272, 40);
+        ctx.getContext("2d").font = "40px Impact";
+        ctx.getContext("2d").fillStyle = "#ff00ff";
+        ctx.getContext("2d").globalAlpha = 0.5;
+        ctx.getContext("2d").fillText("Space to Break", x / 2 , y / 2 +38);
+        ctx.getContext("2d").globalAlpha = 1.0;
+    }
+    else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) + 60 && mouseY < (y / 2) + 100) {
+        ctx.getContext("2d").fillStyle = getRandomColor();
+        ctx.getContext("2d").fillStyle = "#000000";
+        ctx.getContext("2d").fillRect(x/2, y/2+60, 272, 40);
+        ctx.getContext("2d").font = "40px Impact";
+        ctx.getContext("2d").fillStyle = "#ff00ff";
+        ctx.getContext("2d").globalAlpha = 0.5;
+        ctx.getContext("2d").fillText("Shift to Focus", x / 2, y / 2 + 100);
+        ctx.getContext("2d").globalAlpha = 1.0;
+    }
+    else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) + 120 && mouseY < (y / 2) + 160) {
+        ctx.getContext("2d").fillStyle = getRandomColor();
+        ctx.getContext("2d").fillStyle = "#000000";
+        ctx.getContext("2d").fillRect(x/2, y/2+120, 272, 40);
+        ctx.getContext("2d").font = "40px Impact";
+        ctx.getContext("2d").fillStyle = "#ff00ff";
+        ctx.getContext("2d").globalAlpha = 0.5;
+        ctx.getContext("2d").fillText("Click to warp", x / 2, y / 2 + 160);
+        ctx.getContext("2d").globalAlpha = 1.0;
     }
     else {
         if (firstRun){
@@ -177,9 +222,17 @@ function drawStartScreen() {
     ctx.getContext("2d").fillText("焦点を絞る", count+100, count+180);
     ctx.getContext("2d").font = "25px Arial";
     ctx.getContext("2d").fillStyle = "black";
+
+    ctx.getContext("2d").globalAlpha = 0.2;
+    ctx.getContext("2d").fillStyle = "gray";
+    ctx.getContext("2d").fillRect((x / 2)-410,(y / 2) - 32, (220), 44);
+    ctx.getContext("2d").globalAlpha = 1.0;
+    ctx.getContext("2d").fillStyle = "black";
     ctx.getContext("2d").fillText("CLICK TO START", (x / 2)-400, (y / 2));
-    ctx.getContext("2d").fillText("クリックして開始", (x / 2)-400, (y / 2)+65);
+
     ctx.getContext("2d").fillRect((x / 2)-450,(y / 2)+25, (300), 2);
+    ctx.getContext("2d").fillText("クリックして開始", (x / 2)-400, (y / 2)+65);
+
     ctx.getContext("2d").font = "40px Impact";
     ctx.getContext("2d").fillStyle = "#ff00ff";
     ctx.getContext("2d").globalAlpha = 0.5;
@@ -432,7 +485,11 @@ var myGameArea = {
         this.context = this.canvas.getContext("2d");
         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
         window.addEventListener('click', function (e) {
-            if (gameStart == false) {
+            var x = window.innerWidth;
+            var y = window.innerHeight;
+            var mouseX = e.clientX - 8;
+            var mouseY = e.clientY - 8;
+            if (gameStart == false && mouseX > (x / 2) - 410 && mouseX < (x / 2) - 190 && mouseY > (y / 2) - 32 && mouseY < (y / 2) + 14) {
                 startGame(e);
             }
         })
