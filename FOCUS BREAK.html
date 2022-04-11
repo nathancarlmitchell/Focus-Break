@@ -65,6 +65,7 @@ var myObstacles = [];
 var myObstacles2 = [];
 var myObstacles3 = [];
 var myObstacles4 = [];
+var myObstaclesPowerup = [];
 var score = 0;
 var deaths = 0;
 var invincibleTime = 0;
@@ -261,7 +262,7 @@ function drawStartScreen() {
 function loadAudio(){ 
     var musicVolume = 0.35;
     aud.volume = musicVolume;
-    aud2.volume =musicVolume;
+    aud2.volume = musicVolume;
     aud3.volume = musicVolume;
     aud4.volume = musicVolume;
     aud5.volume = musicVolume;
@@ -347,6 +348,7 @@ function gameOver() { // you dies
     myObstacles2 = [];
     myObstacles3 = [];
     myObstacles4 = [];
+    myObstaclesPowerup = [];
     var x = window.innerWidth;
     var y = window.innerHeight;
     ctx = myGameArea.canvas;
@@ -464,10 +466,10 @@ function setFastSpeed(){
     audjustAudioSpeed(1.2);
 }
 
-function setBreak(){
+function setBreak(scorePenalty){
     if (!invincible) {
         invincible = true;
-        score += -200;
+        score += -scorePenalty;
         audjustAudioSpeed(1.0);
     }
 }
@@ -499,7 +501,7 @@ var myGameArea = {
                 }
                 if (e.which == 2) { // mouse middle click
                     if (alive) {
-                        setBreak();
+                        setBreak(200);
                     }
                 }
             }
@@ -539,7 +541,7 @@ var myGameArea = {
             if (e.which == 32 || e.keyCode == 32) { // spacebar
                 e.preventDefault(); // prevent scrolling in Firefox
                 if (alive) {
-                    setBreak();
+                    setBreak(200);
                 }
             }
             if (e.which == 112 || e.keyCode == 112) { // p
@@ -637,6 +639,15 @@ function updateGameArea() {
             }
         }
 
+        for (i = 0; i < myObstaclesPowerup.length; i += 1) {
+            if (myGamePiece.crashWith(myObstaclesPowerup[i])) { // collision
+                //gameOver();
+                //return;
+                myObstaclesPowerup = [];
+                setBreak(0);
+            }
+        }
+
         myGameArea.clear();
         myGameArea.frameNo += 1;
         if (invincible) {
@@ -714,6 +725,7 @@ function updateGameArea() {
                 myGameArea.canvas.getContext("2d").fillText("How did this happen?", 80, window.innerHeight - 60);
                     break;
             }
+        // Object Spawning
         if (level >= 1) { // level 1 vertical black bars
             if (myGameArea.frameNo == 1 || everyinterval(25 / (speed +2))) { // distance vertical bars
                 x = myGameArea.canvas.width;
@@ -725,6 +737,9 @@ function updateGameArea() {
                 gap = Math.floor(Math.random() * (maxGap - minGap + 1) + minGap);
                 myObstacles.push(new component(20, height, "black", x, 0));
                 myObstacles.push(new component(20, x - height - gap, "black", x, height + gap));
+            }
+            if (everyinterval(125 / (speed +2))) { // powerup
+                myObstaclesPowerup.push(new component(15, 15, "purple", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
         if (level >= 2) { // level 2 black slow moving large
@@ -787,7 +802,14 @@ function updateGameArea() {
                 setFastSpeed();
             }
         }
-
+        for (i = 0; i < myObstaclesPowerup.length; i += 1) { // move ovstacles 
+            myObstaclesPowerup[i].x += -4 * speed; // speed of obstacles
+            x = myObstaclesPowerup[i].x;
+            y = myObstaclesPowerup[i].y;
+            myObstaclesPowerup = [];
+            myObstaclesPowerup.push(new component(15, 15, getRandomColor(), x, y));
+            myObstaclesPowerup[i].update();
+        }
         for (i = 0; i < myObstacles.length; i += 1) { // move ovstacles 
             myObstacles[i].x += -4 * speed; // speed of obstacles
             myObstacles[i].update();
@@ -803,6 +825,10 @@ function updateGameArea() {
         for (i = 0; i < myObstacles4.length; i += 1) {
             myObstacles4[i].x += -2 * speed; // speed of obstacles
             myObstacles4[i].update();
+        }
+        for (i = 0; i < myObstaclesPowerup.length; i += 1) {
+            //myObstaclesPowerup[i]. += -2 * speed; // speed of obstacles
+            //myObstaclesPowerup[i].update();
         }
         if (myGameArea.x && myGameArea.y) {
             myGamePiece.x = myGameArea.x;
