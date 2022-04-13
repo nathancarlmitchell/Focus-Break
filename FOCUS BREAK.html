@@ -340,6 +340,7 @@ function millisToMinutesAndSeconds(millis) { // ms conversions
 
 function gameOver() { // you dies
     alive = false;
+    invincible = false;
     resumeSpeed();
     aud.volume = 0.2;
     myGameArea.stop();
