@@ -49,9 +49,6 @@
     <audio id="fx14" style="visibility:hidden">
         <source src="music\fx 14.wav" type="audio/mpeg"> Your browser does not support the audio element.
     </audio>
-    <audio id="perfection" style="visibility:hidden">
-        <source src="music\Perfection!.wav" type="audio/mpeg"> Your browser does not support the audio element.
-    </audio>
     <audio id="danger" style="visibility:hidden">
         <source src="music\72.wav" type="audio/mpeg"> Your browser does not support the audio element.
     </audio>
@@ -77,6 +74,7 @@ var gameStart = false;
 var alive = false;
 var focused = false;
 var firstRun = true;
+var pause = false;
 var startDate;
 var slogan = Math.floor(Math.random() * 18) + 1;
 var sloganY = 120;
@@ -85,8 +83,8 @@ var sloganText = "";
 var deathSlogan = "";
 var deathSlogan = score;
 var currentSong = 0;
-var pause = false;
-var aud = document.getElementById("audio1");
+var musicVolume = 0.2;
+var aud1 = document.getElementById("audio1");
 var aud2 = document.getElementById("audio2");
 var aud3 = document.getElementById("audio3");
 var aud4 = document.getElementById("audio4");
@@ -98,8 +96,48 @@ var aud9 = document.getElementById("audio9");
 var aud10 = document.getElementById("audio10");
 var aud11 = document.getElementById("audio11");
 
-function audjustAudioSpeed(x){ // set audio playback rate for all songs
-    aud.playbackRate = x;
+function loadAudio(){ 
+    setAudioVolume(musicVolume);
+    aud1.onended = function() {
+        aud2.play();
+    };
+    aud2.onended = function() {       
+        aud3.play();
+    };
+    aud3.onended = function() {
+        aud4.play();
+    };
+    aud4.onended = function() {;
+        aud5.play();
+    };
+    aud5.onended = function() {;
+        aud6.play();
+    };
+    aud6.onended = function() {;
+        aud7.play();
+    };
+    aud7.onended = function() {;
+        aud8.play();
+    };
+    aud8.onended = function() {;
+        aud9.play();
+    };
+    aud9.onended = function() {;
+        aud10.play();
+    };
+    aud10.onended = function() {;
+        aud11.play();
+    };
+    aud11.onended = function() {;
+        aud1.play();
+    };
+    if (firstRun){
+        aud1.play();
+    }
+}
+
+function setAudioSpeed(x) { // set audio playback rate for all songs
+    aud1.playbackRate = x;
     aud2.playbackRate = x;
     aud3.playbackRate = x;
     aud4.playbackRate = x;
@@ -110,6 +148,20 @@ function audjustAudioSpeed(x){ // set audio playback rate for all songs
     aud9.playbackRate = x;
     aud10.playbackRate = x;
     aud11.playbackRate = x;
+}
+
+function setAudioVolume(x) {
+    aud1.volume = x;
+    aud2.volume = x;
+    aud3.volume = x;
+    aud4.volume = x;
+    aud5.volume = x;
+    aud6.volume = x;
+    aud7.volume = x;
+    aud8.volume = x;
+    aud9.volume = x;
+    aud10.volume = x;
+    aud11.volume = x;
 }
 
 function mouseMove() { // detect mouse on start screen
@@ -235,7 +287,7 @@ function drawStartScreen() {
     ctx.getContext("2d").fillText("Space to Break", x / 2 , y / 2 +38);
     ctx.getContext("2d").fillText("Shift to Focus", x / 2, y / 2 + 100);
     ctx.getContext("2d").fillText("Click to warp", x / 2, y / 2 + 160);
-    //ctx.getContext("2d").fillText(window.innerWidth +" x "+ window.innerHeight, x / 2, y / 2 + 0); // display screen resolution
+
     ctx.getContext("2d").globalAlpha = 1.0;
     ctx.getContext("2d").font = "40px Arial";
     ctx.getContext("2d").fillStyle = "#00FFFF";
@@ -257,57 +309,20 @@ function drawStartScreen() {
                 ctx.getContext("2d").fillStyle = getRandomColor();
             }
     }
-}
+    // Options
+    // var boxX = 256;
+    // var boxY = 40;
+    // var Xoffset = 0;
+    // var Yoffset = boxX/2;
+    // ctx.getContext("2d").fillRect(x/2, (y - Yoffset), boxX, boxY);
+    // ctx.getContext("2d").fillText("Options", (x / 2) , (y - Yoffset));
+    // ctx.getContext("2d").fillStyle = "black";
 
-function loadAudio(){ 
-    var musicVolume = 0.35;
-    aud.volume = musicVolume;
-    aud2.volume = musicVolume;
-    aud3.volume = musicVolume;
-    aud4.volume = musicVolume;
-    aud5.volume = musicVolume;
-    aud6.volume = musicVolume;
-    aud7.volume = musicVolume;
-    aud8.volume = musicVolume;
-    aud9.volume = musicVolume;
-    aud10.volume = musicVolume;
-    aud11.volume = musicVolume;
-    aud.onended = function() {
-        aud2.play();
-    };
-    aud2.onended = function() {       
-        aud3.play();
-    };
-    aud3.onended = function() {
-        aud4.play();
-    };
-    aud4.onended = function() {;
-        aud5.play();
-    };
-    aud5.onended = function() {;
-        aud6.play();
-    };
-    aud6.onended = function() {;
-        aud7.play();
-    };
-    aud7.onended = function() {;
-        aud8.play();
-    };
-    aud8.onended = function() {;
-        aud9.play();
-    };
-    aud9.onended = function() {;
-        aud10.play();
-    };
-    aud10.onended = function() {;
-        aud11.play();
-    };
-    aud11.onended = function() {;
-        aud.play();
-    };
-    if (firstRun){
-        aud.play();
-    }
+    // ctx.getContext("2d").fillRect((x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+    // ctx.getContext("2d").fillRect((x/2 + (boxX / 16)*8), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+
+    // ctx.getContext("2d").fillStyle = "pink";
+    // ctx.getContext("2d").fillText("Options", (x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4))+10);
 }
 
 function startGame(e) {
@@ -320,16 +335,18 @@ function startGame(e) {
     firstRun = false;
     gameStart = true;
     alive = true;
+    pause = false;
+    invincible = false;
 }
 
 function wait(x) {
-    setTimeout(myTimeout1, x)
+    setTimeout(myTimeout, x)
 }
 
-function myTimeout1() {
+function myTimeout() {
     myGameArea.clear();
     startGame();
-    aud.volume = 0.2;
+    setAudioVolume(0.2);
 }
 
 function millisToMinutesAndSeconds(millis) { // ms conversions
@@ -343,7 +360,7 @@ function gameOver() { // you dies
     invincible = false;
     invincibleTime = 0;
     resumeSpeed();
-    aud.volume = 0.2;
+    setAudioVolume(0.2);
     myGameArea.stop();
     myGameArea.clear();
     myObstacles = [];  // overcome all obstacles
@@ -378,8 +395,7 @@ function gameOver() { // you dies
             myGameArea.canvas.getContext("2d").fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
             wait(5000);
         } else if (level == 9){
-            aud.volume = 0.0;
-            aud2.volume = 0.0;
+            setAudioVolume(0.0);
             var audBomb = document.getElementById("bombSFX");
                 audBomb.volume = 0.4;
                 audBomb.play();
@@ -446,10 +462,12 @@ function gameOver() { // you dies
 
 function resumeSpeed() {
     focused = false;
-    myGamePiece.width = 20 - perfectClear;
-    myGamePiece.height = 20 - perfectClear;
+    if (alive) {
+        myGamePiece.width = 20 - perfectClear;
+        myGamePiece.height = 20 - perfectClear;
+    }
     speed = 1;
-    audjustAudioSpeed(1);
+    setAudioSpeed(1);
 }
 
 function setSlowSpeed(){
@@ -457,7 +475,7 @@ function setSlowSpeed(){
     myGamePiece.width = 15 - perfectClear;
     myGamePiece.height = 15 - perfectClear;
     speed = 0.3;
-    audjustAudioSpeed(0.75);
+    setAudioSpeed(0.75);
 }
 
 function setFastSpeed(){
@@ -465,14 +483,14 @@ function setFastSpeed(){
     myGamePiece.width = 15 - perfectClear;
     myGamePiece.height = 15 - perfectClear;
     speed = 2;
-    audjustAudioSpeed(1.2);
+    setAudioSpeed(1.2);
 }
 
 function setBreak(scorePenalty){
     if (!invincible) {
         invincible = true;
         score += -scorePenalty;
-        audjustAudioSpeed(1.0);
+        setAudioSpeed(1.0);
     }
 }
 
@@ -518,9 +536,9 @@ var myGameArea = {
         this.context = this.canvas.getContext("2d");
         this.frameNo = 0;
         this.interval = setInterval(updateGameArea, 20);
-        if (invincible) {
-            
-        }
+        //if (invincible) {
+            //myGameArea.canvas.getContext("2d").fillRect(myGamePiece.x -50 + invincibleTime, myGamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
+        //}
         window.addEventListener('mousemove', function (e) {
             myGameArea.x = e.pageX;
             myGameArea.y = e.pageY;
@@ -611,43 +629,34 @@ function component(width, height, color, x, y) {
     }
 }
 
+function detectCollision(objects) {
+    for (i = 0; i < objects.length; i += 1) {
+        if (myGamePiece.crashWith(objects[i])) { // collision
+            return true;
+        }
+    }
+}
+
+function moveObstacles(objects, ammount) {
+    for (i = 0; i < objects.length; i += 1) {
+        objects[i].x += -ammount * speed; // speed of obstacles
+        objects[i].update();
+    }
+}
+
 function updateGameArea() {
     if (!pause){
         var x, height, gap, minHeight, maxHeight, minGap, maxGap;
-        if (!invincible) { // detect collision
-            for (i = 0; i < myObstacles.length; i += 1) {
-                if (myGamePiece.crashWith(myObstacles[i])) { // collision
-                    gameOver();
-                    return;
-                }
-            }
-            for (i = 0; i < myObstacles2.length; i += 1) {
-                if (myGamePiece.crashWith(myObstacles2[i])) { // collision
-                    gameOver();
-                    return;
-                }
-            }
-            for (i = 0; i < myObstacles3.length; i += 1) {
-                if (myGamePiece.crashWith(myObstacles3[i])) { // collision
-                    gameOver();
-                    return;
-                }
-            }
-            for (i = 0; i < myObstacles4.length; i += 1) {
-                if (myGamePiece.crashWith(myObstacles4[i])) { // collision
-                    gameOver();
-                    return;
-                }
+        if (!invincible) { // detect collisions
+            if (detectCollision(myObstacles) || detectCollision(myObstacles2) || detectCollision(myObstacles3) || detectCollision(myObstacles4)) {
+                gameOver();
+                return;
             }
         }
 
-        for (i = 0; i < myObstaclesPowerup.length; i += 1) {
-            if (myGamePiece.crashWith(myObstaclesPowerup[i])) { // collision
-                //gameOver();
-                //return;
-                myObstaclesPowerup = [];
-                setBreak(0);
-            }
+        if (detectCollision(myObstaclesPowerup)) { // powerup collision
+            myObstaclesPowerup = [];
+            setBreak(0);
         }
 
         myGameArea.clear();
@@ -657,10 +666,10 @@ function updateGameArea() {
             myGamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), myGamePiece.pageX, myGamePiece.pageY);
             myGameArea.canvas.getContext("2d").fillRect(myGamePiece.x -50 + invincibleTime, myGamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
             if (invincibleTime >= 75) {
-                myGamePiece = new component(20 - perfectClear, 20 - perfectClear, "red", myGamePiece.pageX, myGamePiece.pageY);
+                myGamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, myGamePiece.pageX, myGamePiece.pageY);
                 invincible = false;
                 invincibleTime = 0;
-                audjustAudioSpeed(1.0);
+                setAudioSpeed(1.0);
             }
         }
 
@@ -804,34 +813,27 @@ function updateGameArea() {
                 setFastSpeed();
             }
         }
-        for (i = 0; i < myObstaclesPowerup.length; i += 1) { // move ovstacles 
-            myObstaclesPowerup[i].x += -4 * speed; // speed of obstacles
+        for (i = 0; i < myObstaclesPowerup.length; i += 1) { // move powerups 
+            myObstaclesPowerup[i].x += -4 * speed;
             x = myObstaclesPowerup[i].x;
             y = myObstaclesPowerup[i].y;
             myObstaclesPowerup = [];
-            myObstaclesPowerup.push(new component(15, 15, getRandomColor(), x, y));
+            if (focused) {
+                if (everyinterval(1)) {
+                    var color = getRandomColor();
+                }
+            } else {
+                var color = getRandomColor();
+            }
+            myObstaclesPowerup.push(new component(15, 15, color, x, y));
             myObstaclesPowerup[i].update();
         }
-        for (i = 0; i < myObstacles.length; i += 1) { // move ovstacles 
-            myObstacles[i].x += -4 * speed; // speed of obstacles
-            myObstacles[i].update();
-        }
-        for (i = 0; i < myObstacles2.length; i += 1) {
-            myObstacles2[i].x += -8 * speed; // speed of obstacles
-            myObstacles2[i].update();
-        }
-        for (i = 0; i < myObstacles3.length; i += 1) {
-            myObstacles3[i].x += -10 * speed; // speed of obstacles
-            myObstacles3[i].update();
-        }
-        for (i = 0; i < myObstacles4.length; i += 1) {
-            myObstacles4[i].x += -2 * speed; // speed of obstacles
-            myObstacles4[i].update();
-        }
-        for (i = 0; i < myObstaclesPowerup.length; i += 1) {
-            //myObstaclesPowerup[i]. += -2 * speed; // speed of obstacles
-            //myObstaclesPowerup[i].update();
-        }
+        
+        moveObstacles(myObstacles, 4);
+        moveObstacles(myObstacles2, 8);
+        moveObstacles(myObstacles3, 10);
+        moveObstacles(myObstacles4, 2);
+        
         if (myGameArea.x && myGameArea.y) {
             myGamePiece.x = myGameArea.x;
             myGamePiece.y = myGameArea.y;
