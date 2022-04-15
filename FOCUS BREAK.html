@@ -537,16 +537,13 @@ var gameArea = {
         this.context = this.canvas.getContext("2d");
         this.frameNo = 0;
         this.interval = setInterval(updateGameArea, 20);
-        //if (invincible) {
-            //ctx.fillRect(gamePiece.x -50 + invincibleTime, gamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
-        //}
         window.addEventListener('mousemove', function (e) {
             gameArea.x = e.pageX;
             gameArea.y = e.pageY;
             if (invincible) {
                 gamePiece.height = 20 - perfectClear;
                 gamePiece.width = 20 - perfectClear;
-                ctx.fillRect(gamePiece.x -50 + invincibleTime, gamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
+                //ctx.fillRect(gamePiece.x -50 + invincibleTime, gamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
             } else {
                 if (focused){
                     gamePiece.height = 15 - perfectClear;
@@ -666,11 +663,21 @@ function updateGameArea() {
         gameArea.clear();
         gameArea.frameNo += 1;
         if (invincible) {
+            ctx.fillRect(gamePiece.x -50 + invincibleTime, gamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
             invincibleTime += 1;
-            gamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
+            if (focused) {
+                gamePiece = new component(15 - perfectClear, 15 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
+            } else {
+                gamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
+            }
+            
             ctx.fillRect(gamePiece.x -50 + invincibleTime, gamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
             if (invincibleTime >= 75) {
-                gamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, gamePiece.pageX, gamePiece.pageY);
+                if (focused) {
+                    gamePiece = new component(15 - perfectClear, 15 - perfectClear, gamePieceColor, gamePiece.pageX, gamePiece.pageY);
+                } else {
+                    gamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, gamePiece.pageX, gamePiece.pageY);
+                }
                 invincible = false;
                 invincibleTime = 0;
                 setAudioSpeed(1.0);
