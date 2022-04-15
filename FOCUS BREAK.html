@@ -489,6 +489,7 @@ function setFastSpeed(){
 
 function setBreak(scorePenalty){
     if (!invincible) {
+        myObstaclesPowerup = [];
         invincible = true;
         score += -scorePenalty;
         setAudioSpeed(1.0);
@@ -514,13 +515,13 @@ var gameArea = {
         window.addEventListener('mousedown', function (e) {
             e.preventDefault();
              if (alive) {
-                if (e.which == 3) { // mouse right click
+                if (e.which == 3) { // RMB. keyCode = 3
                     setFastSpeed();
                 }
-                if (e.which == 1) { // mouse left click
+                if (e.which == 1) { // LMB. keyCode = 1
                     setSlowSpeed();
                 }
-                if (e.which == 2) { // mouse middle click
+                if (e.which == 2) { // MMB. keyCode = 2
                     if (alive) {
                         setBreak(200);
                     }
@@ -529,7 +530,9 @@ var gameArea = {
         })
         window.addEventListener('mouseup', function (e) {
             e.preventDefault;
-            resumeSpeed();
+            if (e.which == 3 || e.which == 1) { // resume speed if LMB or RMB key is released
+                resumeSpeed();
+            }
         })
     },
     start: function () {
@@ -543,7 +546,6 @@ var gameArea = {
             if (invincible) {
                 gamePiece.height = 20 - perfectClear;
                 gamePiece.width = 20 - perfectClear;
-                //ctx.fillRect(gamePiece.x -50 + invincibleTime, gamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
             } else {
                 if (focused){
                     gamePiece.height = 15 - perfectClear;
@@ -556,35 +558,34 @@ var gameArea = {
             }
         })
         window.addEventListener('keypress', function (e) {
-            if (e.which == 32 || e.keyCode == 32) { // spacebar
-                e.preventDefault(); // prevent scrolling in Firefox
-                if (alive) {
-                    setBreak(200);
-                }
-            }
-            if (e.which == 112 || e.keyCode == 112) { // p
+            if (e.which == 112 || e.keyCode == 112) { // P. keyCode = 112
                 if (pause){
                     pause = false;
                 } else {
                     pause = true;
                 }
             }
-
         })
         window.addEventListener('keydown', function (e) {
-            if (e.shiftKey) {
+            if (e.which == 32 || e.keyCode == 32) { // SPACEBAR. keyCode = 32
+                e.preventDefault();
+                if (alive) {
+                    setBreak(200);
+                }
+            }
+            if (e.shiftKey) { // SHIFT. keyCode = 16
                 if (alive) {
                     setSlowSpeed();
                 }
             }
-            if (e.ctrlKey) {
+            if (e.ctrlKey) { // CTRL. keyCode = 17
                 if (alive) {
                     setFastSpeed();
                 }
             }
         })
-        window.addEventListener('keyup', function (e) {
-            if (focused){
+        window.addEventListener('keyup', function (e) { // resume speed if CTRL of SHIFT key is released
+            if (e.which == 16 || e.keyCode == 16 || e.which == 17 || e.keyCode == 17) {
                 resumeSpeed();
             } 
         })
@@ -799,7 +800,7 @@ function updateGameArea() {
                 myObstacles4.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
-        if (level >= 12) { // level 12 black small
+        if (level >= 12) { // level 12 black oblong
             if (gameArea.frameNo == 1 || everyinterval(10 / speed)) {
                 myObstacles1.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
