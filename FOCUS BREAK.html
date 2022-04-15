@@ -509,7 +509,7 @@ var gameArea = {
             var mouseX = e.clientX - 8;
             var mouseY = e.clientY - 8;
             if (gameStart == false && mouseX > (x / 2) - 410 && mouseX < (x / 2) - 190 && mouseY > (y / 2) - 32 && mouseY < (y / 2) + 14) {
-                startGame(e);
+                startGame(e);  // CLICK TO START
             }
         })
         window.addEventListener('mousedown', function (e) {
@@ -534,6 +534,36 @@ var gameArea = {
                 resumeSpeed();
             }
         })
+        window.addEventListener('keydown', function (e) {
+            e.preventDefault();
+            if (e.which == 80 || e.keyCode == 80) { // P. keyCode = 112
+                if (pause){
+                    pause = false;
+                } else {
+                    pause = true;
+                }
+            }
+            if (e.which == 32 || e.keyCode == 32) { // SPACEBAR. keyCode = 32
+                if (alive) {
+                    setBreak(200);
+                }
+            }
+            if (e.shiftKey) { // SHIFT. keyCode = 16
+                if (alive) {
+                    setSlowSpeed();
+                }
+            }
+            if (e.ctrlKey) { // CTRL. keyCode = 17
+                if (alive) {
+                    setFastSpeed();
+                }
+            }
+        })
+        window.addEventListener('keyup', function (e) { // resume speed if CTRL of SHIFT key is released
+            if (e.which == 16 || e.keyCode == 16 || e.which == 17 || e.keyCode == 17) {
+                resumeSpeed();
+            } 
+        })
     },
     start: function () {
         this.canvas.style.cursor = "none"; // hide the original cursor
@@ -556,38 +586,6 @@ var gameArea = {
                     gamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, e.pageX, e.pageY);
                 }
             }
-        })
-        window.addEventListener('keypress', function (e) {
-            if (e.which == 112 || e.keyCode == 112) { // P. keyCode = 112
-                if (pause){
-                    pause = false;
-                } else {
-                    pause = true;
-                }
-            }
-        })
-        window.addEventListener('keydown', function (e) {
-            if (e.which == 32 || e.keyCode == 32) { // SPACEBAR. keyCode = 32
-                e.preventDefault();
-                if (alive) {
-                    setBreak(200);
-                }
-            }
-            if (e.shiftKey) { // SHIFT. keyCode = 16
-                if (alive) {
-                    setSlowSpeed();
-                }
-            }
-            if (e.ctrlKey) { // CTRL. keyCode = 17
-                if (alive) {
-                    setFastSpeed();
-                }
-            }
-        })
-        window.addEventListener('keyup', function (e) { // resume speed if CTRL of SHIFT key is released
-            if (e.which == 16 || e.keyCode == 16 || e.which == 17 || e.keyCode == 17) {
-                resumeSpeed();
-            } 
         })
     },
     clear: function () {
@@ -644,11 +642,9 @@ function moveObstacles(objects, ammount) {
 }
 
 function updateGameArea() {
+    var ctx = gameArea.canvas.getContext("2d");
     if (!pause){
         var x, height, gap, minHeight, maxHeight, minGap, maxGap;
-        ///////////////////////////////////////////////////////// move? test
-        var ctx = gameArea.canvas.getContext("2d");
-        /////////////////////////////////////////////////////////
         if (!invincible) { // detect collisions
             if (detectCollision(myObstacles1) || detectCollision(myObstacles2) || detectCollision(myObstacles3) || detectCollision(myObstacles4)) {
                 gameOver();
