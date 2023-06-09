@@ -69,6 +69,7 @@ var myObstacles4 = [];
 var myObstaclesPowerup = [];
 var score = 0;
 var scoreLimit = 1000;
+var scorePenalty = 200; // point deduction for break
 var deaths = 0;
 var invincibleTime = 0;
 var perfectClear = 0;
@@ -178,7 +179,7 @@ function mouseMove() { // detect mouse on start screen
     var mouseX = event.clientX - 8;
     var mouseY = event.clientY - 8;
     if (firstRun) {
-        if(mouseX > (x / 2) - 410 && mouseX < (x / 2) - 190 && mouseY > (y / 2) - 32 && mouseY < (y / 2) + 14) {
+        if(mouseX > (x / 2) - 410 && mouseX < (x / 2) - 190 && mouseY > (y / 2) - 32 && mouseY < (y / 2) + 14) { // CLICK TO START
             ctx.globalAlpha = 0.2;
             ctx.fillStyle = getRandomColor();
             ctx.fillRect((x / 2)-410,(y / 2) - 32, (220), 44);
@@ -265,7 +266,7 @@ function drawStartScreen() { // draw the start screen
     ctx = gameArea.canvas.getContext("2d");
     ctx.fillStyle = "#ffffff";
     ctx.font = "80px Arial";
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.fillRect(0, 0, x, y);
     ctx.fillStyle = "#00FFFF";
     for (count = 120; count < 130; count++){ // Bold effect
         ctx.fillText("FOCUS BREAK", count, count+80);
@@ -282,18 +283,18 @@ function drawStartScreen() { // draw the start screen
 
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "gray";
-    ctx.fillRect((x / 2)-410,(y / 2) - 32, (220), 44);
+    ctx.fillRect((x / 2) - 410,(y / 2) - 32, 220, 44);
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = "black";
-    ctx.fillText("CLICK TO START", (x / 2)-400, (y / 2));
+    ctx.fillText("CLICK TO START", (x / 2) - 400, (y / 2));
 
-    ctx.fillRect((x / 2)-450,(y / 2)+25, (300), 2);
-    ctx.fillText("クリックして開始", (x / 2)-400, (y / 2)+65);
+    ctx.fillRect((x / 2) - 450,(y / 2) + 25, (300), 2);
+    ctx.fillText("クリックして開始", (x / 2) - 400, (y / 2) + 65);
 
     ctx.font = "40px Impact";
     ctx.fillStyle = "#ff00ff";
     ctx.globalAlpha = 0.5;
-    ctx.fillText("Space to Break", x / 2 , y / 2 +38);
+    ctx.fillText("Space to Break", x / 2 , y / 2 + 38);
     ctx.fillText("Shift to Focus", x / 2, y / 2 + 100);
     ctx.fillText("Click to warp", x / 2, y / 2 + 160);
 
@@ -319,19 +320,19 @@ function drawStartScreen() { // draw the start screen
             }
     }
     // Options
-    // var boxX = 256;
-    // var boxY = 40;
-    // var Xoffset = 0;
-    // var Yoffset = boxX/2;
-    // ctx.fillRect(x/2, (y - Yoffset), boxX, boxY);
-    // ctx.fillText("Options", (x / 2) , (y - Yoffset));
-    // ctx.fillStyle = "black";
+     var boxX = 256;
+     var boxY = 40;
+     var Xoffset = 0;
+     var Yoffset = boxX/2;
+     ctx.fillRect(x/2, (y - Yoffset), boxX, boxY);
+     ctx.fillText("Options", (x / 2) , (y - Yoffset));
+     ctx.fillStyle = "black";
 
-    // ctx.fillRect((x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
-    // ctx.fillRect((x/2 + (boxX / 16)*8), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+     ctx.fillRect((x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+     ctx.fillRect((x/2 + (boxX / 16)*8), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
 
-    // ctx.fillStyle = "pink";
-    // ctx.fillText("Options", (x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4))+10);
+     ctx.fillStyle = "pink";
+     ctx.fillText("Options", (x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4))+10);
 }
 
 function startGame(e) {
@@ -496,6 +497,18 @@ function setBreak(scorePenalty){
     }
 }
 
+function checkBounds(e,x1,x2,y1,y2){
+    // check if mouse click is within x/y coords
+    var x = window.innerWidth;
+    var y = window.innerHeight;
+    var mouseX = e.clientX - 8;
+    var mouseY = e.clientY - 8;
+    if (mouseX > (x / 2) - x1 && mouseX < (x / 2) + x2 && mouseY > (y / 2) - y1 && mouseY < (y / 2) + y2) {
+        return true;
+    }
+}
+
+
 var gameArea = {
     canvas: document.createElement("canvas"),
     load: function () {
@@ -504,33 +517,35 @@ var gameArea = {
         this.context = this.canvas.getContext("2d");
         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
         window.addEventListener('click', function (e) {
-            var x = window.innerWidth;
-            var y = window.innerHeight;
-            var mouseX = e.clientX - 8;
-            var mouseY = e.clientY - 8;
-            if (gameStart == false && mouseX > (x / 2) - 410 && mouseX < (x / 2) - 190 && mouseY > (y / 2) - 32 && mouseY < (y / 2) + 14) {
-                startGame(e);  // CLICK TO START
+            if (gameStart == false && checkBounds(e,410,-190,32,14)) { // CLICK TO START
+                startGame(e);
+            } else if (gameStart == false && checkBounds(e,0,272,0,40)) { // SPACE TO BREAK
+                alert("SPACEBAR or MIDDLE MOUSE BUTTON = BREAK - Become invincible briefly.  Lose score, emergency use only!");
+            } else if (gameStart == false && checkBounds(e,0,272,60,100)) { // SHIFT TO FOCUS
+                alert("SHIFT or LEFT MOUSE BUTTON = FOCUS - Slows time and decrease hitbox size.  Earn no score, use in a tight spot.");
+            } else if (gameStart == false && checkBounds(e,0,272,120,160)) { // CLICK TO WARP
+                alert("CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.");
             }
         })
         window.addEventListener('mousedown', function (e) {
             e.preventDefault();
              if (alive) {
-                if (e.which == 3) { // RMB. keyCode = 3
+                if (e.which == 3) { // right mouse button. keyCode = 3
                     setFastSpeed();
                 }
-                if (e.which == 1) { // LMB. keyCode = 1
+                if (e.which == 1) { // left mouse button. keyCode = 1
                     setSlowSpeed();
                 }
-                if (e.which == 2) { // MMB. keyCode = 2
+                if (e.which == 2) { // middle mouse button. keyCode = 2
                     if (alive) {
-                        setBreak(200);
+                        setBreak(scorePenalty);
                     }
                 }
             }
         })
         window.addEventListener('mouseup', function (e) {
             e.preventDefault;
-            if (e.which == 3 || e.which == 1) { // resume speed if LMB or RMB key is released
+            if (e.which == 3 || e.which == 1) { // resume speed if LMB or RMB is released
                 resumeSpeed();
             }
         })
@@ -545,7 +560,7 @@ var gameArea = {
             }
             if (e.which == 32 || e.keyCode == 32) { // SPACEBAR. keyCode = 32
                 if (alive) {
-                    setBreak(200);
+                    setBreak(scorePenalty);
                 }
             }
             if (e.shiftKey) { // SHIFT. keyCode = 16
@@ -559,7 +574,7 @@ var gameArea = {
                 }
             }
         })
-        window.addEventListener('keyup', function (e) { // resume speed if CTRL of SHIFT key is released
+        window.addEventListener('keyup', function (e) { // resume speed if CTRL or SHIFT key is released
             if (e.which == 16 || e.keyCode == 16 || e.which == 17 || e.keyCode == 17) {
                 resumeSpeed();
             } 
@@ -757,7 +772,7 @@ function updateGameArea() {
                 myObstacles1.push(new component(20, height, "black", x, 0));
                 myObstacles1.push(new component(20, x - height - gap, "black", x, height + gap));
             }
-            if (everyinterval(125 / (speed +2))) { // powerup
+            if (everyinterval(125 / (speed + 2))) { // powerup
                 myObstaclesPowerup.push(new component(15, 15, "purple", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
@@ -915,11 +930,6 @@ function updateGameArea() {
 function everyinterval(n) {
     if ((((gameArea.frameNo) / (n)) % 2) == 0) { return true; }
     return false;
-}
-
-function reloadScrollBars() {
-    document.documentElement.style.overflow = 'auto';  // firefox, chrome
-    document.body.scroll = "yes"; // ie only
 }
 
 function unloadScrollBars() {
