@@ -25,4 +25,4 @@ Complete all levels without a mistake.  Every level completed with no deaths sli
 
 	Music by Cavaliar
 	Developed by Nathan Mitchell
-	www.w3schools.com
+	Inspired by: https://www.w3schools.com/graphics/game_intro.asp
