@@ -366,10 +366,10 @@ function startGame(e) {
 }
 
 function wait(x) {
-    setTimeout(myTimeout, x)
+    setTimeout(startNextLevel, x)
 }
 
-function myTimeout() {
+function startNextLevel() {
     gameArea.clear();
     startGame();
     setAudioVolume(0.2);
@@ -772,15 +772,15 @@ function updateGameArea() {
         // Object Spawning
         if (level >= 1) { // level 1 vertical black bars
             if (gameArea.frameNo == 1 || everyinterval(25 / (speed +2))) { // distance vertical bars
-                x = gameArea.canvas.width;
+                v_x = gameArea.canvas.width;
                 minHeight = 20;
                 maxHeight = window.innerHeight - 60;
                 height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
                 minGap = 85-(level*2);
                 maxGap = 125-(level*2);
                 gap = Math.floor(Math.random() * (maxGap - minGap + 1) + minGap);
-                myObstacles1.push(new component(20, height, "black", x, 0));
-                myObstacles1.push(new component(20, x - height - gap, "black", x, height + gap));
+                myObstacles1.push(new component(20, height, "black", v_x, 0));
+                myObstacles1.push(new component(20, v_x - height - gap, "black", v_x, height + gap));
             }
             if (everyinterval(125 / (speed + 2))) { // powerup
                 myObstaclesPowerup.push(new component(15, 15, "purple", document.body.clientWidth, Math.random() * window.innerHeight));
@@ -848,8 +848,8 @@ function updateGameArea() {
         }
         for (i = 0; i < myObstaclesPowerup.length; i += 1) { // move powerups 
             myObstaclesPowerup[i].x += -4 * speed;
-            x = myObstaclesPowerup[i].x;
-            y = myObstaclesPowerup[i].y;
+            obj_x = myObstaclesPowerup[i].x;
+            obj_y = myObstaclesPowerup[i].y;
             myObstaclesPowerup = [];
             if (focused) {
                 if (everyinterval(1)) {
@@ -858,7 +858,7 @@ function updateGameArea() {
             } else {
                 var color = getRandomColor();
             }
-            myObstaclesPowerup.push(new component(15, 15, color, x, y));
+            myObstaclesPowerup.push(new component(15, 15, color, obj_x, obj_y));
             myObstaclesPowerup[i].update();
         }
         
