@@ -236,6 +236,20 @@ function mouseMove() { // detect mouse on start screen
 }
 
 const myInterval = setInterval(updateSloganText, 2000);
+const myInterval2 = setInterval(focus_break_colors, 100);
+
+function focus_break_colors(){
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "80px Arial";
+    ctx.fillStyle = getRandomColor();
+    for (count = 125; count < 130; count++){ // Bold effect
+        ctx.fillText("FOCUS BREAK", count, count+80);
+        ctx.fillText("焦点を絞る", count+100, count+180);
+    }
+    ctx.fillStyle = "#ff00ff";
+    ctx.fillText("FOCUS BREAK", count, count+80);
+    ctx.fillText("焦点を絞る", count+100, count+180);
+}
 
 function onLoad() { 
     gameArea.load();
@@ -352,6 +366,7 @@ function drawStartScreen() { // draw the start screen
 
 function startGame(e) {
     clearInterval(myInterval);
+    clearInterval(myInterval2);
     loadAudio();
     gameArea.start();
     if (firstRun){
