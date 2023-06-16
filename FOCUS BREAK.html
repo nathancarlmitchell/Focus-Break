@@ -1,3 +1,14 @@
+<!--
+    Ideas:
+
+    To create a scalable window
+    Isolate drawing to a separate function
+    multiple or divide by a factor depending on screen resolution
+    Change size and position
+
+    MOBILE TOUCH
+-->
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -60,6 +71,8 @@
     </div>
 <script>
 
+var x = window.innerWidth;
+var y = window.innerHeight;
 var gamePiece;
 var gamePieceColor = "blue";
 var myObstacles1 = [];
@@ -82,7 +95,6 @@ var focused = false;
 var firstRun = true;
 var pause = false;
 var startDate;
-var slogan = Math.floor(Math.random() * 18) + 1;
 var sloganY = 120;
 var sloganX = 100;
 var sloganText = "";
@@ -174,8 +186,6 @@ function setAudioVolume(x) { // set audio volume for all songs
 }
 
 function mouseMove() { // detect mouse on start screen
-    var x = window.innerWidth;
-    var y = window.innerHeight;
     var mouseX = event.clientX - 8;
     var mouseY = event.clientY - 8;
     if (firstRun) {
@@ -225,9 +235,17 @@ function mouseMove() { // detect mouse on start screen
     }
 }
 
+const myInterval = setInterval(updateSloganText, 2000);
+
 function onLoad() { 
     gameArea.load();
     unloadScrollBars();
+    updateSloganText();
+    drawStartScreen();
+}
+
+function updateSloganText() {
+    var slogan = Math.floor(Math.random() * 18) + 1;
     switch (slogan) { // slogans
         case 1:sloganText = "TOO HARD";break;
         case 2:sloganText = "Now in Color!";break;
@@ -260,9 +278,6 @@ function windowResize() {
 }
 
 function drawStartScreen() { // draw the start screen
-    var x = window.innerWidth;
-    var y = window.innerHeight;
-    ////////////////////////// move? test
     ctx = gameArea.canvas.getContext("2d");
     ctx.fillStyle = "#ffffff";
     ctx.font = "80px Arial";
@@ -336,6 +351,7 @@ function drawStartScreen() { // draw the start screen
 }
 
 function startGame(e) {
+    clearInterval(myInterval);
     loadAudio();
     gameArea.start();
     if (firstRun){
@@ -372,9 +388,6 @@ function gameOver() { // you dies
     myObstacles3 = [];
     myObstacles4 = [];
     myObstaclesPowerup = [];
-    var x = window.innerWidth;
-    var y = window.innerHeight;
-    /////////////////////////// move? test
     ctx = gameArea.canvas.getContext("2d");
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
@@ -413,6 +426,8 @@ function gameOver() { // you dies
             ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
             wait(3500);
         } else if (deaths == 0) { // perfect clear
+            aud_menuSound.volume = 0.2;
+            aud_menuSound.play();
             ctx.fillStyle = "#48D1CC";
             ctx.font = "60px Arial";
             if (perfectClear < 7){ // decrease hitbox size
@@ -420,15 +435,13 @@ function gameOver() { // you dies
                 ctx.fillText("Hitbox size decreased!", (x / 2 - 325), (y / 2 - 75));
                 ctx.fillText("ヒットボックスを減らす!", (x / 2 - 325), (y / 2 + 50));       
             }
-            for (count = 0; count < 7; count++){
-                aud_menuSound.volume = 0.2;
-                aud_menuSound.play();
-                ctx.fillText(count+"Perfect 完全"+count, (x / 2 - 200), (y / 2 - 175));
+            for (count = 0; count < 3; count++){
+                ctx.fillText("+ Perfect 完全 +", (x / 2 - 200)+count, (y / 2 - 175)+count);
             }  
             ctx.fillRect(0,40, window.innerWidth, 20);
             ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
             wait(3000);
-        } else {
+        } else { // normal clear
             ctx.fillText("Enemies Approaching", x / 2 - 300, y / 2 - 175);
             ctx.fillText("非常に大きな敵に接近する危険!", x / 2 - 425, y / 2 - 50);
             ctx.fillText("慎重に進んでください!", x / 2 - 300, y / 2 + 25);
@@ -499,15 +512,12 @@ function setBreak(scorePenalty){
 
 function checkBounds(e,x1,x2,y1,y2){
     // check if mouse click is within x/y coords
-    var x = window.innerWidth;
-    var y = window.innerHeight;
     var mouseX = e.clientX - 8;
     var mouseY = e.clientY - 8;
     if (mouseX > (x / 2) - x1 && mouseX < (x / 2) + x2 && mouseY > (y / 2) - y1 && mouseY < (y / 2) + y2) {
         return true;
     }
 }
-
 
 var gameArea = {
     canvas: document.createElement("canvas"),
