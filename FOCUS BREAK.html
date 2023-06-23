@@ -1,6 +1,8 @@
 <!--
     Ideas:
 
+    Stop timer if paused
+
     To create a scalable window
     Isolate drawing to a separate function
     multiple or divide by a factor depending on screen resolution
@@ -81,17 +83,18 @@ var x = window.innerWidth;
 var y = window.innerHeight;
 var gamePiece;
 var gamePieceColor = "blue";
-var myObstacles1 = [];
-var myObstacles2 = [];
-var myObstacles3 = [];
-var myObstacles4 = [];
-var myObstaclesPowerup = [];
-var myObstaclesPowerupGold = [];
+var objects_slow = [];
+var objects_medium = [];
+var objects_fast = [];
+var objects_hyper = [];
+var objects_powerup_break = [];
+var objects_powerup_score = [];
 var score = 0;
 var scoreLimit = 1000;
 var scorePenalty = 200; // point deduction for break
 var deaths = 0;
 var invincibleTime = 0;
+var invincibleTimeMax = 150;
 var perfectClear = 0;
 var level = 1;
 var speed = 1;
@@ -250,7 +253,7 @@ function focus_break_colors(){ // Flashing colors on start screen
 function click_to_start_colors(){ // Flashing colors on start screen
     if (click_to_start_bounds) {
         ctx.globalAlpha = 0.2;
-        ctx.fillStyle = getRandomGoldColorHex();
+        ctx.fillStyle = getRandomColorGold();
         ctx.fillRect((x / 2)-410,(y / 2) - 32, (220), 44);
         ctx.fillRect((x / 2)-410,(y / 2) - 32, (220), 44);
         ctx.font = "25px Arial";
@@ -452,12 +455,12 @@ function gameOver() { // you dies
     setAudioVolume(0.2);
     gameArea.stop();
     gameArea.clear();
-    myObstacles1 = [];  // overcome all obstacles
-    myObstacles2 = [];
-    myObstacles3 = [];
-    myObstacles4 = [];
-    myObstaclesPowerup = [];
-    myObstaclesPowerupGold = [];
+    objects_medium = [];  // overcome all obstacles
+    objects_fast = [];
+    objects_hyper = [];
+    objects_slow = [];
+    objects_powerup_break = [];
+    objects_powerup_score = [];
     ctx = gameArea.canvas.getContext("2d");
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
@@ -575,8 +578,8 @@ function setFastSpeed(){
 
 function setBreak(scorePenalty){
     if (!invincible) {
-        myObstaclesPowerup = []; // destroy powerups on break
-        myObstaclesPowerupGold = [];
+        objects_powerup_break = []; // destroy powerups on break
+        objects_powerup_score = [];
         invincible = true;
         score += -scorePenalty;
         setAudioSpeed(1.0);
@@ -755,19 +758,19 @@ function updateGameArea() {
     if (!pause){
         var x, height, gap, minHeight, maxHeight, minGap, maxGap;
         if (!invincible) { // detect collisions
-            if (detectCollision(myObstacles1) || detectCollision(myObstacles2) || detectCollision(myObstacles3) || detectCollision(myObstacles4)) {
+            if (detectCollision(objects_medium) || detectCollision(objects_fast) || detectCollision(objects_hyper) || detectCollision(objects_slow)) {
                 gameOver();
                 return;
             }
         }
 
-        if (detectCollision(myObstaclesPowerup)) { // powerup collision
-            myObstaclesPowerup = [];
+        if (detectCollision(objects_powerup_break)) { // powerup collision
+            objects_powerup_break = [];
             setBreak(0);
         }
 
-        if (detectCollision(myObstaclesPowerupGold)) { // powerup collision
-            myObstaclesPowerupGold = [];
+        if (detectCollision(objects_powerup_score)) { // powerup collision
+            objects_powerup_score = [];
             score += 150;
         }
 
@@ -775,16 +778,14 @@ function updateGameArea() {
         gameArea.frameNo += 1;
 
         if (invincible) {
-            ctx.fillRect(gamePiece.x -50 + invincibleTime, gamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
+            ctx.fillRect(gamePiece.x -50 + invincibleTime/2, gamePiece.y - 25, (invincibleTimeMax - invincibleTime), (15)); // display invincible progress
             invincibleTime += 1;
             if (focused) {
                 gamePiece = new component(15 - perfectClear, 15 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
             } else {
                 gamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
             }
-            
-            //ctx.fillRect(gamePiece.x -50 + invincibleTime, gamePiece.y - 25, (75 - invincibleTime)*2, (7*2)); // display invincible progress
-            if (invincibleTime >= 75) {
+            if (invincibleTime >= invincibleTimeMax) {
                 if (focused) {
                     gamePiece = new component(15 - perfectClear, 15 - perfectClear, gamePieceColor, gamePiece.pageX, gamePiece.pageY);
                 } else {
@@ -798,7 +799,6 @@ function updateGameArea() {
 
         ctx.fillStyle = "black";
         ctx.font = "40px Arial";
-
         switch (level) { // level names
             case 1:
                 ctx.fillText("Breath Easy", 80, window.innerHeight - 60);
@@ -863,9 +863,9 @@ function updateGameArea() {
         if (everyinterval(250)) { // powerup
             if (!focused){
                 if (~~(Math.random()*2) ? true : false) { // break powerup
-                    myObstaclesPowerup.push(new component(15, 15, getRandomColor, document.body.clientWidth, Math.random() * window.innerHeight));
+                    objects_powerup_break.push(new component(15, 15, getRandomColor, document.body.clientWidth, Math.random() * window.innerHeight));
                 } else { // score powerup
-                    myObstaclesPowerupGold.push(new component(20, 20, getRandomGoldColorHex(), document.body.clientWidth, Math.random() * window.innerHeight));
+                    objects_powerup_score.push(new component(20, 20, getRandomColorGold(), document.body.clientWidth, Math.random() * window.innerHeight));
                 }   
             }   
         }
@@ -878,78 +878,78 @@ function updateGameArea() {
                 minGap = 85-(level*2);
                 maxGap = 125-(level*2);
                 gap = Math.floor(Math.random() * (maxGap - minGap + 1) + minGap);
-                myObstacles1.push(new component(20, height, "black", v_x, 0));
-                myObstacles1.push(new component(20, v_x - height - gap, "black", v_x, height + gap));
+                objects_medium.push(new component(20, height, "black", v_x, 0));
+                objects_medium.push(new component(20, v_x - height - gap, "black", v_x, height + gap));
             }
         }
         if (level >= 2) { // level 2 black slow moving large
             if (gameArea.frameNo == 1 || everyinterval(100 / speed)) {
-                myObstacles3.push(new component(window.innerHeight / 8, window.innerHeight / 8, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_hyper.push(new component(window.innerHeight / 8, window.innerHeight / 8, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
         if (level >= 3) { // level 3 black medium
             if (gameArea.frameNo == 1 || everyinterval((20 - level) / speed)) {
-                myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
         if (level >= 4) { // level 4 red small
             if (gameArea.frameNo == 1 || everyinterval(20 / speed)) {
-                myObstacles1.push(new component(10, 10, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_medium.push(new component(10, 10, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
         if (level >= 5) { // level 5 black medium
             if (gameArea.frameNo == 1 || everyinterval((20 - level) / speed)){
-                myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight))
+                objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight))
             }
         }
         if (level >= 9){ // level 9 red mediun
             if (gameArea.frameNo == 1 || everyinterval((50 - level) / speed)){
-                myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
+                objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
             }
         }
         if (level == 10){
             if (gameArea.frameNo == 1 || everyinterval((2) / speed)){
-                myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
+                objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
             }
         }
         if (level >= 10){ // level 10 red big
             if (gameArea.frameNo == 1 || everyinterval(200 / speed)) {
-                myObstacles4.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_slow.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
         if (level >= 12) { // level 12 black oblong
             if (gameArea.frameNo == 1 || everyinterval(20 / speed)) {
-                myObstacles1.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_medium.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
         if (level >= 13) { // level 13 red medium
             if (gameArea.frameNo == 1 || everyinterval((20 - level) / speed)) {
-                myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
         if (level >= 14){ // level 14 red big, black medium
             if (gameArea.frameNo == 1 || everyinterval(150 / speed)) {
-                myObstacles4.push(new component(window.innerHeight / 8, window.innerHeight / 8, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_slow.push(new component(window.innerHeight / 8, window.innerHeight / 8, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             } 
             if (gameArea.frameNo == 1 || everyinterval((20 - level) / speed)){
-                myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }    
         if (level >= 15) { // level 15 red and black medium
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
-                myObstacles2.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
-                myObstacles2.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
                 setFastSpeed();
             }
         }
         
-        movePowerUps(myObstaclesPowerup, 4, 15, getRandomColor());
-        movePowerUps(myObstaclesPowerupGold, 4, 20, getRandomGoldColorHex());
+        movePowerUps(objects_powerup_break, 4, 15, getRandomColor());
+        movePowerUps(objects_powerup_score, 4, 20, getRandomColorGold());
 
-        moveObstacles(myObstacles1, 2);
-        moveObstacles(myObstacles2, 4);
-        moveObstacles(myObstacles3, 5);
-        moveObstacles(myObstacles4, 1);
+        moveObstacles(objects_slow, 1);
+        moveObstacles(objects_medium, 2);
+        moveObstacles(objects_fast, 4);
+        moveObstacles(objects_hyper, 5);
         
         if (gameArea.x && gameArea.y) {
             gamePiece.x = gameArea.x;
@@ -1043,7 +1043,7 @@ function getRandomColor() {  // generate a random color
     return color;
 }
 
-function getRandomGoldColorHex() {
+function getRandomColorGold() {
   // Define the range of shades for gold color
   var minHue = 25; // Minimum hue value for gold color in degrees (corresponds to yellow)
   var maxHue = 100; // Maximum hue value for gold color in degrees
