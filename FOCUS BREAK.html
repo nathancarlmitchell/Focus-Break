@@ -1,7 +1,25 @@
 <!--
     Ideas:
 
+    OPTIONS
+    - Create a button that makes a new page
+    - set options and store as a cookie?
+
+    Levels 5 - 10 feel very same
+    - updated, test
+    - Offset the x position by random ammount to prevent objects in line
+
+    Level 10: bonus score
+    - Add bonus to total score
+    - slowly increase object spawn as level progresses
+
     Stop timer if paused
+
+    Forced hyper
+
+    Destroy all objets on break?  or within x of current position
+
+    Powerup / life limit
 
     To create a scalable window
     Isolate drawing to a separate function
@@ -10,10 +28,8 @@
 
     MOBILE TOUCH
 
-    POWERUP that adds to score
-
     MOVETO function?
-    - smooth mouse movements
+    - smooth mouse movements, when unpause to prevent jumping
 -->
 
 <!DOCTYPE html>
@@ -91,12 +107,12 @@ var objects_powerup_break = [];
 var objects_powerup_score = [];
 var score = 0;
 var scoreLimit = 1000;
-var scorePenalty = 200; // point deduction for break
+var scorePenalty = 250; // point deduction for break
 var deaths = 0;
 var invincibleTime = 0;
-var invincibleTimeMax = 150;
+var invincibleTimeMax = 200;
 var perfectClear = 0;
-var level = 1;
+var level = 8;
 var speed = 1;
 var speed_slow = 0.25;
 var speed_fast = 2;
@@ -338,6 +354,8 @@ function updateSloganText() {
 }
 
 function windowResize() {
+    x = window.innerWidth;
+    y = window.innerHeight;
     gameArea.load();
     if (!gameStart) {
         drawStartScreen();
@@ -779,10 +797,11 @@ function updateGameArea() {
 
         if (invincible) {
             ctx.fillRect(gamePiece.x -50 + invincibleTime/2, gamePiece.y - 25, (invincibleTimeMax - invincibleTime), (15)); // display invincible progress
-            invincibleTime += 1;
             if (focused) {
+                invincibleTime += 2;
                 gamePiece = new component(15 - perfectClear, 15 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
             } else {
+                invincibleTime += 1;
                 gamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
             }
             if (invincibleTime >= invincibleTimeMax) {
@@ -869,8 +888,8 @@ function updateGameArea() {
                 }   
             }   
         }
-        if (level >= 1) { // level 1 vertical black bars
-            if (gameArea.frameNo == 1 || everyinterval(50 / (speed))) { // distance vertical bars
+        if (level >= 1) { // level 1 - vertical black bars
+            if (gameArea.frameNo == 1 || everyinterval(50 / speed)) { // distance vertical bars
                 v_x = gameArea.canvas.width;
                 minHeight = 20;
                 maxHeight = window.innerHeight - 60;
@@ -882,60 +901,82 @@ function updateGameArea() {
                 objects_medium.push(new component(20, v_x - height - gap, "black", v_x, height + gap));
             }
         }
-        if (level >= 2) { // level 2 black slow moving large
+        if (level >= 2) { // level 2 - black slow moving large
             if (gameArea.frameNo == 1 || everyinterval(100 / speed)) {
                 objects_hyper.push(new component(window.innerHeight / 8, window.innerHeight / 8, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
-        if (level >= 3) { // level 3 black medium
-            if (gameArea.frameNo == 1 || everyinterval((20 - level) / speed)) {
+        if (level >= 3) { // level 3 - black medium
+            if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
                 objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
-        if (level >= 4) { // level 4 red small
+        if (level >= 4) { // level 4 - red small
             if (gameArea.frameNo == 1 || everyinterval(20 / speed)) {
                 objects_medium.push(new component(10, 10, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
-        if (level >= 5) { // level 5 black medium
-            if (gameArea.frameNo == 1 || everyinterval((20 - level) / speed)){
-                objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight))
+        if (level >= 5) { // level 5 - black medium
+            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
+                r = getRandomInteger(0,250);
+                objects_fast.push(new component(25, 25, "black", document.body.clientWidth + r, Math.random() * window.innerHeight))
             }
         }
-        if (level >= 9){ // level 9 red mediun
-            if (gameArea.frameNo == 1 || everyinterval((50 - level) / speed)){
+        if (level >= 6) { // level 6 - black medium
+            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
+                r = getRandomInteger(0,250);
+                objects_fast.push(new component(25, 25, "black", document.body.clientWidth + r, Math.random() * window.innerHeight))
+            }
+        }
+        if (level >= 7) { // level 7 - black medium
+            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
+                r = getRandomInteger(0,250);
+                objects_fast.push(new component(25, 25, "black", document.body.clientWidth + r, Math.random() * window.innerHeight))
+            }
+        }
+        if (level >= 8) { // level 8 - black medium
+            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
+                r = getRandomInteger(0,250);
+                objects_fast.push(new component(25, 25, "black", document.body.clientWidth + r, Math.random() * window.innerHeight))
+            }
+        }
+        if (level >= 9){ // level 9 - red medium
+            if (gameArea.frameNo == 1 || everyinterval((8) / speed)){
                 objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
             }
         }
-        if (level == 10){
-            if (gameArea.frameNo == 1 || everyinterval((2) / speed)){
+        if (level == 10){ // level 10 - red medium, red big
+            if (gameArea.frameNo == 1 || everyinterval((4) / speed)){
                 objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
             }
-        }
-        if (level >= 10){ // level 10 red big
             if (gameArea.frameNo == 1 || everyinterval(200 / speed)) {
                 objects_slow.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
-        if (level >= 12) { // level 12 black oblong
+        if (level >= 11){ // level 11 - nothing
+            if (gameArea.frameNo == 1 || everyinterval(200 / speed)) {
+                //objects_slow.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+            }
+        }
+        if (level >= 12) { // level 12 - black oblong
             if (gameArea.frameNo == 1 || everyinterval(20 / speed)) {
                 objects_medium.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
-        if (level >= 13) { // level 13 red medium
-            if (gameArea.frameNo == 1 || everyinterval((20 - level) / speed)) {
+        if (level >= 13) { // level 13 - red medium
+            if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
                 objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
-        if (level >= 14){ // level 14 red big, black medium
-            if (gameArea.frameNo == 1 || everyinterval(150 / speed)) {
+        if (level >= 14){ // level 14 - red big, black medium
+            if (gameArea.frameNo == 1 || everyinterval(150) / speed) {
                 objects_slow.push(new component(window.innerHeight / 8, window.innerHeight / 8, "red", document.body.clientWidth, Math.random() * window.innerHeight));
             } 
-            if (gameArea.frameNo == 1 || everyinterval((20 - level) / speed)){
+            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
                 objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }    
-        if (level >= 15) { // level 15 red and black medium
+        if (level >= 15) { // level 15 - red medium,  black medium
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
                 objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
                 objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
@@ -1021,7 +1062,6 @@ function updateGameArea() {
         ctx.fillStyle = "red";
         ctx.fillText("PAUSED", 156, 156);
     } 
-
 }
 
 function everyinterval(n) {
@@ -1107,6 +1147,10 @@ function getRandomColorGold() {
 
   // Return the hex color as a string
   return rgbToHex(color.r, color.g, color.b);
+}
+
+function getRandomInteger(min, max) {
+    return Math.floor(Math.random() * (max - min) ) + min;
 }
 
 function millisToMinutesAndSeconds(millis) { // ms conversions
