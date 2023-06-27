@@ -1,6 +1,8 @@
 <!--
     Ideas:
 
+    myInterval functions can be condensed to a single function and passed variables for color, x, y
+
     OPTIONS
     - Create a button that makes a new page
     - set options and store as a cookie?
@@ -94,7 +96,6 @@
     </div>
 <script>
 
-
 var x = window.innerWidth;
 var y = window.innerHeight;
 var gamePiece;
@@ -112,7 +113,7 @@ var deaths = 0;
 var invincibleTime = 0;
 var invincibleTimeMax = 200;
 var perfectClear = 0;
-var level = 8;
+var level = 1;
 var speed = 1;
 var speed_slow = 0.25;
 var speed_fast = 2;
@@ -139,16 +140,19 @@ var aud8 = document.getElementById("audio8");
 var aud9 = document.getElementById("audio9");
 var aud10 = document.getElementById("audio10");
 var aud11 = document.getElementById("audio11");
+var all_songs = [aud1, aud2, aud3, aud4, aud5, aud6, aud7, aud8, aud9, aud10, aud11];
 var aud_bomb = document.getElementById("bombSFX");
 var aud_menuSound = document.getElementById("menusound2");
 var aud_death = document.getElementById("fx14");
 var aud_danger = document.getElementById("danger");
 
+// bounding variables used on start screen
 var click_to_start_bounds = false;
 var space_to_break_bounds = false;
 var shift_to_focus_bounds = false;
 var click_to_warp_bounds  = false;
 
+// intervals used for start screen animation
 const myInterval1 = setInterval(updateSloganText, 3000);
 const myInterval2 = setInterval(focus_break_colors, 100);
 const myInterval3 = setInterval(click_to_start_colors, 50);
@@ -156,8 +160,28 @@ const myInterval4 = setInterval(space_to_break_colors, 100);
 const myInterval5 = setInterval(shift_to_focus_colors, 100);
 const myInterval6 = setInterval(click_to_warp_colors, 100);
 
+function loadAudio2(audio) {
+    setAudioVolume(audio, musicVolume);
+	for (i = 0; i < audio.length; i += 1) {
+		if (i == (audio.length - 1)) {
+			audio[i].onended = function() {
+				audio[0].play();
+			}
+		} else {
+            if (audio[i]) { // 😠, error happens after load, SECOND SONG DOES PLAY, third song?
+                audio[i].onended = function() {
+                    audio[i + 1].play();
+                }
+            }
+		}
+	}
+	if (firstRun) {
+		audio[0].play();
+	}
+}
+
 function loadAudio(){ 
-    setAudioVolume(musicVolume);
+    setAudioVolume(all_songs, musicVolume);
     aud1.onended = function() {
         aud2.play();
     };
@@ -196,32 +220,16 @@ function loadAudio(){
     }
 }
 
-function setAudioSpeed(x) { // set audio playback rate for all songs
-    aud1.playbackRate = x;
-    aud2.playbackRate = x;
-    aud3.playbackRate = x;
-    aud4.playbackRate = x;
-    aud5.playbackRate = x;
-    aud6.playbackRate = x;
-    aud7.playbackRate = x;
-    aud8.playbackRate = x;
-    aud9.playbackRate = x;
-    aud10.playbackRate = x;
-    aud11.playbackRate = x;
+function setAudioSpeed(audio, speed) { // set audio playback rate for all songs
+    for (i = 0; i < audio.length; i += 1) {
+        audio[i].playbackRate = speed;
+    }
 }
 
-function setAudioVolume(x) { // set audio volume for all songs
-    aud1.volume = x;
-    aud2.volume = x;
-    aud3.volume = x;
-    aud4.volume = x;
-    aud5.volume = x;
-    aud6.volume = x;
-    aud7.volume = x;
-    aud8.volume = x;
-    aud9.volume = x;
-    aud10.volume = x;
-    aud11.volume = x;
+function setAudioVolume(audio, volume) { // set audio volume for all songs
+    for (i = 0; i < audio.length; i += 1) {
+        audio[i].volume = volume;
+    }   
 }
 
 function mouseMove() { // detect mouse on start screen
@@ -442,7 +450,7 @@ function startGame(e) {
     clearInterval(myInterval4);
     clearInterval(myInterval5);
     clearInterval(myInterval6);
-    loadAudio();
+    loadAudio2(all_songs);
     gameArea.start();
     if (firstRun){
         startDate = new Date();
@@ -455,14 +463,14 @@ function startGame(e) {
     invincible = false;
 }
 
-function wait(x) {
-    setTimeout(startNextLevel, x)
+function wait(time) {
+    setTimeout(startNextLevel, time)
 }
 
 function startNextLevel() {
     gameArea.clear();
     startGame();
-    setAudioVolume(0.2);
+    setAudioVolume(all_songs, musicVolume);
 }
 
 function gameOver() { // you dies
@@ -470,7 +478,7 @@ function gameOver() { // you dies
     invincible = false;
     invincibleTime = 0;
     resumeSpeed();
-    setAudioVolume(0.2);
+    setAudioVolume(all_songs, musicVolume);
     gameArea.stop();
     gameArea.clear();
     objects_medium = [];  // overcome all obstacles
@@ -504,7 +512,7 @@ function gameOver() { // you dies
             ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
             wait(5000);
         } else if (level == 9){
-            setAudioVolume(0.0);
+            setAudioVolume(all_songs, 0.0);
             aud_bomb.volume = 0.3;
             aud_bomb.play();
             ctx.font = "80px Arial";
@@ -575,7 +583,7 @@ function resumeSpeed() {
         gamePiece.height = 20 - perfectClear;
     }
     speed = 1;
-    setAudioSpeed(1);
+    setAudioSpeed(all_songs, 1.0);
 }
 
 function setSlowSpeed(){
@@ -583,7 +591,7 @@ function setSlowSpeed(){
     gamePiece.width = 15 - perfectClear;
     gamePiece.height = 15 - perfectClear;
     speed = speed_slow;
-    setAudioSpeed(0.75);
+    setAudioSpeed(all_songs, 0.75);
 }
 
 function setFastSpeed(){
@@ -591,7 +599,7 @@ function setFastSpeed(){
     gamePiece.width = 15 - perfectClear;
     gamePiece.height = 15 - perfectClear;
     speed = speed_fast;
-    setAudioSpeed(1.2);
+    setAudioSpeed(all_songs, 1.2);
 }
 
 function setBreak(scorePenalty){
@@ -600,7 +608,7 @@ function setBreak(scorePenalty){
         objects_powerup_score = [];
         invincible = true;
         score += -scorePenalty;
-        setAudioSpeed(1.0);
+        setAudioSpeed(all_songs, 1.0);
     }
 }
 
@@ -812,7 +820,7 @@ function updateGameArea() {
                 }
                 invincible = false;
                 invincibleTime = 0;
-                setAudioSpeed(1.0);
+                setAudioSpeed(all_songs, 1.0);
             }
         }
 
