@@ -45,31 +45,31 @@
         iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/531718938&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
         -->
         <iframe src="music\fx 11.wav" allow="autoplay" style="display:none" id="iframeAudio"></iframe>
-        <audio id="audio1" style="visibility:hidden" >
+        <audio id="audio01" style="visibility:hidden" >
             <source src="music\Cavalier - Vol. 8 - 01 Before U Go.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
-        <audio id="audio2" style="visibility:hidden" >
+        <audio id="audio02" style="visibility:hidden" >
             <source src="music\Cavalier - Vol. 8 - 02 Reflex.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
-        <audio id="audio3" style="visibility:hidden" >
+        <audio id="audio03" style="visibility:hidden" >
             <source src="music\Cavalier - Vol. 8 - 03 Blood (feat. Fifty Grand).mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
-        <audio id="audio4" style="visibility:hidden" >
+        <audio id="audio04" style="visibility:hidden" >
             <source src="music\Cavalier - Vol. 8 - 04 Undefined.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
-        <audio id="audio5" style="visibility:hidden" >
+        <audio id="audio05" style="visibility:hidden" >
             <source src="music\Cavalier - Vol. 8 - 05 Lay.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
-        <audio id="audio6" style="visibility:hidden" >
+        <audio id="audio06" style="visibility:hidden" >
             <source src="music\Cavalier - Vol. 8 - 06 Kitty Kat.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
-        <audio id="audio7" style="visibility:hidden" >
+        <audio id="audio07" style="visibility:hidden" >
             <source src="music\Cavalier - Vol. 8 - 07 Too Late.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
-        <audio id="audio8" style="visibility:hidden" >
+        <audio id="audio08" style="visibility:hidden" >
             <source src="music\Cavalier - Vol. 8 - 08 Midnight (Cavalier Version).mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
-        <audio id="audio9" style="visibility:hidden" >
+        <audio id="audio09" style="visibility:hidden" >
             <source src="music\Cavalier - Vol. 8 - 09 Commas.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio10" style="visibility:hidden" >
@@ -96,61 +96,30 @@
     </div>
 <script>
 
-var x = window.innerWidth;
-var y = window.innerHeight;
-var gamePiece;
-var gamePieceColor = "blue";
-var objects_slow = [];
-var objects_medium = [];
-var objects_fast = [];
-var objects_hyper = [];
-var objects_powerup_break = [];
-var objects_powerup_score = [];
-var score = 0;
-var scoreLimit = 1000;
-var scorePenalty = 250; // point deduction for break
-var deaths = 0;
-var invincibleTime = 0;
-var invincibleTimeMax = 200;
-var perfectClear = 0;
-var level = 1;
-var speed = 1;
-var speed_slow = 0.25;
-var speed_fast = 2;
-var invincible = false;
-var gameStart = false;
-var alive = false;
-var focused = false;
-var firstRun = true;
-var pause = false;
-var startDate;
-var sloganY = 120;
-var sloganX = 100;
-var sloganText = "";
-var deathSlogan = "";
+// initialize audio
+const aud_01 = document.getElementById("audio01");
+const aud_02 = document.getElementById("audio02");
+const aud_03 = document.getElementById("audio03");
+const aud_04 = document.getElementById("audio04");
+const aud_05 = document.getElementById("audio05");
+const aud_06 = document.getElementById("audio06");
+const aud_07 = document.getElementById("audio07");
+const aud_08 = document.getElementById("audio08");
+const aud_09 = document.getElementById("audio09");
+const aud_10 = document.getElementById("audio10");
+const aud_11 = document.getElementById("audio11");
+const all_songs = [aud_01, aud_02, aud_03, aud_04, aud_05, aud_06, aud_07, aud_08, aud_09, aud_10, aud_11];
+const aud_bomb = document.getElementById("bombSFX");
+const aud_menuSound = document.getElementById("menusound2");
+const aud_death = document.getElementById("fx14");
+const aud_danger = document.getElementById("danger");
 var musicVolume = 0.2;
-var aud1 = document.getElementById("audio1");
-var aud2 = document.getElementById("audio2");
-var aud3 = document.getElementById("audio3");
-var aud4 = document.getElementById("audio4");
-var aud5 = document.getElementById("audio5");
-var aud6 = document.getElementById("audio6");
-var aud7 = document.getElementById("audio7");
-var aud8 = document.getElementById("audio8");
-var aud9 = document.getElementById("audio9");
-var aud10 = document.getElementById("audio10");
-var aud11 = document.getElementById("audio11");
-var all_songs = [aud1, aud2, aud3, aud4, aud5, aud6, aud7, aud8, aud9, aud10, aud11];
-var aud_bomb = document.getElementById("bombSFX");
-var aud_menuSound = document.getElementById("menusound2");
-var aud_death = document.getElementById("fx14");
-var aud_danger = document.getElementById("danger");
 
 // bounding variables used on start screen
-var click_to_start_bounds = false;
-var space_to_break_bounds = false;
-var shift_to_focus_bounds = false;
-var click_to_warp_bounds  = false;
+var bounds_click_to_start = false;
+var bounds_space_to_break = false;
+var bounds_shift_to_focus = false;
+var bounds_click_to_warp  = false;
 
 // intervals used for start screen animation
 const myInterval1 = setInterval(updateSloganText, 3000);
@@ -160,63 +129,61 @@ const myInterval4 = setInterval(space_to_break_colors, 100);
 const myInterval5 = setInterval(shift_to_focus_colors, 100);
 const myInterval6 = setInterval(click_to_warp_colors, 100);
 
-function loadAudio2(audio) {
-    setAudioVolume(audio, musicVolume);
-	for (i = 0; i < audio.length; i += 1) {
-		if (i == (audio.length - 1)) {
-			audio[i].onended = function() {
-				audio[0].play();
-			}
-		} else {
-            if (audio[i]) { // 😠, error happens after load, SECOND SONG DOES PLAY, third song?
-                audio[i].onended = function() {
-                    audio[i + 1].play();
-                }
-            }
-		}
-	}
-	if (firstRun) {
-		audio[0].play();
-	}
-}
+// initialize objects
+var objects_slow = [];
+var objects_medium = [];
+var objects_fast = [];
+var objects_hyper = [];
+var objects_powerup_break = [];
+var objects_powerup_score = [];
 
-function loadAudio(){ 
+// game play variables
+var x = window.innerWidth;
+var y = window.innerHeight;
+var startDate;
+var gamePiece;
+var gamePieceColor = "blue";
+var sloganText = "";
+var deathSlogan = "";
+var sloganY = 120;
+var sloganX = 100;
+
+var invincible = false;
+var gameStart = false;
+var alive = false;
+var focused = false;
+var firstRun = true;
+var pause = false;
+
+var score = 0;
+var scoreLimit = 1000;
+var powerupScoreBonus = 50;
+var scorePenalty = 250; // point deduction for break
+var deaths = 0;
+var invincibleTime = 0;
+var invincibleTimeMax = 200;
+var perfectClear = 0;
+var level = 1;
+var speed = 1;
+var speed_slow = 0.25;
+var speed_fast = 2;
+
+
+function loadAudio() { 
     setAudioVolume(all_songs, musicVolume);
-    aud1.onended = function() {
-        aud2.play();
-    };
-    aud2.onended = function() {       
-        aud3.play();
-    };
-    aud3.onended = function() {
-        aud4.play();
-    };
-    aud4.onended = function() {;
-        aud5.play();
-    };
-    aud5.onended = function() {;
-        aud6.play();
-    };
-    aud6.onended = function() {;
-        aud7.play();
-    };
-    aud7.onended = function() {;
-        aud8.play();
-    };
-    aud8.onended = function() {;
-        aud9.play();
-    };
-    aud9.onended = function() {;
-        aud10.play();
-    };
-    aud10.onended = function() {;
-        aud11.play();
-    };
-    aud11.onended = function() {;
-        aud1.play();
-    };
+    aud_01.onended = function() { aud_02.play(); };
+    aud_02.onended = function() { aud_03.play(); };
+    aud_03.onended = function() { aud_04.play(); };
+    aud_04.onended = function() { aud_05.play(); };
+    aud_05.onended = function() { aud_06.play(); };
+    aud_06.onended = function() { aud_07.play(); };
+    aud_07.onended = function() { aud_08.play(); };
+    aud_08.onended = function() { aud_09.play(); };
+    aud_09.onended = function() { aud_10.play(); };
+    aud_10.onended = function() { aud_11.play(); };
+    aud_11.onended = function() { aud_01.play(); };
     if (firstRun){
-        aud1.play();
+        aud_01.play();
     }
 }
 
@@ -237,24 +204,24 @@ function mouseMove() { // detect mouse on start screen
     var mouseY = event.clientY - 8;
     if (firstRun) {
         if(mouseX > (x / 2) - 410 && mouseX < (x / 2) - 190 && mouseY > (y / 2) - 32 && mouseY < (y / 2) + 14) { // CLICK TO START
-            click_to_start_bounds = true;
+            bounds_click_to_start = true;
         }
         else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) && mouseY < (y / 2) + 40) { // SPACE TO BREAK
-            space_to_break_bounds = true;
+            bounds_space_to_break = true;
         }
         else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) + 60 && mouseY < (y / 2) + 100) { // SHIFT TO FOCUS
-            shift_to_focus_bounds = true;
+            bounds_shift_to_focus = true;
         }
         else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) + 120 && mouseY < (y / 2) + 160) { // CLICK TO WARP
-            click_to_warp_bounds = true;
+            bounds_click_to_warp = true;
         } else {
-            if (click_to_start_bounds || space_to_break_bounds || shift_to_focus_bounds || click_to_warp_bounds) {
+            if (bounds_click_to_start || bounds_space_to_break || bounds_shift_to_focus || bounds_click_to_warp) {
                 drawStartScreen();       
-                //click_to_start_bounds = shift_to_focus_bounds = space_to_break_bounds = click_to_warp_bounds  = false;
-                click_to_start_bounds = false;
-                shift_to_focus_bounds = false;
-                space_to_break_bounds = false;
-                click_to_warp_bounds  = false;
+                //bounds_click_to_start = bounds_shift_to_focus = bounds_space_to_break = bounds_click_to_warp = false;
+                bounds_click_to_start = false;
+                bounds_shift_to_focus = false;
+                bounds_space_to_break = false;
+                bounds_click_to_warp  = false;
             }
         }
     }
@@ -275,7 +242,7 @@ function focus_break_colors(){ // Flashing colors on start screen
 }
 
 function click_to_start_colors(){ // Flashing colors on start screen
-    if (click_to_start_bounds) {
+    if (bounds_click_to_start) {
         ctx.globalAlpha = 0.2;
         ctx.fillStyle = getRandomColorGold();
         ctx.fillRect((x / 2)-410,(y / 2) - 32, (220), 44);
@@ -290,7 +257,7 @@ function click_to_start_colors(){ // Flashing colors on start screen
 }
 
 function space_to_break_colors(){ // Flashing colors on start screen
-    if (space_to_break_bounds) {
+    if (bounds_space_to_break) {
         ctx.fillStyle = "#000000";
         ctx.fillRect(x/2, y/2, 272, 40);
         ctx.font = "40px Impact";
@@ -303,7 +270,7 @@ function space_to_break_colors(){ // Flashing colors on start screen
 }
 
 function shift_to_focus_colors(){ // Flashing colors on start screen
-    if (shift_to_focus_bounds) {
+    if (bounds_shift_to_focus) {
         ctx.fillStyle = "#000000";
         ctx.fillRect(x/2, y/2+60, 272, 40);
         ctx.font = "40px Impact";
@@ -316,7 +283,7 @@ function shift_to_focus_colors(){ // Flashing colors on start screen
 }
 
 function click_to_warp_colors(){ // Flashing colors on start screen
-    if (click_to_warp_bounds) {
+    if (bounds_click_to_warp) {
         ctx.fillStyle = "#000000";
         ctx.fillRect(x/2, y/2+120, 272, 40);
         ctx.font = "40px Impact";
@@ -444,18 +411,18 @@ function drawStartScreen() { // draw the start screen
 }
 
 function startGame(e) {
-    clearInterval(myInterval1);
-    clearInterval(myInterval2);
-    clearInterval(myInterval3);
-    clearInterval(myInterval4);
-    clearInterval(myInterval5);
-    clearInterval(myInterval6);
-    loadAudio2(all_songs);
-    gameArea.start();
-    if (firstRun){
+    if (firstRun) {
+        clearInterval(myInterval1);
+        clearInterval(myInterval2);
+        clearInterval(myInterval3);
+        clearInterval(myInterval4);
+        clearInterval(myInterval5);
+        clearInterval(myInterval6);
+        loadAudio();
         startDate = new Date();
         gamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, e.pageX, e.pageY);
     }
+    gameArea.start();
     firstRun = false;
     gameStart = true;
     alive = true;
@@ -797,7 +764,7 @@ function updateGameArea() {
 
         if (detectCollision(objects_powerup_score)) { // powerup collision
             objects_powerup_score = [];
-            score += 150;
+            score += powerupScoreBonus;
         }
 
         gameArea.clear();
@@ -954,7 +921,7 @@ function updateGameArea() {
             }
         }
         if (level == 10){ // level 10 - red medium, red big
-            if (gameArea.frameNo == 1 || everyinterval((4) / speed)){
+            if (gameArea.frameNo == 1 || everyinterval((8) / speed)){
                 objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
             }
             if (gameArea.frameNo == 1 || everyinterval(200 / speed)) {
