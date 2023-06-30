@@ -113,7 +113,11 @@ const aud_bomb = document.getElementById("bombSFX");
 const aud_menuSound = document.getElementById("menusound2");
 const aud_death = document.getElementById("fx14");
 const aud_danger = document.getElementById("danger");
+aud_danger.volume = 0.03;
+aud_bomb.volume = 0.3;
+aud_death.volume = 0.15;
 var musicVolume = 0.2;
+
 
 // bounding variables used on start screen
 var bounds_click_to_start = false;
@@ -243,13 +247,13 @@ function focus_break_colors(){ // Flashing colors on start screen
 
 function click_to_start_colors(){ // Flashing colors on start screen
     if (bounds_click_to_start) {
-        ctx.globalAlpha = 0.2;
+        ctx.globalAlpha = 0.35;
         ctx.fillStyle = getRandomColorGold();
-        ctx.fillRect((x / 2)-410,(y / 2) - 32, (220), 44);
-        ctx.fillRect((x / 2)-410,(y / 2) - 32, (220), 44);
+        i_x = getRandomInteger(-1, 1);
+        i_y = getRandomInteger(-1, 1);
+        ctx.fillRect((x / 2)-410+i_x,(y / 2) - 32+i_y, (220)+i_x, 44+i_y);
         ctx.font = "25px Arial";
         ctx.fillStyle = "#ff00ff";
-        ctx.globalAlpha = 0.5;
         ctx.globalAlpha = 1.0;
         ctx.fillStyle = "black";
         ctx.fillText("CLICK TO START", (x / 2)-400, (y / 2));
@@ -339,40 +343,46 @@ function windowResize() {
 
 function drawStartScreen() { // draw the start screen
     ctx = gameArea.canvas.getContext("2d");
+    
+    // clear screen
     ctx.fillStyle = "#ffffff";
-    ctx.font = "80px Arial";
     ctx.fillRect(0, 0, x, y);
+
+    // Title
+    ctx.font = "80px Arial";
     ctx.fillStyle = "#00FFFF";
     for (count = 120; count < 130; count++){ // Bold effect
         ctx.fillText("FOCUS BREAK", count, count+80);
         ctx.fillText("焦点を絞る", count+100, count+180);
     }
-    ctx.fillRect(x/2, y/2, 272, 40);
-    ctx.fillRect(x/2, y/2+60, 272, 40);
-    ctx.fillRect(x/2, y/2+120, 272, 40);
     ctx.fillStyle = "#ff00ff";
     ctx.fillText("FOCUS BREAK", count, count+80);
     ctx.fillText("焦点を絞る", count+100, count+180);
-    ctx.font = "25px Arial";
-    ctx.fillStyle = "black";
 
+    // start button
+    ctx.font = "25px Arial";
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "gray";
     ctx.fillRect((x / 2) - 410,(y / 2) - 32, 220, 44);
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = "black";
     ctx.fillText("CLICK TO START", (x / 2) - 400, (y / 2));
-
     ctx.fillRect((x / 2) - 450,(y / 2) + 25, (300), 2);
     ctx.fillText("クリックして開始", (x / 2) - 400, (y / 2) + 65);
 
+    // controls
+    ctx.fillStyle = "#00FFFF";
+    ctx.fillRect(x/2, y/2,     272, 40);// break
+    ctx.fillRect(x/2, y/2+60,  272, 40);// focus
+    ctx.fillRect(x/2, y/2+120, 272, 40);// warp
     ctx.font = "40px Impact";
     ctx.fillStyle = "#ff00ff";
     ctx.globalAlpha = 0.5;
-    ctx.fillText("Space to Break", x / 2 , y / 2 + 38);
-    ctx.fillText("Shift to Focus", x / 2, y / 2 + 100);
-    ctx.fillText("Click to warp", x / 2, y / 2 + 160);
+    ctx.fillText("Space to Break", x/2, y/2 + 38);
+    ctx.fillText("Shift to Focus", x/2, y/2 + 100);
+    ctx.fillText("Click to warp" , x/2, y/2 + 160);
 
+    // horizontal banners
     ctx.globalAlpha = 1.0;
     ctx.font = "40px Arial";
     ctx.fillStyle = "#00FFFF";
@@ -385,6 +395,8 @@ function drawStartScreen() { // draw the start screen
     ctx.globalAlpha = 0.7;
     ctx.fillRect(0,y - 40, x, 2);
     ctx.fillRect(0,60,x, 2);
+    
+    // slogan
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = "#ff00ff";
     ctx.fillText(sloganText,sloganX,sloganY);
@@ -394,6 +406,7 @@ function drawStartScreen() { // draw the start screen
                 ctx.fillStyle = getRandomColor();
             }
     }
+
     // Options
      var boxX = 256;
      var boxY = 40;
@@ -401,8 +414,8 @@ function drawStartScreen() { // draw the start screen
      var Yoffset = boxX/2;
      ctx.fillRect(x/2, (y - Yoffset), boxX, boxY);
      ctx.fillText("Options", (x / 2) , (y - Yoffset));
-     ctx.fillStyle = "black";
 
+     ctx.fillStyle = "black";
      ctx.fillRect((x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
      ctx.fillRect((x/2 + (boxX / 16)*8), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
 
@@ -448,10 +461,10 @@ function gameOver() { // you dies
     setAudioVolume(all_songs, musicVolume);
     gameArea.stop();
     gameArea.clear();
-    objects_medium = [];  // overcome all obstacles
+    objects_slow = [];
+    objects_medium = [];
     objects_fast = [];
     objects_hyper = [];
-    objects_slow = [];
     objects_powerup_break = [];
     objects_powerup_score = [];
     ctx = gameArea.canvas.getContext("2d");
@@ -480,7 +493,6 @@ function gameOver() { // you dies
             wait(5000);
         } else if (level == 9){
             setAudioVolume(all_songs, 0.0);
-            aud_bomb.volume = 0.3;
             aud_bomb.play();
             ctx.font = "80px Arial";
             ctx.fillStyle = "red";
@@ -515,7 +527,6 @@ function gameOver() { // you dies
         }
     } else { // you lose
         deaths += 1; 
-        aud_death.volume = 0.15;
         aud_death.play();
         ctx.fillText("Score: " + score, x / 2 - 200, y / 2 - 75);
         switch (score) { // death slogans
@@ -579,8 +590,7 @@ function setBreak(scorePenalty){
     }
 }
 
-function checkBounds(e,x1,x2,y1,y2){
-    // check if mouse click is within x/y coords
+function checkBounds(e,x1,x2,y1,y2){ // check if mouse click is within x/y coords
     var mouseX = e.clientX - 8;
     var mouseY = e.clientY - 8;
     if (mouseX > (x / 2) - x1 && mouseX < (x / 2) + x2 && mouseY > (y / 2) - y1 && mouseY < (y / 2) + y2) {
@@ -771,7 +781,7 @@ function updateGameArea() {
         gameArea.frameNo += 1;
 
         if (invincible) {
-            ctx.fillRect(gamePiece.x -50 + invincibleTime/2, gamePiece.y - 25, (invincibleTimeMax - invincibleTime), (15)); // display invincible progress
+            ctx.fillRect((gamePiece.x - 50 + invincibleTime / 2), (gamePiece.y - 25), (invincibleTimeMax - invincibleTime), (15)); // display invincible progress
             if (focused) {
                 invincibleTime += 2;
                 gamePiece = new component(15 - perfectClear, 15 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
@@ -930,7 +940,7 @@ function updateGameArea() {
         }
         if (level >= 11){ // level 11 - nothing
             if (gameArea.frameNo == 1 || everyinterval(200 / speed)) {
-                //objects_slow.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_medium.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
             }
         }
         if (level >= 12) { // level 12 - black oblong
@@ -1007,7 +1017,6 @@ function updateGameArea() {
             ctx.fillText(score, 50, 100);
             ctx.globalAlpha = 1.0;
         } else if (speed == speed_fast){
-            aud_danger.volume = 0.1;
             aud_danger.play();
             ctx.fillStyle = "red";
             ctx.globalAlpha = 0.8;
