@@ -93,6 +93,18 @@
         <audio id="menusound2" style="visibility:hidden">
             <source src="music\Menu Sounds_2.wav" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
+        <audio id="fx_powerUp" style="visibility:hidden">
+            <source src="music\powerUp.wav" type="audio/mpeg"> Your browser does not support the audio element.
+        </audio>
+        <audio id="fx_pickupCoin" style="visibility:hidden">
+            <source src="music\pickupCoin.wav" type="audio/mpeg"> Your browser does not support the audio element.
+        </audio>
+        <audio id="fx_click" style="visibility:hidden">
+            <source src="music\click.wav" type="audio/mpeg"> Your browser does not support the audio element.
+        </audio>
+        <audio id="fx_blipSelect" style="visibility:hidden">
+            <source src="music\blipSelect.wav" type="audio/mpeg"> Your browser does not support the audio element.
+        </audio>
     </div>
 <script>
 
@@ -113,9 +125,17 @@ const aud_bomb = document.getElementById("bombSFX");
 const aud_menuSound = document.getElementById("menusound2");
 const aud_death = document.getElementById("fx14");
 const aud_danger = document.getElementById("danger");
-aud_danger.volume = 0.03;
+const aud_powerUp = document.getElementById("fx_powerUp");
+const aud_pickupCoin = document.getElementById("fx_pickupCoin");
+const aud_click = document.getElementById("fx_click");
+const aud_blipSelect = document.getElementById("fx_blipSelect");
+aud_danger.volume = 0.05;
 aud_bomb.volume = 0.3;
 aud_death.volume = 0.15;
+aud_powerUp.volume = 0.1;
+aud_pickupCoin.volume = 0.1;
+aud_click.volume = 0.1;
+aud_blipSelect.volume = 0.1;
 var musicVolume = 0.2;
 
 
@@ -432,6 +452,7 @@ function startGame(e) {
         clearInterval(myInterval5);
         clearInterval(myInterval6);
         loadAudio();
+        aud_click.play();
         startDate = new Date();
         gamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, e.pageX, e.pageY);
     }
@@ -741,7 +762,6 @@ function detectCollision(objects) { // detect collision between gamePiece and ob
 function moveObstacles(objects, amount) {
     for (i = 0; i < objects.length; i += 1) {
         objects[i].x += -amount * speed; // speed of obstacles
-        objects[i].color = getRandomColor();
         objects[i].update();
     }
 }
@@ -768,11 +788,13 @@ function updateGameArea() {
         }
 
         if (detectCollision(objects_powerup_break)) { // powerup collision
+            aud_powerUp.play();
             objects_powerup_break = [];
             setBreak(0);
         }
 
         if (detectCollision(objects_powerup_score)) { // powerup collision
+            aud_pickupCoin.play();
             objects_powerup_score = [];
             score += powerupScoreBonus;
         }
@@ -969,8 +991,8 @@ function updateGameArea() {
             }
         }
         
-        movePowerUps(objects_powerup_break, 4, 15, getRandomColor());
-        movePowerUps(objects_powerup_score, 4, 20, getRandomColorGold());
+        movePowerUps(objects_powerup_break, 3, 15, getRandomColor());
+        movePowerUps(objects_powerup_score, 3, 20, getRandomColorGold());
 
         moveObstacles(objects_slow, 1);
         moveObstacles(objects_medium, 2);
