@@ -1,5 +1,5 @@
 # Focus-Break
-<a href="https://nathancarlmitchell.com/focus-break/">Live demo</a><br>
+##Live demo
 https://nathancarlmitchell.com/focus-break/
 
 ## An HTML / JS arcade style game
