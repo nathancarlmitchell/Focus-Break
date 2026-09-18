@@ -573,10 +573,11 @@ function keyName(e) { // the game key pressed: "p", "r", " " (space), "Shift", "
     if (key && key.length == 1 && /[a-z ]/i.test(key)) {
         return key.toLowerCase(); // letters as typed, so Shift+P or Caps Lock still works
     }
-    if (key && key.length > 1 && key != "Unidentified") {
+    if (key == "Shift" || key == "Control") {
         return key;
     }
-    // no usable e.key: an older browser, a non-Latin keyboard layout, or a tool that leaves it empty
+    // anything else: an older browser without e.key, a non-Latin keyboard layout (including letters outside the
+    // basic character range, like ADLaM), a layout-switch key such as "GroupNext", or a tool that leaves key empty
     return { 16: "Shift", 17: "Control", 32: " ", 80: "p", 82: "r" }[e.keyCode] || key;
 }
 
