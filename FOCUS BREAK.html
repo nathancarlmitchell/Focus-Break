@@ -108,13 +108,17 @@ const startScreenIntervals = [
     setInterval(highlightControl, 100),
 ];
 
-// initialize objects
-var objects_slow = [];
-var objects_medium = [];
-var objects_fast = [];
-var objects_hyper = [];
-var objects_powerup_break = [];
-var objects_powerup_score = [];
+// obstacles by lane (the lane sets how fast they move) and powerups; clearObjects replaces the lists
+const OBSTACLE_SPEEDS = { slow: 1, medium: 2, fast: 4, hyper: 5 }; // pixels per frame at normal speed
+var obstacles, powerups;
+function clearObjects() {
+    obstacles = { slow: [], medium: [], fast: [], hyper: [] };
+    powerups = { break: [], score: [] };
+}
+clearObjects();
+function obstacleLists() { // every obstacle list, slowest lane first
+    return [obstacles.slow, obstacles.medium, obstacles.fast, obstacles.hyper];
+}
 
 // game play variables
 var x = window.innerWidth;
@@ -416,12 +420,7 @@ function gameOver() { // the level was cleared or the player died
     setMusicVolume(musicVolume);
     gameArea.stop();
     gameArea.clear();
-    objects_slow = [];
-    objects_medium = [];
-    objects_fast = [];
-    objects_hyper = [];
-    objects_powerup_break = [];
-    objects_powerup_score = [];
+    clearObjects();
     ctx = gameArea.canvas.getContext("2d");
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
@@ -545,8 +544,8 @@ function setFastSpeed(){
 
 function setBreak(scorePenalty){
     if (!invincible) {
-        objects_powerup_break = []; // destroy powerups on break
-        objects_powerup_score = [];
+        powerups.break = []; // destroy powerups on break
+        powerups.score = [];
         invincible = true;
         score += -scorePenalty;
     }
@@ -801,24 +800,24 @@ function detectCollision(objects) { // detect collision between gamePiece and ob
 }
 
 function collectPowerUps() { // apply any powerup gamePiece is touching
-    if (detectCollision(objects_powerup_break)) {
+    if (detectCollision(powerups.break)) {
         playSound(aud_powerUp);
-        objects_powerup_break = [];
+        powerups.break = [];
         if (invincible) {
             invincibleTime = 0; // refill an active break instead of wasting the powerup
         } else {
             setBreak(0);
         }
     }
-    if (detectCollision(objects_powerup_score)) {
+    if (detectCollision(powerups.score)) {
         playSound(aud_pickupCoin);
-        objects_powerup_score = [];
+        powerups.score = [];
         score += powerupScoreBonus;
     }
 }
 
 function hitObstacle() { // is gamePiece touching any obstacle
-    return detectCollision(objects_medium) || detectCollision(objects_fast) || detectCollision(objects_hyper) || detectCollision(objects_slow);
+    return obstacleLists().some(detectCollision);
 }
 
 function movePiece(targetX, targetY) { // move gamePiece to the cursor, returns true on a crash
@@ -848,7 +847,7 @@ function heightScaledBlock(fraction, color) { // square sized as a fraction of t
 
 function fitObstaclesToWindow() { // after a resize, refit obstacles whose size depends on the screen height
     var canvasHeight = gameArea.canvas.height;
-    [objects_slow, objects_medium, objects_fast, objects_hyper].forEach(function (objects) {
+    obstacleLists().forEach(function (objects) {
         objects.forEach(function (obj) {
             var before = { x: obj.x, y: obj.y, width: obj.width, height: obj.height };
             if (obj.barGap) {
@@ -877,95 +876,95 @@ function fitObstaclesToWindow() { // after a resize, refit obstacles whose size 
     });
 }
 
-function moveObstacles(objects, amount) {
+function moveObjects(objects, amount, recolor) { // move left, drop what's off screen, draw the rest (optionally recolored)
     for (let i = objects.length - 1; i >= 0; i -= 1) {
         objects[i].x += -amount * speed; // speed of obstacles
         if (objects[i].x + objects[i].width < 0) { // remove once off screen
             objects.splice(i, 1);
             continue;
         }
+        if (recolor) {
+            objects[i].color = recolor;
+        }
         objects[i].update();
     }
 }
 
-function movePowerUps(objects, amount, size, color) {
-    for (let i = objects.length - 1; i >= 0; i -= 1) { // move powerups
-        objects[i].x += -amount * speed;
-        if (objects[i].x + objects[i].width < 0) { // remove once off screen
-            objects.splice(i, 1);
-            continue;
-        }
-        objects[i].width = size;
-        objects[i].height = size;
-        objects[i].color = color;
-        objects[i].update();
-    }
+function spawnDue(every) { // true on a level's first frame, then on the everyinterval schedule, which Focus/Warp stretch or shrink
+    return gameArea.frameNo == 1 || everyinterval(every / speed);
 }
+
+function edgeBlock(w, h, color, xOffset) { // block entering at the right edge (plus xOffset) at a random height
+    return new component(w, h, color, gameArea.canvas.width + (xOffset || 0), Math.random() * window.innerHeight);
+}
+
+function spawnBarPair() { // a vertical black bar pair with a gap to pass through
+    var minHeight = 20;
+    var maxHeight = window.innerHeight - 60;
+    var height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
+    var minGap = 85 - (level * 2);
+    var maxGap = 125 - (level * 2);
+    var gap = Math.floor(Math.random() * (maxGap - minGap + 1) + minGap);
+    var barX = gameArea.canvas.width;
+    var topBar = new component(20, height, "black", barX, 0);
+    var bottomBar = new component(20, gameArea.canvas.height - height - gap, "black", barX, height + gap);
+    // remember where the gap sits so fitObstaclesToWindow can keep it passable after a resize
+    topBar.barGap = { size: gap, top: true };
+    bottomBar.barGap = { size: gap, top: false };
+    obstacles.medium.push(topBar);
+    obstacles.medium.push(bottomBar);
+}
+
+function blackBlock() { return edgeBlock(25, 25, "black"); }
+function redBlock() { return edgeBlock(25, 25, "red"); }
+function scatteredBlackBlock() { return edgeBlock(25, 25, "black", getRandomInteger(0, 250)); } // up to 250px further right so they don't line up
+function blackOblong() { return edgeBlock(10, 50, "black"); }
+
+// what each level spawns, checked in this order every frame (the order also decides which blocks draw on top).
+// A rule applies from level `from` on, up to `to` if given; `every` is its spawnDue period; `lane` is the list it joins.
+const SPAWN_RULES = [
+    { from: 1, every: 50, make: spawnBarPair }, // adds itself to the medium lane
+    { from: 2, every: 100, lane: "hyper", make: function () { return heightScaledBlock(1 / 8, "black"); } },
+    { from: 3, every: 20, lane: "fast", make: blackBlock },
+    { from: 4, every: 20, lane: "medium", make: function () { return edgeBlock(10, 10, "red"); } },
+    { from: 5, every: 20, lane: "fast", make: scatteredBlackBlock }, // levels 5-8 each add one more
+    { from: 6, every: 20, lane: "fast", make: scatteredBlackBlock },
+    { from: 7, every: 20, lane: "fast", make: scatteredBlackBlock },
+    { from: 8, every: 20, lane: "fast", make: scatteredBlackBlock },
+    { from: 9, every: 8, lane: "fast", make: redBlock },
+    { from: 10, to: 10, every: 8, lane: "fast", make: redBlock },
+    { from: 10, to: 10, every: 200, lane: "slow", make: function () { return heightScaledBlock(1 / 4, "red"); } },
+    { from: 11, every: 200, lane: "medium", make: blackOblong },
+    { from: 12, every: 20, lane: "medium", make: blackOblong },
+    { from: 13, every: 20, lane: "fast", make: redBlock },
+    { from: 14, every: 150, lane: "slow", make: function () { return heightScaledBlock(1 / 8, "red"); } },
+    { from: 14, every: 20, lane: "fast", make: blackBlock },
+    { from: 15, every: 20, lane: "fast", make: redBlock },
+    { from: 15, every: 20, lane: "fast", make: blackBlock },
+];
+
+// level names; levels 6 and 10 have [name while no deaths yet, name after a death]; levels past 14 use the fallback
+const LEVEL_NAMES = [null, "Breath Easy", "Clear Your Mind", "Looking Inward", "Flow", "Reaching",
+    ["Seeking Perfection", "Past mistakes"], "Looking Outward", "Memory Advance", "Self Destruct",
+    ["Perfection", "Remains"], "Afterlife", "Desolation", "Rebirth", "..."];
 
 function drawLevelName() { // level name in the bottom-left corner (level 13 also draws a red bar, level 14 two black bars)
     ctx = gameArea.context;
     ctx.fillStyle = "black";
     ctx.font = "40px Arial";
-    switch (level) { // level names
-        case 1:
-            ctx.fillText("Breath Easy", 80, window.innerHeight - 60);
-                break;
-        case 2:
-            ctx.fillText("Clear Your Mind", 80, window.innerHeight - 60);
-                break;
-        case 3:
-            ctx.fillText("Looking Inward", 80, window.innerHeight - 60);
-                break;
-        case 4:
-            ctx.fillText("Flow", 80, window.innerHeight - 60);
-                break;
-        case 5:
-            ctx.fillText("Reaching", 80, window.innerHeight - 60);
-                break;
-        case 6:
-            if (deaths == 0){
-                ctx.fillText("Seeking Perfection", 80, window.innerHeight - 60);
-            } else {
-                ctx.fillText("Past mistakes", 80, window.innerHeight - 60);
-            }
-                break;
-        case 7:
-            ctx.fillText("Looking Outward", 80, window.innerHeight - 60);
-                break;
-        case 8:
-            ctx.fillText("Memory Advance", 80, window.innerHeight - 60);
-                break;
-        case 9:
-            ctx.fillText("Self Destruct", 80, window.innerHeight - 60);
-                break;
-        case 10:
-            if (deaths == 0){
-                ctx.fillText("Perfection", 80, window.innerHeight - 60);
-            } else {
-                ctx.fillText("Remains", 80, window.innerHeight - 60);
-            }
-                break;
-        case 11:
-            ctx.fillText("Afterlife", 80, window.innerHeight - 60);
-                break;
-        case 12:
-            ctx.fillText("Desolation", 80, window.innerHeight - 60);
-                break;
-        case 13:
-            ctx.fillStyle = "red";
-            ctx.fillRect(900, 0, 100, window.innerHeight);
-            ctx.fillStyle = "black";
-            ctx.fillText("Rebirth", 80, window.innerHeight - 60);
-                break;
-        case 14:
-            ctx.fillRect(900, 0, 100, window.innerHeight);
-            ctx.fillRect(1100, 0, 2000, window.innerHeight);
-            ctx.fillText("...", 80, window.innerHeight - 60);
-                break;
-        default:
-            ctx.fillText("How did this happen?", 80, window.innerHeight - 60);
-                break;
+    if (level == 13) {
+        ctx.fillStyle = "red";
+        ctx.fillRect(900, 0, 100, window.innerHeight);
+        ctx.fillStyle = "black";
+    } else if (level == 14) {
+        ctx.fillRect(900, 0, 100, window.innerHeight);
+        ctx.fillRect(1100, 0, 2000, window.innerHeight);
     }
+    var name = LEVEL_NAMES[level];
+    if (Array.isArray(name)) {
+        name = deaths == 0 ? name[0] : name[1];
+    }
+    ctx.fillText(name || "How did this happen?", 80, window.innerHeight - 60);
 }
 
 function drawStats() { // score, deaths and level in the top-left corner
@@ -979,7 +978,7 @@ function drawStats() { // score, deaths and level in the top-left corner
 function drawLevel() { // draw the level as it stands, without moving anything (used while paused)
     gameArea.clear();
     drawLevelName();
-    [objects_powerup_break, objects_powerup_score, objects_slow, objects_medium, objects_fast, objects_hyper].forEach(function (objects) {
+    [powerups.break, powerups.score].concat(obstacleLists()).forEach(function (objects) {
         objects.forEach(function (obj) {
             obj.update();
         });
@@ -990,7 +989,6 @@ function drawLevel() { // draw the level as it stands, without moving anything (
 
 function updateGameArea() {
     if (!pause){
-        var height, gap, minHeight, maxHeight, minGap, maxGap;
         if (!invincible && hitObstacle()) { // detect collisions
             gameOver();
             return;
@@ -1014,118 +1012,30 @@ function updateGameArea() {
 
         drawLevelName();
         // Object Spawning
-        if (everyinterval(250)) { // powerup
-            if (!focused){
-                if (Math.random() >= 0.5) { // break powerup
-                    objects_powerup_break.push(new component(15, 15, getRandomColor(), gameArea.canvas.width, Math.random() * window.innerHeight));
-                } else { // score powerup
-                    objects_powerup_score.push(new component(20, 20, getRandomColorGold(), gameArea.canvas.width, Math.random() * window.innerHeight));
-                }   
-            }   
-        }
-        // every level - vertical black bars
-        if (gameArea.frameNo == 1 || everyinterval(50 / speed)) { // distance vertical bars
-            var barX = gameArea.canvas.width;
-            minHeight = 20;
-            maxHeight = window.innerHeight - 60;
-            height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
-            minGap = 85-(level*2);
-            maxGap = 125-(level*2);
-            gap = Math.floor(Math.random() * (maxGap - minGap + 1) + minGap);
-            var topBar = new component(20, height, "black", barX, 0);
-            var bottomBar = new component(20, gameArea.canvas.height - height - gap, "black", barX, height + gap);
-            // remember where the gap sits so fitObstaclesToWindow can keep it passable after a resize
-            topBar.barGap = { size: gap, top: true };
-            bottomBar.barGap = { size: gap, top: false };
-            objects_medium.push(topBar);
-            objects_medium.push(bottomBar);
-        }
-        if (level >= 2) { // level 2 - black slow moving large
-            if (gameArea.frameNo == 1 || everyinterval(100 / speed)) {
-                objects_hyper.push(heightScaledBlock(1 / 8, "black"));
+        if (everyinterval(250) && !focused) { // powerup, even odds of each kind
+            if (Math.random() >= 0.5) {
+                powerups.break.push(edgeBlock(15, 15, getRandomColor()));
+            } else {
+                powerups.score.push(edgeBlock(20, 20, getRandomColorGold()));
             }
         }
-        if (level >= 3) { // level 3 - black medium
-            if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
-                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
+        SPAWN_RULES.forEach(function (rule) {
+            if (level >= rule.from && (rule.to === undefined || level <= rule.to) && spawnDue(rule.every)) {
+                var obj = rule.make();
+                if (rule.lane) {
+                    obstacles[rule.lane].push(obj);
+                }
             }
+        });
+        if (level >= 15 && spawnDue(20)) { // level 15 keeps forcing Warp
+            setFastSpeed();
         }
-        if (level >= 4) { // level 4 - red small
-            if (gameArea.frameNo == 1 || everyinterval(20 / speed)) {
-                objects_medium.push(new component(10, 10, "red", gameArea.canvas.width, Math.random() * window.innerHeight));
-            }
-        }
-        if (level >= 5) { // level 5 - black medium
-            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
-                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width + getRandomInteger(0, 250), Math.random() * window.innerHeight));
-            }
-        }
-        if (level >= 6) { // level 6 - black medium
-            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
-                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width + getRandomInteger(0, 250), Math.random() * window.innerHeight));
-            }
-        }
-        if (level >= 7) { // level 7 - black medium
-            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
-                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width + getRandomInteger(0, 250), Math.random() * window.innerHeight));
-            }
-        }
-        if (level >= 8) { // level 8 - black medium
-            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
-                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width + getRandomInteger(0, 250), Math.random() * window.innerHeight));
-            }
-        }
-        if (level >= 9){ // level 9 - red medium
-            if (gameArea.frameNo == 1 || everyinterval((8) / speed)){
-                objects_fast.push(new component(25, 25, "red", gameArea.canvas.width, Math.random() * window.innerHeight));  
-            }
-        }
-        if (level == 10){ // level 10 - red medium, red big
-            if (gameArea.frameNo == 1 || everyinterval((8) / speed)){
-                objects_fast.push(new component(25, 25, "red", gameArea.canvas.width, Math.random() * window.innerHeight));  
-            }
-            if (gameArea.frameNo == 1 || everyinterval(200 / speed)) {
-                objects_slow.push(heightScaledBlock(1 / 4, "red"));
-            }
-        }
-        if (level >= 11){ // level 11 - nothing
-            if (gameArea.frameNo == 1 || everyinterval(200 / speed)) {
-                objects_medium.push(new component(10, 50, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
-            }
-        }
-        if (level >= 12) { // level 12 - black oblong
-            if (gameArea.frameNo == 1 || everyinterval(20 / speed)) {
-                objects_medium.push(new component(10, 50, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
-            }
-        }
-        if (level >= 13) { // level 13 - red medium
-            if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
-                objects_fast.push(new component(25, 25, "red", gameArea.canvas.width, Math.random() * window.innerHeight));
-            }
-        }
-        if (level >= 14){ // level 14 - red big, black medium
-            if (gameArea.frameNo == 1 || everyinterval(150 / speed)) {
-                objects_slow.push(heightScaledBlock(1 / 8, "red"));
-            } 
-            if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
-                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
-            }
-        }    
-        if (level >= 15) { // level 15 - red medium,  black medium
-            if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
-                objects_fast.push(new component(25, 25, "red", gameArea.canvas.width, Math.random() * window.innerHeight));
-                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
-                setFastSpeed();
-            }
-        }
-        
-        movePowerUps(objects_powerup_break, 3, 15, getRandomColor());
-        movePowerUps(objects_powerup_score, 3, 20, getRandomColorGold());
 
-        moveObstacles(objects_slow, 1);
-        moveObstacles(objects_medium, 2);
-        moveObstacles(objects_fast, 4);
-        moveObstacles(objects_hyper, 5);
+        moveObjects(powerups.break, 3, getRandomColor());
+        moveObjects(powerups.score, 3, getRandomColorGold());
+        for (var lane in OBSTACLE_SPEEDS) {
+            moveObjects(obstacles[lane], OBSTACLE_SPEEDS[lane]);
+        }
         
         if (gameArea.x !== undefined && movePiece(gameArea.x - gamePiece.width / 2, gameArea.y - gamePiece.height / 2)) { // center the hitbox on the cursor
             gameOver();
@@ -1208,70 +1118,14 @@ function getRandomColor() {  // generate a random color
     return color;
 }
 
-function getRandomColorGold() {
-  // Define the range of shades for gold color
-  var minHue = 25; // Minimum hue value for gold color in degrees (corresponds to yellow)
-  var maxHue = 100; // Maximum hue value for gold color in degrees
-  var saturation = 100; // Saturation value for gold color
-  var lightness = 50; // Lightness value for gold color
-
-  // Generate a random hue within the specified range
-  var hue = Math.floor(Math.random() * (maxHue - minHue + 1)) + minHue;
-
-  // Convert the HSL color to RGB
-  var hslToRgb = function (h, s, l) {
-    h /= 360;
-    s /= 100;
-    l /= 100;
-    var r, g, b;
-
-    if (s === 0) {
-      r = g = b = l;
-    } else {
-      var hueToRgb = function (p, q, t) {
+function getRandomColorGold() { // random bright color from orange to yellow-green (hue 25-100), as #rrggbb
+    var hue = (Math.floor(Math.random() * 76) + 25) / 360;
+    var channel = function (t) { // HSL at 100% saturation and 50% lightness: a trapezoid wave around the hue circle
         if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1 / 6) return p + (q - p) * 6 * t;
-        if (t < 1 / 2) return q;
-        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-        return p;
-      };
-
-      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      var p = 2 * l - q;
-
-      r = hueToRgb(p, q, h + 1 / 3);
-      g = hueToRgb(p, q, h);
-      b = hueToRgb(p, q, h - 1 / 3);
-    }
-
-    return {
-      r: Math.round(r * 255),
-      g: Math.round(g * 255),
-      b: Math.round(b * 255),
+        var v = t < 1 / 6 ? 6 * t : t < 1 / 2 ? 1 : t < 2 / 3 ? (2 / 3 - t) * 6 : 0;
+        return ("0" + Math.round(v * 255).toString(16)).slice(-2);
     };
-  };
-
-  // Convert HSL to RGB
-  var color = hslToRgb(hue, saturation, lightness);
-
-  // Convert RGB to hex notation
-  var rgbToHex = function (r, g, b) {
-    var componentToHex = function (component) {
-      var hex = component.toString(16);
-      return hex.length === 1 ? "0" + hex : hex;
-    };
-
-    return (
-      "#" +
-      componentToHex(r) +
-      componentToHex(g) +
-      componentToHex(b)
-    );
-  };
-
-  // Return the hex color as a string
-  return rgbToHex(color.r, color.g, color.b);
+    return "#" + channel(hue + 1 / 3) + channel(hue) + channel(hue - 1 / 3);
 }
 
 function getRandomInteger(min, max) {
