@@ -131,7 +131,6 @@ var ctx;
 var gamePiece;
 var gamePieceColor = "blue";
 var sloganText = "";
-var deathSlogan = "";
 var sloganY = 120;
 var sloganX = 100;
 
@@ -333,11 +332,9 @@ function drawStartScreen() { // draw the start screen
     ctx.globalAlpha = 1.0;
     ctx.font = "40px Arial";
     ctx.fillStyle = "#00FFFF";
-    ctx.fillRect(0,34, window.innerWidth, 30);
-    ctx.fillRect(0,window.innerHeight - 66, window.innerWidth, 30);
+    drawBanners(34, 30);
     ctx.fillStyle = "#ff00ff";
-    ctx.fillRect(0,40, window.innerWidth, 20);
-    ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
+    drawBanners(40, 20);
     ctx.fillStyle = "black";
     ctx.globalAlpha = 0.7;
     ctx.fillRect(0,y - 40, x, 2);
@@ -453,8 +450,7 @@ function gameOver() { // the level was cleared or the player died
             ctx.fillStyle = "Black";
             ctx.fillText("Victory is a state of mind", x / 2 - 350, y / 2 - 175);
             ctx.fillText("勝利は心の状態です", x / 2 - 275, y / 2 - 75);
-            ctx.fillRect(0,40, window.innerWidth, 20);
-            ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
+            drawBanners(40, 20);
             wait(5000);
         } else if (level == 9){
             setMusicVolume(0.0);
@@ -464,8 +460,7 @@ function gameOver() { // the level was cleared or the player died
                 ctx.fillText("WARNING 警告", (x / 2 - 300)+count, (y / 2 - 175)+count);
                 ctx.fillText("多数の敵が接近する", (x / 2 - 400)+count, (y / 2 - 75)+count);
             }            
-            ctx.fillRect(0,40, window.innerWidth, 30);
-            ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
+            drawBanners(40, 30);
             wait(3500);
         } else if (deaths == 0) { // perfect clear
             playSound(aud_menuSound);
@@ -478,8 +473,7 @@ function gameOver() { // the level was cleared or the player died
             for (let count = 0; count < 3; count++){
                 ctx.fillText("+ Perfect 完全 +", (x / 2 - 200)+count, (y / 2 - 175)+count);
             }  
-            ctx.fillRect(0,40, window.innerWidth, 20);
-            ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
+            drawBanners(40, 20);
             wait(3000);
         } else { // normal clear
             ctx.fillText("Enemies Approaching", x / 2 - 300, y / 2 - 175);
@@ -491,16 +485,9 @@ function gameOver() { // the level was cleared or the player died
         deaths += 1; 
         playSound(aud_death);
         ctx.fillText("Score: " + score, x / 2 - 200, y / 2 - 75);
-        switch (score) { // death slogans
-            case 69:deathSlogan = "😂";break;
-            case 420:deathSlogan = "blaze it";break;
-            case 666:deathSlogan = "😈";break;
-            case 911:deathSlogan = "TOO SOON";break;
-            case 999:deathSlogan = "TOO HARD";break;
-            default: deathSlogan = "";break;
-        }
-        if (deathSlogan != ""){
-            ctx.fillText(deathSlogan, x / 2 -150, y / 2 +25);  
+        var deathSlogan = { 69: "😂", 420: "blaze it", 666: "😈", 911: "TOO SOON", 999: "TOO HARD" }[score]; // special scores
+        if (deathSlogan) {
+            ctx.fillText(deathSlogan, x / 2 -150, y / 2 +25);
         }
         if (score >= 900) {
             ctx.fillText("So Close", x / 2 - 200, y / 2 - 175);
@@ -970,12 +957,18 @@ function drawLevelName() { // level name in the bottom-left corner (level 13 als
     ctx.fillText(name || "How did this happen?", 80, window.innerHeight - 60);
 }
 
-function drawStats() { // score, deaths and level in the top-left corner
-    ctx.fillStyle = "black"; // color
+function drawStats(color, scoreColor) { // deaths, level and score in the top-left corner; the score can have its own color
     ctx.font = "40px Arial";
-    ctx.fillText(score, 50, 100); // show score
+    ctx.fillStyle = color;
     ctx.fillText(deaths, 50, 200); // show deaths
     ctx.fillText("Level " + level, 50, 300); // show level
+    ctx.fillStyle = scoreColor || color;
+    ctx.fillText(score, 50, 100); // show score
+}
+
+function drawBanners(top, thickness) { // matching stripes across the top and bottom of the screen, in the current fill style
+    ctx.fillRect(0, top, window.innerWidth, thickness);
+    ctx.fillRect(0, window.innerHeight - 100 + top, window.innerWidth, thickness);
 }
 
 function drawLevel() { // draw the level as it stands, without moving anything (used while paused)
@@ -987,7 +980,7 @@ function drawLevel() { // draw the level as it stands, without moving anything (
         });
     });
     gamePiece.update();
-    drawStats();
+    drawStats("black");
 }
 
 function updateGameArea() {
@@ -1045,21 +1038,17 @@ function updateGameArea() {
             return;
         }
         if (invincible) { // BREAK
-            ctx.fillStyle = getRandomColor();
+            var flash = getRandomColor();
+            ctx.fillStyle = flash;
             ctx.globalAlpha = 0.75;
             ctx.font = "60px Arial";
             ctx.fillText("BREAK! 壊れる", 200, 200);
-            ctx.fillRect(0,40, window.innerWidth, 20);
-            ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
-            ctx.font = "40px Arial";
+            drawBanners(40, 20);
             ctx.globalAlpha = 0.8;
-            ctx.fillText(deaths, 50, 200); // show deaths
-            ctx.fillText("Level " + level, 50, 300); // show level
-            ctx.fillStyle = "red"; // color
-            ctx.fillText(score, 50, 100);
+            drawStats(flash, "red");
             ctx.globalAlpha = 1.0;
         } else {
-            drawStats();
+            drawStats("black");
         }
         if (speed == 1) {
             if (gameArea.frameNo % 2 == 0){
@@ -1067,8 +1056,7 @@ function updateGameArea() {
             }
         } else if (speed == speed_slow) { // FOCUS
             ctx.globalAlpha = 0.75;
-            ctx.fillRect(0,40, window.innerWidth, 30);
-            ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
+            drawBanners(40, 30);
             ctx.fillStyle = "red";
             ctx.font = "60px Arial";
             ctx.fillText("FOCUS! 焦点", 200, 200);
@@ -1079,8 +1067,7 @@ function updateGameArea() {
             playSound(aud_danger);
             ctx.fillStyle = "red";
             ctx.globalAlpha = 0.8;
-            ctx.fillRect(0,40, window.innerWidth, 30);
-            ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
+            drawBanners(40, 30);
             ctx.globalAlpha = 1.0;
             ctx.font = "60px Arial";
             if (everyinterval(1)) {
