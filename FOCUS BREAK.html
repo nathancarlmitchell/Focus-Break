@@ -354,7 +354,11 @@ function windowResize() {
                 setPause(true); // the device was turned: give the player a moment
             }
             // keep the square on the new screen (otherwise it would sweep back through obstacles it can't see) and steer from there
-            var cx = Math.max(0, Math.min(gamePiece.x + gamePiece.width / 2, gameArea.canvas.width));
+            var cx = gamePiece.x + gamePiece.width / 2;
+            if (cx > gameArea.canvas.width) { // off the right edge: put it a little inside, not in the column where obstacles come in
+                cx = gameArea.canvas.width - gamePiece.width / 2 - 40;
+            }
+            cx = Math.max(0, cx);
             var cy = Math.max(0, Math.min(gamePiece.y + gamePiece.height / 2, gameArea.canvas.height));
             moved = cx != gamePiece.x + gamePiece.width / 2 || cy != gamePiece.y + gamePiece.height / 2;
             gamePiece.x = cx - gamePiece.width / 2;
