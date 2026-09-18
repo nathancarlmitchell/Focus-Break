@@ -1063,7 +1063,9 @@ function updateGameArea() {
             }
         });
         if (level >= 15 && spawnDue(20)) { // level 15 keeps forcing Warp
+            var speedBefore = speed;
             setFastSpeed();
+            gameArea.spawnClock += speed - speedBefore; // this step's objects move at the new speed; keep the spawn clock in step
         }
 
         moveObjects(powerups.break, 3, getRandomColor());
