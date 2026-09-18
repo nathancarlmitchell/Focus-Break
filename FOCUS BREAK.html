@@ -568,6 +568,18 @@ function pressPower(input, activate) { // a power key or button went down: remem
     }
 }
 
+function keyName(e) { // the game key pressed: "p", "r", " " (space), "Shift", "Control", or something else
+    var key = e.key === "Spacebar" ? " " : e.key; // old Edge/IE called space "Spacebar"
+    if (key && key.length == 1 && /[a-z ]/i.test(key)) {
+        return key.toLowerCase(); // letters as typed, so Shift+P or Caps Lock still works
+    }
+    if (key && key.length > 1 && key != "Unidentified") {
+        return key;
+    }
+    // no usable e.key: an older browser, a non-Latin keyboard layout, or a tool that leaves it empty
+    return { 16: "Shift", 17: "Control", 32: " ", 80: "p", 82: "r" }[e.keyCode] || key;
+}
+
 function tryBreak() { // Space or middle click
     if (canAct()) {
         setBreak(scorePenalty);
@@ -650,33 +662,34 @@ var gameArea = {
             setPause(true); // don't keep playing while the player is away
         });
         window.addEventListener('keydown', function (e) {
+            var key = keyName(e);
             if (alive && e.ctrlKey) {
                 e.preventDefault(); // block browser shortcuts while holding CTRL to warp
             }
-            if (e.keyCode == 82 && runFinished && !e.repeat && !e.ctrlKey && !e.metaKey) { // R = play again (Ctrl+R still reloads)
+            if (key == "r" && runFinished && !e.repeat && !e.ctrlKey && !e.metaKey) { // R = play again (Ctrl+R still reloads)
                 restartRun();
             }
-            if (e.keyCode == 80) { // P
+            if (key == "p") { // P
                 e.preventDefault();
                 if (!e.repeat) { // holding P shouldn't flip pause on every key repeat
                     setPause(!pause);
                 }
             }
-            if (e.keyCode == 32) { // SPACEBAR = BREAK
+            if (key == " ") { // SPACEBAR = BREAK
                 e.preventDefault();
                 tryBreak();
             }
-            if (e.keyCode == 16) { // SHIFT = FOCUS
+            if (key == "Shift") { // SHIFT = FOCUS
                 e.preventDefault();
                 pressPower("shift", setSlowSpeed);
             }
-            if (e.keyCode == 17) { // CTRL = WARP
+            if (key == "Control") { // CTRL = WARP
                 e.preventDefault();
                 pressPower("ctrl", setFastSpeed);
             }
         });
         window.addEventListener('keyup', function (e) {
-            var released = { 16: "shift", 17: "ctrl" }[e.keyCode];
+            var released = { Shift: "shift", Control: "ctrl" }[keyName(e)];
             if (released) {
                 held[released] = false;
                 applyHeldSpeed(); // fall back to any power still held
