@@ -2,10 +2,13 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
     <style>
         html, body { margin: 0; padding: 0; overflow: hidden; } /* canvas fills the window so page and canvas coordinates match */
         canvas { display: block; }
+        /* touch play: no scrolling, pull-to-refresh, zooming, text selection, long-press menu or tap highlight */
+        html, body, canvas { touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none;
+            -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
     </style>
 </head>
 <body onload="onLoad()" onresize="windowResize()" oncontextmenu="return false;">
@@ -59,16 +62,34 @@ var LAYOUT_W = 1280;
 var LAYOUT_H = 800;
 
 // start-screen buttons, relative to the center of the layout; used for drawing, hover and clicks
+// `touch` is the bigger layout used for touch play (labels centered in the boxes)
 const START_BUTTONS = {
-    start: { dx: -410, dy: -32, w: 220, h: 44, hitH: 46 }, // clickable area is 2px taller than the drawn box
+    start: { dx: -410, dy: -32, w: 220, h: 44, hitH: 46, // clickable area is 2px taller than the drawn box
+        touch: { dx: -450, dy: -60, w: 400, h: 150 } },
     break: { dx: 0, dy: 0, w: 272, h: 40, label: "Space to Break", ty: 38,
-        help: "SPACEBAR or MIDDLE MOUSE BUTTON = BREAK - Become invincible briefly.  Lose score, emergency use only!" },
+        help: "SPACEBAR or MIDDLE MOUSE BUTTON = BREAK - Become invincible briefly.  Lose score, emergency use only!",
+        touch: { dx: 60, dy: -150, w: 420, h: 110 }, touchLabel: "Tap to Break",
+        touchHelp: "BREAK button (tap) = Become invincible briefly.  Lose 250 score, emergency use only!  Drag anywhere to steer." },
     focus: { dx: 0, dy: 60, w: 272, h: 40, label: "Shift to Focus", ty: 100,
-        help: "SHIFT or LEFT MOUSE BUTTON = FOCUS - Slows time and decrease hitbox size.  Earn no score, use in a tight spot." },
+        help: "SHIFT or LEFT MOUSE BUTTON = FOCUS - Slows time and decrease hitbox size.  Earn no score, use in a tight spot.",
+        touch: { dx: 60, dy: -20, w: 420, h: 110 }, touchLabel: "Hold to Focus",
+        touchHelp: "FOCUS button (hold) = Slows time and shrinks your hitbox.  Earn no score, use in a tight spot.  Drag anywhere to steer." },
     warp: { dx: 0, dy: 120, w: 272, h: 40, label: "Click to warp", ty: 160,
-        help: "CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman." },
+        help: "CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.",
+        touch: { dx: 60, dy: 110, w: 420, h: 110 }, touchLabel: "Hold to Warp",
+        touchHelp: "WARP button (hold) = Speeds up time.  Earn double score, you madman.  Drag anywhere to steer." },
 };
-var hoveredButton = ""; // start-screen button under the mouse
+var hoveredButton = ""; // start-screen button under the mouse (or finger)
+
+function startLayout() { // "classic" (the original mouse layout) or "touch" (bigger, centered buttons)
+    return inputMode == "touch" ? "touch" : "classic";
+}
+
+function geom(name) { // a start-screen button's rectangle in the current layout
+    var b = START_BUTTONS[name];
+    var style = startLayout();
+    return style == "classic" ? b : b[style];
+}
 
 // start screen animation, stopped when the game starts (same-delay timers run in creation order)
 const startScreenIntervals = [
@@ -183,7 +204,7 @@ function buttonAt(px, py) { // name of the start-screen button at a window point
     var lx = (px - f.x) / f.scale; // the point in layout coordinates
     var ly = (py - f.y) / f.scale;
     for (var name in START_BUTTONS) {
-        var b = START_BUTTONS[name];
+        var b = geom(name);
         var left = LAYOUT_W / 2 + b.dx;
         var top = LAYOUT_H / 2 + b.dy;
         if (lx > left && lx < left + b.w && ly > top && ly < top + (b.hitH || b.h)) {
@@ -195,12 +216,49 @@ function buttonAt(px, py) { // name of the start-screen button at a window point
 
 function mouseMove(event) { // highlight the start-screen button under the mouse
     if (!gameStart) {
-        var hovered = buttonAt(event.clientX, event.clientY);
-        if (hovered != hoveredButton) { // only one button highlighted at a time
-            drawStartScreen(); // erase the old highlight
-            hoveredButton = hovered;
-        }
+        setHovered(buttonAt(event.clientX, event.clientY));
     }
+}
+
+function setHovered(name) { // highlight one start-screen button (or none)
+    if (name != hoveredButton) { // only one button highlighted at a time
+        drawStartScreen(); // erase the old highlight
+        hoveredButton = name;
+    }
+}
+
+function drawStartButtonText(b) { // the START button's label, in the current fill style
+    var cx = LAYOUT_W / 2;
+    var cy = LAYOUT_H / 2;
+    if (startLayout() == "classic") {
+        ctx.font = "25px Arial";
+        ctx.fillText("CLICK TO START", cx - 400, cy);
+        return;
+    }
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.font = "44px Arial";
+    ctx.fillText("TAP TO START", cx + b.dx + b.w / 2, cy + b.dy + b.h * 0.45);
+    ctx.font = "28px Arial";
+    ctx.fillText("タップして開始", cx + b.dx + b.w / 2, cy + b.dy + b.h * 0.8);
+    ctx.restore();
+}
+
+function drawControlLabel(name) { // a control button's label, in the current fill style
+    var b = START_BUTTONS[name];
+    var cx = LAYOUT_W / 2;
+    var cy = LAYOUT_H / 2;
+    if (startLayout() == "classic") {
+        ctx.font = "40px Impact";
+        ctx.fillText(b.label, cx + b.dx, cy + b.ty);
+        return;
+    }
+    var g = geom(name);
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.font = "48px Impact";
+    ctx.fillText(b.touchLabel, cx + g.dx + g.w / 2, cy + g.dy + g.h / 2 + 17);
+    ctx.restore();
 }
 
 function drawTitle(shadowColor, passes) { // FOCUS BREAK title: stacked shadow copies, then magenta on top
@@ -222,18 +280,17 @@ function focus_break_colors(){ // Flashing colors on start screen
 }
 
 function click_to_start_colors(){ // Flashing colors on start screen
-    if (hoveredButton == "start") {
-        var b = START_BUTTONS.start;
+    if (hoveredButton == "start" || (inputMode == "touch" && !hoveredButton)) { // in touch play START always flashes
+        var b = geom("start");
         ctx.globalAlpha = 0.35;
         ctx.fillStyle = getRandomColorGold();
         var i_x = getRandomInteger(-1, 1);
         var i_y = getRandomInteger(-1, 1);
         useLayout();
         ctx.fillRect(LAYOUT_W / 2 + b.dx + i_x, LAYOUT_H / 2 + b.dy + i_y, b.w + i_x, b.h + i_y);
-        ctx.font = "25px Arial";
         ctx.globalAlpha = 1.0;
         ctx.fillStyle = "black";
-        ctx.fillText("CLICK TO START", LAYOUT_W / 2 - 400, LAYOUT_H / 2);
+        drawStartButtonText(b);
         useWindow();
     }
 }
@@ -243,13 +300,13 @@ function highlightControl() { // Flashing colors on the hovered control button (
     if (!b || !b.help) {
         return;
     }
+    var g = geom(hoveredButton);
     useLayout();
     ctx.fillStyle = "#000000";
-    ctx.fillRect(LAYOUT_W / 2 + b.dx, LAYOUT_H / 2 + b.dy, b.w, b.h);
-    ctx.font = "40px Impact";
+    ctx.fillRect(LAYOUT_W / 2 + g.dx, LAYOUT_H / 2 + g.dy, g.w, g.h);
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = getRandomColor();
-    ctx.fillText(b.label, LAYOUT_W / 2 + b.dx, LAYOUT_H / 2 + b.ty);
+    drawControlLabel(hoveredButton);
     ctx.globalAlpha = 1.0;
     useWindow();
 }
@@ -280,6 +337,7 @@ function copyCanvas() { // copy of what's on screen, or null if the canvas has n
 }
 
 function windowResize() {
+    var wasPortrait = gameArea.canvas.height > gameArea.canvas.width;
     x = window.innerWidth;
     y = window.innerHeight;
     // resizing clears the canvas; keep what's shown between levels, e.g. a level transition message.
@@ -289,6 +347,15 @@ function windowResize() {
     }
     gameArea.load();
     if (alive) {
+        if (inputMode == "touch") {
+            if (wasPortrait != gameArea.canvas.height > gameArea.canvas.width) {
+                setPause(true); // the device was turned: give the player a moment
+            }
+            if (gameArea.x !== undefined) { // keep the steering target on the new screen
+                gameArea.x = Math.min(gameArea.x, gameArea.canvas.width);
+                gameArea.y = Math.min(gameArea.y, gameArea.canvas.height);
+            }
+        }
         fitObstaclesToWindow();
         if (pause) { // nothing redraws while paused, so draw the refitted level and the panel once
             drawLevel();
@@ -315,26 +382,30 @@ function drawStartScreen() { // draw the start screen
     useLayout();
     drawTitle("#00FFFF", 10);
 
-    // start button
-    ctx.font = "25px Arial";
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = "gray";
-    var start = START_BUTTONS.start;
-    ctx.fillRect(cx + start.dx, cy + start.dy, start.w, start.h);
-    ctx.globalAlpha = 1.0;
-    ctx.fillStyle = "black";
-    ctx.fillText("CLICK TO START", cx - 400, cy);
-    ctx.fillRect(cx - 450, cy + 25, 300, 2);
-    ctx.fillText("クリックして開始", cx - 400, cy + 65);
+    if (startLayout() == "classic") {
+        // start button
+        ctx.font = "25px Arial";
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = "gray";
+        var start = START_BUTTONS.start;
+        ctx.fillRect(cx + start.dx, cy + start.dy, start.w, start.h);
+        ctx.globalAlpha = 1.0;
+        ctx.fillStyle = "black";
+        ctx.fillText("CLICK TO START", cx - 400, cy);
+        ctx.fillRect(cx - 450, cy + 25, 300, 2);
+        ctx.fillText("クリックして開始", cx - 400, cy + 65);
 
-    // controls: all boxes, then all labels
-    var controls = [START_BUTTONS.break, START_BUTTONS.focus, START_BUTTONS.warp];
-    ctx.fillStyle = "#00FFFF";
-    controls.forEach(function (b) { ctx.fillRect(cx + b.dx, cy + b.dy, b.w, b.h); });
-    ctx.font = "40px Impact";
-    ctx.fillStyle = "#ff00ff";
-    ctx.globalAlpha = 0.5;
-    controls.forEach(function (b) { ctx.fillText(b.label, cx + b.dx, cy + b.ty); });
+        // controls: all boxes, then all labels
+        var controls = [START_BUTTONS.break, START_BUTTONS.focus, START_BUTTONS.warp];
+        ctx.fillStyle = "#00FFFF";
+        controls.forEach(function (b) { ctx.fillRect(cx + b.dx, cy + b.dy, b.w, b.h); });
+        ctx.font = "40px Impact";
+        ctx.fillStyle = "#ff00ff";
+        ctx.globalAlpha = 0.5;
+        controls.forEach(function (b) { ctx.fillText(b.label, cx + b.dx, cy + b.ty); });
+    } else {
+        drawBigStartButtons();
+    }
 
     // horizontal banners across the whole window
     useWindow();
@@ -362,20 +433,44 @@ function drawStartScreen() { // draw the start screen
         }
     }
 
-    // Options
-    var boxX = 256;
-    var boxY = 40;
-    var Yoffset = boxX/2;
-    ctx.fillRect(cx, (LAYOUT_H - Yoffset), boxX, boxY);
-    ctx.fillText("Options", cx, (LAYOUT_H - Yoffset));
+    // Options (not shown in the bigger touch layout)
+    if (startLayout() == "classic") {
+        var boxX = 256;
+        var boxY = 40;
+        var Yoffset = boxX/2;
+        ctx.fillRect(cx, (LAYOUT_H - Yoffset), boxX, boxY);
+        ctx.fillText("Options", cx, (LAYOUT_H - Yoffset));
 
-    ctx.fillStyle = "black";
-    ctx.fillRect((cx + (boxX / 16)), (LAYOUT_H - Yoffset + (boxY / 4)), boxX/3, boxY/2);
-    ctx.fillRect((cx + (boxX / 16)*8), (LAYOUT_H - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+        ctx.fillStyle = "black";
+        ctx.fillRect((cx + (boxX / 16)), (LAYOUT_H - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+        ctx.fillRect((cx + (boxX / 16)*8), (LAYOUT_H - Yoffset + (boxY / 4)), boxX/3, boxY/2);
 
-    ctx.fillStyle = "pink";
-    ctx.fillText("Options", (cx + (boxX / 16)), (LAYOUT_H - Yoffset + (boxY / 4))+10);
+        ctx.fillStyle = "pink";
+        ctx.fillText("Options", (cx + (boxX / 16)), (LAYOUT_H - Yoffset + (boxY / 4))+10);
+    }
     useWindow();
+}
+
+function drawBigStartButtons() { // the start screen's START and control buttons in the bigger touch layout
+    var cx = LAYOUT_W / 2;
+    var cy = LAYOUT_H / 2;
+    var start = geom("start");
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = "gray";
+    ctx.fillRect(cx + start.dx, cy + start.dy, start.w, start.h);
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = "black";
+    drawStartButtonText(start);
+    var names = ["break", "focus", "warp"];
+    ctx.fillStyle = "#00FFFF";
+    names.forEach(function (name) { var g = geom(name); ctx.fillRect(cx + g.dx, cy + g.dy, g.w, g.h); });
+    ctx.fillStyle = "#ff00ff";
+    ctx.globalAlpha = 0.5;
+    names.forEach(drawControlLabel);
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = "black";
+    ctx.font = "28px Arial";
+    ctx.fillText("Drag anywhere to steer", 190, 540);
 }
 
 function startGame(e) {
@@ -396,6 +491,25 @@ function startGame(e) {
         setPause(true);
     }
     applyHeldSpeed(); // pick up a power held through the level transition (does nothing while paused)
+}
+
+function startTouchGame() { // start from a tap: the square starts at the left middle, and sounds are unlocked in this tap
+    [aud_bomb, aud_menuSound, aud_death, aud_danger, aud_powerUp, aud_pickupCoin].forEach(function (sound) {
+        // mobile browsers only let a sound play later if it was first played during a tap
+        sound.muted = true;
+        var playing = sound.play();
+        var reset = function () { sound.pause(); sound.currentTime = 0; sound.muted = false; };
+        if (playing) {
+            playing.then(reset, function () { sound.muted = false; });
+        } else {
+            reset();
+        }
+    });
+    var startX = gameArea.canvas.width * 0.25;
+    var startY = gameArea.canvas.height * 0.5;
+    startGame({ pageX: startX, pageY: startY });
+    gameArea.x = startX; // the steering target starts on the square
+    gameArea.y = startY;
 }
 
 function wait(time) {
@@ -452,8 +566,13 @@ function gameOver() { // the level was cleared or the player died
                 centerText(deaths + " mistakes", -350, -87);
             }
             ctx.fillStyle = "black";
-            ctx.font = "30px Arial";
-            centerText("Click or press R to play again", -350, 87);
+            if (inputMode == "touch") {
+                ctx.font = "40px Arial";
+                centerText("Tap to play again", -350, 87);
+            } else {
+                ctx.font = "30px Arial";
+                centerText("Click or press R to play again", -350, 87);
+            }
             runFinished = true;
             finishTime = Date.now();
             restartArmed = false; // a click already in progress (e.g. held for Focus) shouldn't restart
@@ -549,8 +668,16 @@ function setBreak(penalty){
     }
 }
 
-// power inputs currently held down, so releasing one can fall back to another
-var held = { shift: false, ctrl: false, lmb: false, rmb: false };
+// power inputs currently held down, so releasing one can fall back to another (tfocus/twarp: the touch buttons)
+var held = { shift: false, ctrl: false, lmb: false, rmb: false, tfocus: false, twarp: false };
+
+// Input: the mouse (with keyboard) or touch. inputMode follows the last real input and picks the labels and controls.
+var inputMode = (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ? "touch" : "mouse";
+var lastTouchTime = 0; // when the last touch event arrived; mouse events a browser makes up after a touch are ignored
+var activeTouches = 0; // fingers down
+var TOUCH_GAIN = 1.25; // touch steering: the square moves 1.25px for each px the steering finger moves
+var touch = { steerId: null, lastX: 0, lastY: 0, roles: {}, order: 0 }; // what each finger is doing, and which one steers
+var resumeTimer = null; // the 3-2-1 countdown after a touch resume
 
 function canAct() { // powers only work while playing and unpaused
     return alive && !pause;
@@ -560,6 +687,7 @@ function setPause(paused) { // pause or resume play; only while alive
     if (!alive || paused == pause) {
         return;
     }
+    cancelResume();
     pause = paused;
     gameArea.canvas.style.cursor = pause ? "default" : "none"; // let the player line the cursor back up with their square
     if (pause) {
@@ -584,7 +712,48 @@ function setPause(paused) { // pause or resume play; only while alive
     }
 }
 
-function drawPauseScreen() { // drawn once over the frozen frame
+function releaseAll() { // the player went away (window blur, app switch, a system gesture): let go of everything and pause
+    held.shift = held.ctrl = held.lmb = held.rmb = held.tfocus = held.twarp = false;
+    touch.roles = {};
+    touch.steerId = null;
+    cancelResume();
+    applyHeldSpeed();
+    setPause(true);
+}
+
+function cancelResume() { // stop a touch resume countdown
+    if (resumeTimer) {
+        clearTimeout(resumeTimer);
+        resumeTimer = null;
+    }
+}
+
+function startResumeCountdown() { // touch resume: 3, 2, 1 (400ms each), so the player can put their thumbs down first
+    if (resumeTimer || !pause || !alive) {
+        return;
+    }
+    var n = 3;
+    var beat = function () {
+        resumeTimer = null;
+        if (!pause || !alive) {
+            return;
+        }
+        if (n == 0) {
+            setPause(false);
+            return;
+        }
+        drawPauseScreen(n);
+        n -= 1;
+        resumeTimer = setTimeout(beat, 400);
+    };
+    beat();
+}
+
+function drawPauseScreen(countdown) { // drawn once over the frozen frame; countdown is the touch resume's 3-2-1
+    if (inputMode == "touch") {
+        drawTouchPauseScreen(countdown);
+        return;
+    }
     useLayout();
     var centerX = LAYOUT_W / 2;
     var centerY = LAYOUT_H / 2;
@@ -605,13 +774,40 @@ function drawPauseScreen() { // drawn once over the frozen frame
     useWindow();
 }
 
+function drawTouchPauseScreen(countdown) { // touch play: tap anywhere to resume (steering is relative, so nothing to line up)
+    drawLevel(); // a clean frame under the panel: no hint or power message left over from the last one
+    useLayout();
+    var centerX = LAYOUT_W / 2;
+    var centerY = LAYOUT_H / 2;
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "white";
+    ctx.fillRect(centerX - 280, centerY - 120, 560, 240);
+    ctx.globalAlpha = 1.0;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "red";
+    if (countdown) {
+        ctx.font = "140px Arial";
+        ctx.fillText(countdown, centerX, centerY + 50);
+    } else {
+        ctx.font = "72px Arial";
+        ctx.fillText("PAUSED", centerX, centerY - 20);
+        ctx.fillStyle = "black";
+        ctx.font = "40px Arial";
+        ctx.fillText("TAP TO RESUME", centerX, centerY + 40);
+        ctx.font = "24px Arial";
+        ctx.fillText("Your square stays put. Drag to steer.", centerX, centerY + 85);
+    }
+    ctx.textAlign = "start";
+    useWindow();
+}
+
 function applyHeldSpeed() { // set speed from whatever power is still held
     if (!canAct()) {
         return;
     }
-    if (held.shift || held.lmb) {
+    if (held.shift || held.lmb || held.tfocus) {
         setSlowSpeed();
-    } else if (held.ctrl || held.rmb) {
+    } else if (held.ctrl || held.rmb || held.twarp) {
         setFastSpeed();
     } else {
         resumeSpeed();
@@ -644,6 +840,280 @@ function tryBreak() { // Space or middle click
     }
 }
 
+function setInputMode(mode) { // switch between mouse and touch play, redrawing whatever shows labels or controls
+    if (mode == inputMode) {
+        return;
+    }
+    inputMode = mode;
+    if (!gameStart) {
+        drawStartScreen();
+    } else if (alive && pause) {
+        cancelResume();
+        drawLevel();
+        drawPauseScreen();
+    } else if (alive && mode == "mouse") {
+        setPause(true); // the cursor is somewhere else: pause so the player can line it up with the square
+    }
+}
+
+function touchEcho(e) { // a mouse event the browser made up after a touch
+    return Date.now() - lastTouchTime < 800 || !!(e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents);
+}
+
+function touchButtons() { // the on-screen power buttons for touch play, in window pixels (worked out from the window size)
+    var W = gameArea.canvas.width;
+    var H = gameArea.canvas.height;
+    var u = Math.min(W, H);
+    var big = Math.max(64, Math.min(96, 0.22 * u)) / 2; // radii
+    var small = Math.max(56, Math.min(80, 0.17 * u)) / 2;
+    var gap = 16;
+    var focus = { x: W - 20 - big, y: H - 24 - big, r: big }; // FOCUS in the corner, where the thumb rests
+    var brk, warp;
+    if (W >= H) { // landscape: BREAK to its left, WARP above it
+        brk = { x: focus.x - big - gap - small, y: H - 24 - small, r: small };
+        warp = { x: focus.x, y: focus.y - big - gap - small, r: small };
+    } else { // portrait: a column up the right edge, where obstacles come in
+        brk = { x: focus.x, y: focus.y - big - gap - small, r: small };
+        warp = { x: focus.x, y: brk.y - small - gap - small, r: small };
+    }
+    var pad = 14;
+    return {
+        tfocus: focus, twarp: warp, "break": brk,
+        pause: { x: W - 12 - 48, y: 12, w: 48, h: 48 },
+        box: { left: Math.min(focus.x - focus.r, brk.x - brk.r, warp.x - warp.r) - pad, top: Math.min(warp.y - warp.r, brk.y - brk.r) - pad },
+    };
+}
+
+function touchButtonAt(px, py) { // "tfocus", "twarp", "break", "pause" or "" for a touch at a window point
+    var tb = touchButtons();
+    var p = tb.pause;
+    if (px >= p.x && px <= p.x + p.w && py >= p.y && py <= p.y + p.h) {
+        return "pause";
+    }
+    if (px < tb.box.left || py < tb.box.top) {
+        return "";
+    }
+    var best = "";
+    var bestDistance = Infinity;
+    ["tfocus", "break", "twarp"].forEach(function (name) { // anywhere near the cluster counts as its nearest button
+        var d = Math.sqrt(Math.pow(px - tb[name].x, 2) + Math.pow(py - tb[name].y, 2));
+        if (d < bestDistance) {
+            bestDistance = d;
+            best = name;
+        }
+    });
+    return best;
+}
+
+function drawTouchControls() { // touch play: the power buttons and pause icon, over the obstacles and under the square
+    if (inputMode != "touch" || !alive) {
+        return;
+    }
+    var tb = touchButtons();
+    ctx.save();
+    useWindow();
+    [["tfocus", "FOCUS", "#00FFFF", held.tfocus], ["twarp", "WARP", "#ff0000", held.twarp], ["break", "BREAK", "#FFD700", false]].forEach(function (b) {
+        var c = tb[b[0]];
+        ctx.globalAlpha = b[3] ? 0.45 : (b[0] == "break" && invincible ? 0.06 : 0.15);
+        ctx.fillStyle = b[2];
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 0.9; // a white halo, then a colored ring, so the buttons show on white and on black columns
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "white";
+        ctx.stroke();
+        ctx.globalAlpha = 0.6;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = b[2];
+        ctx.stroke();
+        ctx.globalAlpha = 0.9;
+        ctx.font = "bold " + Math.round(0.4 * c.r) + "px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 3; // a white outline keeps the label readable over a black column
+        ctx.strokeStyle = "white";
+        ctx.strokeText(b[1], c.x, c.y);
+        ctx.fillStyle = "#222";
+        ctx.fillText(b[1], c.x, c.y);
+    });
+    if (invincible) { // BREAK's ring drains as the break runs out
+        var c = tb["break"];
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#FFD700";
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, 1 - invincibleTime / invincibleTimeMax));
+        ctx.stroke();
+    }
+    var p = tb.pause; // pause icon: two bars, outlined in white like the labels
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = "white";
+    ctx.fillRect(p.x + 12, p.y + 8, 11, 32);
+    ctx.fillRect(p.x + 25, p.y + 8, 11, 32);
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = "black";
+    ctx.fillRect(p.x + 14, p.y + 10, 7, 28);
+    ctx.fillRect(p.x + 27, p.y + 10, 7, 28);
+    ctx.restore();
+}
+
+function steerBy(dx, dy) { // touch steering is relative: move the square's target by the finger's movement
+    if (gameArea.x === undefined) { // no target yet: start from where the square is
+        gameArea.x = gamePiece.x + gamePiece.width / 2;
+        gameArea.y = gamePiece.y + gamePiece.height / 2;
+    }
+    gameArea.x = Math.max(0, Math.min(gameArea.canvas.width, gameArea.x + dx * TOUCH_GAIN));
+    gameArea.y = Math.max(0, Math.min(gameArea.canvas.height, gameArea.y + dy * TOUCH_GAIN));
+    setPieceSize(pieceSize());
+}
+
+function forgetTouch(id) { // a finger is gone: release its power and hand steering to the newest other steering finger
+    var info = touch.roles[id];
+    delete touch.roles[id];
+    if (!info) {
+        return null;
+    }
+    if (info.role == "tfocus" || info.role == "twarp") {
+        held[info.role] = false;
+        applyHeldSpeed();
+    }
+    if (id === touch.steerId) {
+        touch.steerId = null;
+        var next = null;
+        for (var other in touch.roles) {
+            var o = touch.roles[other];
+            if (o.role == "steer" && (!next || o.order > next.order)) {
+                next = o;
+            }
+        }
+        if (next) { // continue from where that finger is, so the square doesn't jump
+            touch.steerId = next.id;
+            touch.lastX = next.x;
+            touch.lastY = next.y;
+        }
+    }
+    return info;
+}
+
+function reconcileTouches(list) { // let go of any finger the browser no longer reports (a lost touchend)
+    var down = {};
+    for (var i = 0; i < list.length; i++) {
+        down[list[i].identifier] = true;
+    }
+    for (var id in touch.roles) {
+        if (!down[id]) {
+            forgetTouch(touch.roles[id].id);
+        }
+    }
+    activeTouches = list.length;
+}
+
+function onTouchStart(e) {
+    if (e.cancelable) {
+        e.preventDefault(); // no scrolling, zooming or made-up mouse events
+    }
+    lastTouchTime = Date.now();
+    reconcileTouches(e.touches);
+    window.focus(); // as for mouse clicks: an embedded game needs focus to receive keys and stay unpaused
+    setInputMode("touch");
+    for (var i = 0; i < e.changedTouches.length; i++) {
+        var t = e.changedTouches[i];
+        var info = { id: t.identifier, x: t.clientX, y: t.clientY, order: ++touch.order, role: "none", pausedAtStart: pause };
+        if (!gameStart) {
+            setHovered(buttonAt(t.clientX, t.clientY)); // press feedback
+        } else if (runFinished) {
+            if (Date.now() - finishTime >= 1000) {
+                restartArmed = true; // same rule as a mouse click: only a touch that starts on the finish screen, after 1s
+            }
+        } else {
+            var button = alive ? touchButtonAt(t.clientX, t.clientY) : "";
+            info.role = button || "steer"; // a finger keeps its role until it lifts, even if it slides off its button
+            if (button == "tfocus") {
+                pressPower("tfocus", setSlowSpeed);
+            } else if (button == "twarp") {
+                pressPower("twarp", setFastSpeed);
+            } else if (button == "break") {
+                tryBreak();
+            } else if (!button) { // the newest steering finger steers
+                touch.steerId = t.identifier;
+                touch.lastX = t.clientX;
+                touch.lastY = t.clientY;
+            }
+        }
+        touch.roles[t.identifier] = info;
+    }
+}
+
+function onTouchMove(e) {
+    if (e.cancelable) {
+        e.preventDefault();
+    }
+    lastTouchTime = Date.now();
+    reconcileTouches(e.touches);
+    for (var i = 0; i < e.changedTouches.length; i++) {
+        var t = e.changedTouches[i];
+        var info = touch.roles[t.identifier];
+        if (!info) {
+            continue;
+        }
+        info.x = t.clientX;
+        info.y = t.clientY;
+        if (!gameStart) {
+            setHovered(buttonAt(t.clientX, t.clientY));
+        } else if (t.identifier === touch.steerId) {
+            var dx = t.clientX - touch.lastX;
+            var dy = t.clientY - touch.lastY;
+            touch.lastX = t.clientX; // movement while paused or between levels is dropped, not saved up
+            touch.lastY = t.clientY;
+            if (alive && !pause && !resumeTimer) {
+                steerBy(dx, dy);
+            }
+        }
+    }
+}
+
+function onTouchEnd(e) { // touchend and touchcancel
+    if (e.cancelable) {
+        e.preventDefault();
+    }
+    lastTouchTime = Date.now();
+    var last = null;
+    for (var i = 0; i < e.changedTouches.length; i++) {
+        var t = e.changedTouches[i];
+        last = t;
+        var info = forgetTouch(t.identifier);
+        if (!info || e.type == "touchcancel") {
+            continue;
+        }
+        if (info.role == "pause" && !pause && touchButtonAt(t.clientX, t.clientY) == "pause") {
+            setPause(true);
+        } else if (info.pausedAtStart && pause && Date.now() - pauseStart > 300) {
+            startResumeCountdown(); // a tap anywhere resumes (after the pause has been up for a moment)
+        }
+    }
+    reconcileTouches(e.touches);
+    if (e.type == "touchcancel") {
+        if (alive) {
+            releaseAll(); // a system gesture took the touch: pause rather than let the player die
+        }
+        return;
+    }
+    if (e.touches.length === 0 && last) {
+        if (!gameStart) {
+            var button = buttonAt(last.clientX, last.clientY);
+            setHovered("");
+            if (button && button != "start") {
+                alert(START_BUTTONS[button].touchHelp);
+            } else {
+                startTouchGame(); // a tap anywhere else starts (it has to be on touchend for sound to be allowed)
+            }
+        } else if (runFinished && restartArmed) {
+            restartRun();
+        }
+    }
+}
+
 function endBreak() { // back to normal after a Break
     invincible = false;
     invincibleTime = 0;
@@ -660,7 +1130,24 @@ var gameArea = {
         }
         this.inputBound = true;
         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+        var touchOptions = { passive: false }; // so preventDefault can stop scrolling, zooming and made-up mouse events
+        this.canvas.addEventListener("touchstart", onTouchStart, touchOptions);
+        this.canvas.addEventListener("touchmove", onTouchMove, touchOptions);
+        this.canvas.addEventListener("touchend", onTouchEnd, touchOptions);
+        this.canvas.addEventListener("touchcancel", onTouchEnd, touchOptions);
+        document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, touchOptions); // iOS pinch zoom
+        document.addEventListener("gesturechange", function (e) { e.preventDefault(); }, touchOptions);
+        window.addEventListener("orientationchange", function () { setTimeout(windowResize, 300); }); // iOS can report the new size late
+        document.addEventListener("visibilitychange", function () {
+            if (document.hidden) {
+                releaseAll();
+            }
+        });
+        window.addEventListener("pagehide", releaseAll);
         window.addEventListener('click', function (e) {
+            if (touchEcho(e)) {
+                return;
+            }
             var button = gameStart ? "" : buttonAt(e.clientX, e.clientY);
             if (button == "start") {
                 startGame(e);
@@ -672,6 +1159,12 @@ var gameArea = {
         });
         window.addEventListener('mousedown', function (e) {
             e.preventDefault();
+            if (touchEcho(e)) {
+                return;
+            }
+            if (!activeTouches) {
+                setInputMode("mouse");
+            }
             window.focus(); // preventDefault stops the page taking focus when embedded in an iframe
             if (e.button == 0 && runFinished && Date.now() - finishTime >= 1000) {
                 // only a click that starts on the finish screen restarts, and not in the first second,
@@ -690,6 +1183,9 @@ var gameArea = {
         });
         window.addEventListener('mouseup', function (e) {
             e.preventDefault();
+            if (touchEcho(e)) {
+                return;
+            }
             var released = { 0: "lmb", 2: "rmb" }[e.button];
             if (released) {
                 held[released] = false;
@@ -697,6 +1193,15 @@ var gameArea = {
             applyHeldSpeed(); // fall back to any power still held (this also ends level 15's forced Warp)
         });
         window.addEventListener('mousemove', function (e) {
+            if (touchEcho(e)) {
+                return;
+            }
+            if (!activeTouches && Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0) >= 2) {
+                setInputMode("mouse"); // a real mouse moved (small jitter doesn't count)
+            }
+            if (inputMode != "mouse") {
+                return;
+            }
             mouseMove(e); // start-screen hover
             // catch buttons or keys released outside the window
             var lmb = (e.buttons & 1) != 0;
@@ -714,11 +1219,7 @@ var gameArea = {
                 setPieceSize(pieceSize());
             }
         });
-        window.addEventListener('blur', function () { // releases aren't seen while the window is unfocused
-            held.shift = held.ctrl = held.lmb = held.rmb = false;
-            applyHeldSpeed();
-            setPause(true); // don't keep playing while the player is away
-        });
+        window.addEventListener('blur', releaseAll); // releases aren't seen while the window is unfocused; don't keep playing
         window.addEventListener('keydown', function (e) {
             var key = keyName(e);
             if (alive && e.ctrlKey) {
@@ -984,7 +1485,14 @@ function drawLevelName() { // level name in the bottom-left corner (level 13 als
     }
     var s = hudScale(); // shrunk with the HUD, baseline kept just above the bottom banner
     ctx.setTransform(s, 0, 0, s, 0, window.innerHeight - 60);
-    ctx.fillText(name || "How did this happen?", 80, 0);
+    if (inputMode == "touch") { // stop short of the power buttons
+        var maxWidth = (touchButtons().box.left - 12) / s - 80;
+        if (maxWidth > 0) {
+            ctx.fillText(name || "How did this happen?", 80, 0, maxWidth);
+        }
+    } else {
+        ctx.fillText(name || "How did this happen?", 80, 0);
+    }
     useWindow();
 }
 
@@ -1018,6 +1526,7 @@ function drawLevel() { // draw the level as it stands, without moving anything (
             obj.update();
         });
     });
+    drawTouchControls();
     gamePiece.update();
     useHud();
     drawStats("black");
@@ -1080,6 +1589,7 @@ function updateGameArea() {
             gameOver();
             return;
         }
+        drawTouchControls();
         useHud(); // score, deaths, level and the power messages
         if (invincible) { // BREAK
             var flash = getRandomColor();
@@ -1122,6 +1632,11 @@ function updateGameArea() {
             ctx.fillText("+", 120, 100);
             ctx.fillText(score, 50, 100);
             score += 1;
+        }
+        if (inputMode == "touch" && level == 1 && gameArea.frameNo < 200) { // first seconds of a touch run
+            ctx.fillStyle = "black";
+            ctx.font = "30px Arial";
+            ctx.fillText("DRAG ANYWHERE TO STEER", 200, 260);
         }
         useWindow();
         gamePiece.update();
