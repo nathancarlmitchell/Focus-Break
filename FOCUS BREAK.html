@@ -43,7 +43,7 @@
         canvas { display: block; }
     </style>
 </head>
-<body onload="onLoad()" onresize="windowResize()" onmousemove="mouseMove(event)" oncontextmenu="return false;">
+<body onload="onLoad()" onresize="windowResize()" oncontextmenu="return false;">
     <audio id="audio01" src="music/Cavalier - Vol. 8 - 01 Before U Go.mp3"></audio>
     <audio id="audio02" src="music/Cavalier - Vol. 8 - 02 Reflex.mp3"></audio>
     <audio id="audio03" src="music/Cavalier - Vol. 8 - 03 Blood (feat. Fifty Grand).mp3"></audio>
@@ -123,11 +123,10 @@ function obstacleLists() { // every obstacle list, slowest lane first
 // game play variables
 var x = window.innerWidth;
 var y = window.innerHeight;
-var startDate;
+var startTime; // when the run started (ms); moved forward by time spent paused
 var pauseStart;
 var pausedSong = null; // song to resume when unpausing
 var restFrame = null; // uncropped copy of the between-levels screen, for redrawing after resizes
-var ctx;
 var gamePiece;
 var gamePieceColor = "blue";
 var sloganText = "";
@@ -216,7 +215,6 @@ function drawTitle(shadowColor, passes) { // FOCUS BREAK title: stacked shadow c
 }
 
 function focus_break_colors(){ // Flashing colors on start screen
-    ctx = gameArea.canvas.getContext("2d");
     drawTitle(getRandomColor(), 3);
 }
 
@@ -298,7 +296,6 @@ function windowResize() {
 }
 
 function drawStartScreen() { // draw the start screen
-    ctx = gameArea.canvas.getContext("2d");
     
     // clear screen
     ctx.fillStyle = "#ffffff";
@@ -371,8 +368,8 @@ function startGame(e) {
         startScreenIntervals.forEach(function (id) { clearInterval(id); });
         loadAudio();
         playSound(aud_click);
-        startDate = new Date();
-        var size = 20 - perfectClear;
+        startTime = Date.now();
+        var size = pieceSize();
         gamePiece = new component(size, size, gamePieceColor, e.pageX - size / 2, e.pageY - size / 2); // centered on the cursor
     }
     gameArea.start();
@@ -380,7 +377,6 @@ function startGame(e) {
     alive = true;
     restFrame = null; // the next transition screen gets a fresh copy
     pause = false;
-    invincible = false;
     if (!document.hasFocus()) { // player left during the level transition; wait for them
         setPause(true);
     }
@@ -399,10 +395,9 @@ function restartRun() { // after the finish screen, start a fresh run from level
     perfectClear = 0; // the hitbox shrink is earned again each run
     score = 0;
     scoreLimitReached = false;
-    startDate = new Date();
-    setPieceSize(20 - perfectClear);
-    gameArea.clear();
-    startGame();
+    startTime = Date.now();
+    setPieceSize(pieceSize());
+    startNextLevel();
 }
 
 function startNextLevel() {
@@ -413,15 +408,12 @@ function startNextLevel() {
 
 function gameOver() { // the level was cleared or the player died
     alive = false;
-    invincible = false;
-    invincibleTime = 0;
-    gamePiece.color = gamePieceColor; // a level can end mid-break
+    endBreak(); // a level can end mid-break
     resumeSpeed();
     setMusicVolume(musicVolume);
     gameArea.stop();
     gameArea.clear();
     clearObjects();
-    ctx = gameArea.canvas.getContext("2d");
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
     gameArea.canvas.style.cursor = "default";
@@ -430,9 +422,7 @@ function gameOver() { // the level was cleared or the player died
     if (levelCleared) { // Next level
         level++; 
         if (level == 16){ // true finish
-            var endDate = new Date();
-            var completionTime = endDate - startDate;
-            ctx.fillText("Time: "+millisToMinutesAndSeconds(completionTime), x / 2 - 350, y / 2);
+            ctx.fillText("Time: " + millisToMinutesAndSeconds(Date.now() - startTime), x / 2 - 350, y / 2);
             if (deaths == 0){
                 ctx.fillText("Flawless Victory", x / 2 - 350, y / 2 - 175);
             } else {
@@ -502,42 +492,40 @@ function gameOver() { // the level was cleared or the player died
     score = 0;
 }
 
-function setPieceSize(size) { // resize gamePiece around its center, which sits on the cursor
-    gamePiece.x -= (size - gamePiece.width) / 2;
-    gamePiece.y -= (size - gamePiece.height) / 2;
-    gamePiece.width = size;
-    gamePiece.height = size;
+function resizeAroundCenter(obj, size) { // make obj a size x size square with the same center
+    obj.x -= (size - obj.width) / 2;
+    obj.y -= (size - obj.height) / 2;
+    obj.width = size;
+    obj.height = size;
 }
 
-function resumeSpeed() {
-    focused = false;
+function setPieceSize(size) { // gamePiece's center sits on the cursor
+    resizeAroundCenter(gamePiece, size);
+}
+
+function pieceSize() { // hitbox size: smaller during Focus or Warp, and 1px smaller for each flawless level
+    return (focused ? 15 : 20) - perfectClear;
+}
+
+function setMode(isFocused, newSpeed, musicRate) { // normal speed, Focus or Warp
+    focused = isFocused;
     if (alive) {
-        setPieceSize(20 - perfectClear);
+        setPieceSize(pieceSize());
     }
-    speed = 1;
-    setMusicRate(1.0);
+    speed = newSpeed;
+    setMusicRate(musicRate);
 }
 
-function setSlowSpeed(){
-    focused = true;
-    setPieceSize(15 - perfectClear);
-    speed = speed_slow;
-    setMusicRate(0.75);
-}
+function resumeSpeed() { setMode(false, 1, 1.0); }
+function setSlowSpeed() { setMode(true, speed_slow, 0.75); } // FOCUS
+function setFastSpeed() { setMode(true, speed_fast, 1.2); } // WARP
 
-function setFastSpeed(){
-    focused = true;
-    setPieceSize(15 - perfectClear);
-    speed = speed_fast;
-    setMusicRate(1.2);
-}
-
-function setBreak(scorePenalty){
+function setBreak(penalty){
     if (!invincible) {
         powerups.break = []; // destroy powerups on break
         powerups.score = [];
         invincible = true;
-        score += -scorePenalty;
+        score += -penalty;
     }
 }
 
@@ -567,7 +555,7 @@ function setPause(paused) { // pause or resume play; only while alive
         });
         drawPauseScreen();
     } else { // exclude paused time from the completion timer
-        startDate = new Date(startDate.getTime() + (Date.now() - pauseStart));
+        startTime += Date.now() - pauseStart;
         if (pausedSong) {
             playSound(pausedSong);
             pausedSong = null;
@@ -577,7 +565,6 @@ function setPause(paused) { // pause or resume play; only while alive
 }
 
 function drawPauseScreen() { // drawn once over the frozen frame
-    ctx = gameArea.context;
     var centerX = gameArea.canvas.width / 2;
     var centerY = gameArea.canvas.height / 2;
     ctx.globalAlpha = 0.85;
@@ -609,17 +596,35 @@ function applyHeldSpeed() { // set speed from whatever power is still held
     }
 }
 
+function pressPower(input, activate) { // a power key or button went down: remember it, and use it now if playing
+    held[input] = true;
+    if (canAct()) {
+        activate();
+    }
+}
+
+function tryBreak() { // Space or middle click
+    if (canAct()) {
+        setBreak(scorePenalty);
+    }
+}
+
+function endBreak() { // back to normal after a Break
+    invincible = false;
+    invincibleTime = 0;
+    gamePiece.color = gamePieceColor;
+}
+
 var gameArea = {
     canvas: document.createElement("canvas"),
     load: function () {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        this.context = this.canvas.getContext("2d");
-        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
         if (this.inputBound) {
-            return; // load() re-runs on resize; only register input listeners once
+            return; // load() re-runs on resize; only insert the canvas and register input listeners once
         }
         this.inputBound = true;
+        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
         window.addEventListener('click', function (e) {
             var button = gameStart ? "" : buttonAt(e.clientX, e.clientY);
             if (button == "start") {
@@ -639,32 +644,26 @@ var gameArea = {
                 restartArmed = true;
             }
             if (e.button == 0) { // left mouse button = FOCUS
-                held.lmb = true;
-                if (canAct()) {
-                    setSlowSpeed();
-                }
+                pressPower("lmb", setSlowSpeed);
             }
             if (e.button == 2) { // right mouse button = WARP
-                held.rmb = true;
-                if (canAct()) {
-                    setFastSpeed();
-                }
+                pressPower("rmb", setFastSpeed);
             }
-            if (e.button == 1 && canAct()) { // middle mouse button = BREAK
-                setBreak(scorePenalty);
+            if (e.button == 1) { // middle mouse button = BREAK
+                tryBreak();
             }
         })
         window.addEventListener('mouseup', function (e) {
             e.preventDefault();
-            if (e.button == 0) {
-                held.lmb = false;
+            var released = { 0: "lmb", 2: "rmb" }[e.button];
+            if (released) {
+                held[released] = false;
             }
-            if (e.button == 2) {
-                held.rmb = false;
-            }
-            applyHeldSpeed(); // fall back to any power still held
+            applyHeldSpeed(); // fall back to any power still held (this also ends level 15's forced Warp)
         })
-        window.addEventListener('mousemove', function (e) { // catch buttons or keys released outside the window
+        window.addEventListener('mousemove', function (e) {
+            mouseMove(e); // start-screen hover
+            // catch buttons or keys released outside the window
             var lmb = (e.buttons & 1) != 0;
             var rmb = (e.buttons & 2) != 0;
             if (held.lmb != lmb || held.rmb != rmb || held.shift != e.shiftKey || held.ctrl != e.ctrlKey) {
@@ -673,6 +672,11 @@ var gameArea = {
                 held.shift = e.shiftKey;
                 held.ctrl = e.ctrlKey;
                 applyHeldSpeed();
+            }
+            if (gameStart) { // the square follows the cursor (movePiece moves it there each frame)
+                gameArea.x = e.pageX;
+                gameArea.y = e.pageY;
+                setPieceSize(pieceSize());
             }
         })
         window.addEventListener('blur', function () { // releases aren't seen while the window is unfocused
@@ -693,53 +697,31 @@ var gameArea = {
                     setPause(!pause);
                 }
             }
-            if (e.keyCode == 32) { // SPACEBAR
+            if (e.keyCode == 32) { // SPACEBAR = BREAK
                 e.preventDefault();
-                if (canAct()) {
-                    setBreak(scorePenalty);
-                }
+                tryBreak();
             }
-            if (e.keyCode == 16) { // SHIFT
+            if (e.keyCode == 16) { // SHIFT = FOCUS
                 e.preventDefault();
-                held.shift = true;
-                if (canAct()) {
-                    setSlowSpeed();
-                }
+                pressPower("shift", setSlowSpeed);
             }
-            if (e.keyCode == 17) { // CTRL
+            if (e.keyCode == 17) { // CTRL = WARP
                 e.preventDefault();
-                held.ctrl = true;
-                if (canAct()) {
-                    setFastSpeed();
-                }
+                pressPower("ctrl", setFastSpeed);
             }
         })
         window.addEventListener('keyup', function (e) {
-            if (e.keyCode == 16) {
-                held.shift = false;
-            }
-            if (e.keyCode == 17) {
-                held.ctrl = false;
-            }
-            if (e.keyCode == 16 || e.keyCode == 17) {
+            var released = { 16: "shift", 17: "ctrl" }[e.keyCode];
+            if (released) {
+                held[released] = false;
                 applyHeldSpeed(); // fall back to any power still held
             }
         })
     },
     start: function () {
         this.canvas.style.cursor = "none"; // hide the original cursor
-        this.context = this.canvas.getContext("2d");
         this.frameNo = 0;
         this.interval = setInterval(updateGameArea, 10); // frame rate, object speed
-        if (this.mouseBound) {
-            return; // only register the mousemove listener once
-        }
-        this.mouseBound = true;
-        window.addEventListener('mousemove', function (e) {
-            gameArea.x = e.pageX;
-            gameArea.y = e.pageY;
-            setPieceSize((focused ? 15 : 20) - perfectClear);
-        })
     },
     clear: function () {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -748,6 +730,7 @@ var gameArea = {
         clearInterval(this.interval);
     }
 }
+var ctx = gameArea.context = gameArea.canvas.getContext("2d"); // the one drawing context (resizing resets its state, not the object)
 
 function component(width, height, color, x, y) {
     this.width = width;
@@ -756,7 +739,6 @@ function component(width, height, color, x, y) {
     this.x = x;
     this.y = y;
     this.update = function () {
-        ctx = gameArea.context;
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
     }
@@ -765,28 +747,13 @@ function component(width, height, color, x, y) {
         if (otherobj.width <= 0 || otherobj.height <= 0) {
             return false; // nothing drawn (e.g. a bar squeezed off screen by a resize), so nothing to hit
         }
-        var myleft = this.x;
-        var myright = this.x + (this.width);
-        var mytop = this.y;
-        var mybottom = this.y + (this.height);
-        var otherleft = otherobj.x;
-        var otherright = otherobj.x + (otherobj.width);
-        var othertop = otherobj.y;
-        var otherbottom = otherobj.y + (otherobj.height);
-        var crash = true;
-        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
-            crash = false;
-        }
-        return crash;
+        return !(this.y + this.height < otherobj.y || this.y > otherobj.y + otherobj.height ||
+                 this.x + this.width < otherobj.x || this.x > otherobj.x + otherobj.width); // touching edges count as a hit
     }
 }
 
-function detectCollision(objects) { // detect collision between gamePiece and object group
-    for (let i = 0; i < objects.length; i += 1) {
-        if (gamePiece.crashWith(objects[i])) { // collision
-            return true;
-        }
-    }
+function detectCollision(objects) { // is gamePiece touching anything in this list
+    return objects.some(function (obj) { return gamePiece.crashWith(obj); });
 }
 
 function collectPowerUps() { // apply any powerup gamePiece is touching
@@ -852,12 +819,8 @@ function fitObstaclesToWindow() { // after a resize, refit obstacles whose size 
                     obj.height = Math.max(0, canvasHeight - obj.y);
                 }
             }
-            if (obj.heightFraction) { // resize around the block's center
-                var size = canvasHeight * obj.heightFraction;
-                obj.x -= (size - obj.width) / 2;
-                obj.y -= (size - obj.height) / 2;
-                obj.width = size;
-                obj.height = size;
+            if (obj.heightFraction) {
+                resizeAroundCenter(obj, canvasHeight * obj.heightFraction);
             }
             if (gamePiece.crashWith(obj) && !gamePiece.crashWith(before)) {
                 Object.assign(obj, before); // growing onto the square would be an unavoidable death; keep the old size
@@ -939,7 +902,6 @@ const LEVEL_NAMES = [null, "Breath Easy", "Clear Your Mind", "Looking Inward", "
     ["Perfection", "Remains"], "Afterlife", "Desolation", "Rebirth", "..."];
 
 function drawLevelName() { // level name in the bottom-left corner (level 13 also draws a red bar, level 14 two black bars)
-    ctx = gameArea.context;
     ctx.fillStyle = "black";
     ctx.font = "40px Arial";
     if (level == 13) {
@@ -1000,9 +962,7 @@ function updateGameArea() {
             invincibleTime += focused ? 2 : 1;
             gamePiece.color = getRandomColor();
             if (invincibleTime >= invincibleTimeMax) {
-                gamePiece.color = gamePieceColor;
-                invincible = false;
-                invincibleTime = 0;
+                endBreak();
             }
         }
 
