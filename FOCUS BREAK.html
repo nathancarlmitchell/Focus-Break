@@ -168,7 +168,10 @@ function loadAudio() { // on the first click: start the album, each track playin
 }
 
 function playSound(audio) { // play, ignoring failures such as blocked autoplay or a missing file
-    audio.play().catch(function () {});
+    var playing = audio.play();
+    if (playing) { // older browsers (Chrome < 50, Firefox < 53) return nothing
+        playing.catch(function () {});
+    }
 }
 
 function setMusicRate(rate) { // playback rate for all songs
