@@ -38,72 +38,75 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF8"  />
+    <style>
+        html, body { margin: 0; padding: 0; overflow: hidden; } /* canvas fills the window so page and canvas coordinates match */
+        canvas { display: block; }
+    </style>
 </head>
-<body onload="onLoad()" onresize="windowResize()" onmousemove="mouseMove()" oncontextmenu="return false;">
+<body onload="onLoad()" onresize="windowResize()" onmousemove="mouseMove(event)" oncontextmenu="return false;">
     <div id="audio">
         <!--    <iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/users/5333822&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
         iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/531718938&color=%23ff5500&auto_play=true&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
         -->
-        <iframe src="music\fx 11.wav" allow="autoplay" style="display:none" id="iframeAudio"></iframe>
         <audio id="audio01" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 01 Before U Go.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 01 Before U Go.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio02" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 02 Reflex.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 02 Reflex.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio03" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 03 Blood (feat. Fifty Grand).mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 03 Blood (feat. Fifty Grand).mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio04" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 04 Undefined.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 04 Undefined.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio05" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 05 Lay.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 05 Lay.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio06" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 06 Kitty Kat.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 06 Kitty Kat.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio07" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 07 Too Late.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 07 Too Late.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio08" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 08 Midnight (Cavalier Version).mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 08 Midnight (Cavalier Version).mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio09" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 09 Commas.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 09 Commas.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio10" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 10 Gone.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 10 Gone.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="audio11" style="visibility:hidden" >
-            <source src="music\Cavalier - Vol. 8 - 11 Love U.mp3" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Cavalier - Vol. 8 - 11 Love U.mp3" type="audio/mpeg"> Your browser does not support the audio element.
         </audio>
         <audio id="bombSFX" style="visibility:hidden">
-            <source src="music\BOMB_SIREN-BOMB_SIREN-247265934.wav" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/BOMB_SIREN-BOMB_SIREN-247265934.wav" type="audio/wav"> Your browser does not support the audio element.
         </audio>
         <audio id="fx11" style="visibility:hidden">
-            <source src="music\fx 11.wav" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Fx 11.wav" type="audio/wav"> Your browser does not support the audio element.
         </audio>
         <audio id="fx14" style="visibility:hidden">
-            <source src="music\fx 14.wav" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Fx 14.wav" type="audio/wav"> Your browser does not support the audio element.
         </audio>
         <audio id="danger" style="visibility:hidden">
-            <source src="music\72.wav" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/72.wav" type="audio/wav"> Your browser does not support the audio element.
         </audio>
         <audio id="menusound2" style="visibility:hidden">
-            <source src="music\Menu Sounds_2.wav" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/Menu Sounds_2.wav" type="audio/wav"> Your browser does not support the audio element.
         </audio>
         <audio id="fx_powerUp" style="visibility:hidden">
-            <source src="music\powerUp.wav" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/powerUp.wav" type="audio/wav"> Your browser does not support the audio element.
         </audio>
         <audio id="fx_pickupCoin" style="visibility:hidden">
-            <source src="music\pickupCoin.wav" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/pickupCoin.wav" type="audio/wav"> Your browser does not support the audio element.
         </audio>
         <audio id="fx_click" style="visibility:hidden">
-            <source src="music\click.wav" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/click.wav" type="audio/wav"> Your browser does not support the audio element.
         </audio>
         <audio id="fx_blipSelect" style="visibility:hidden">
-            <source src="music\blipSelect.wav" type="audio/mpeg"> Your browser does not support the audio element.
+            <source src="music/blipSelect.wav" type="audio/wav"> Your browser does not support the audio element.
         </audio>
     </div>
 <script>
@@ -165,6 +168,10 @@ var objects_powerup_score = [];
 var x = window.innerWidth;
 var y = window.innerHeight;
 var startDate;
+var pauseStart;
+var pausedSong = null; // song to resume when unpausing
+var restFrame = null; // uncropped copy of the between-levels screen, for redrawing after resizes
+var ctx;
 var gamePiece;
 var gamePieceColor = "blue";
 var sloganText = "";
@@ -187,6 +194,10 @@ var deaths = 0;
 var invincibleTime = 0;
 var invincibleTimeMax = 200;
 var perfectClear = 0;
+var scoreLimitReached = false; // level cleared, even if score later drops below the limit
+var runFinished = false; // level 15 cleared; the finish screen is showing
+var restartArmed = false; // a click began on the finish screen
+var finishTime = 0; // when the finish screen appeared
 var level = 1;
 var speed = 1;
 var speed_slow = 0.25;
@@ -195,58 +206,65 @@ var speed_fast = 2;
 
 function loadAudio() { 
     setAudioVolume(all_songs, musicVolume);
-    aud_01.onended = function() { aud_02.play(); };
-    aud_02.onended = function() { aud_03.play(); };
-    aud_03.onended = function() { aud_04.play(); };
-    aud_04.onended = function() { aud_05.play(); };
-    aud_05.onended = function() { aud_06.play(); };
-    aud_06.onended = function() { aud_07.play(); };
-    aud_07.onended = function() { aud_08.play(); };
-    aud_08.onended = function() { aud_09.play(); };
-    aud_09.onended = function() { aud_10.play(); };
-    aud_10.onended = function() { aud_11.play(); };
-    aud_11.onended = function() { aud_01.play(); };
+    aud_01.onended = function() { playSound(aud_02); };
+    aud_02.onended = function() { playSound(aud_03); };
+    aud_03.onended = function() { playSound(aud_04); };
+    aud_04.onended = function() { playSound(aud_05); };
+    aud_05.onended = function() { playSound(aud_06); };
+    aud_06.onended = function() { playSound(aud_07); };
+    aud_07.onended = function() { playSound(aud_08); };
+    aud_08.onended = function() { playSound(aud_09); };
+    aud_09.onended = function() { playSound(aud_10); };
+    aud_10.onended = function() { playSound(aud_11); };
+    aud_11.onended = function() { playSound(aud_01); };
     if (firstRun){
-        aud_01.play();
+        playSound(aud_01);
+    }
+}
+
+function playSound(audio) { // play, ignoring failures such as blocked autoplay or a missing file
+    var playing = audio.play();
+    if (playing) {
+        playing.catch(function () {});
     }
 }
 
 function setAudioSpeed(audio, speed) { // set audio playback rate for all songs
-    for (i = 0; i < audio.length; i += 1) {
+    for (let i = 0; i < audio.length; i += 1) {
         audio[i].playbackRate = speed;
     }
 }
 
 function setAudioVolume(audio, volume) { // set audio volume for all songs
-    for (i = 0; i < audio.length; i += 1) {
+    for (let i = 0; i < audio.length; i += 1) {
         audio[i].volume = volume;
     }   
 }
 
-function mouseMove() { // detect mouse on start screen
-    var mouseX = event.clientX - 8;
-    var mouseY = event.clientY - 8;
+function mouseMove(event) { // detect mouse on start screen
+    var mouseX = event.clientX;
+    var mouseY = event.clientY;
     if (firstRun) {
+        var hovered = "";
         if(mouseX > (x / 2) - 410 && mouseX < (x / 2) - 190 && mouseY > (y / 2) - 32 && mouseY < (y / 2) + 14) { // CLICK TO START
-            bounds_click_to_start = true;
+            hovered = "start";
         }
         else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) && mouseY < (y / 2) + 40) { // SPACE TO BREAK
-            bounds_space_to_break = true;
+            hovered = "break";
         }
         else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) + 60 && mouseY < (y / 2) + 100) { // SHIFT TO FOCUS
-            bounds_shift_to_focus = true;
+            hovered = "focus";
         }
         else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) + 120 && mouseY < (y / 2) + 160) { // CLICK TO WARP
-            bounds_click_to_warp = true;
-        } else {
-            if (bounds_click_to_start || bounds_space_to_break || bounds_shift_to_focus || bounds_click_to_warp) {
-                drawStartScreen();       
-                //bounds_click_to_start = bounds_shift_to_focus = bounds_space_to_break = bounds_click_to_warp = false;
-                bounds_click_to_start = false;
-                bounds_shift_to_focus = false;
-                bounds_space_to_break = false;
-                bounds_click_to_warp  = false;
-            }
+            hovered = "warp";
+        }
+        var current = bounds_click_to_start ? "start" : bounds_space_to_break ? "break" : bounds_shift_to_focus ? "focus" : bounds_click_to_warp ? "warp" : "";
+        if (hovered != current) { // only one button highlighted at a time
+            drawStartScreen(); // erase the old highlight
+            bounds_click_to_start = hovered == "start";
+            bounds_space_to_break = hovered == "break";
+            bounds_shift_to_focus = hovered == "focus";
+            bounds_click_to_warp  = hovered == "warp";
         }
     }
 }
@@ -256,13 +274,13 @@ function focus_break_colors(){ // Flashing colors on start screen
     ctx.fillStyle = "#ffffff";
     ctx.font = "80px Arial";
     ctx.fillStyle = getRandomColor();
-    for (count = 127; count < 130; count++){ // Bold effect
+    for (let count = 127; count < 130; count++){ // Bold effect
         ctx.fillText("FOCUS BREAK", count, count+80);
         ctx.fillText("焦点を絞る", count+100, count+180);
     }
     ctx.fillStyle = "#ff00ff";
-    ctx.fillText("FOCUS BREAK", count, count+80);
-    ctx.fillText("焦点を絞る", count+100, count+180);
+    ctx.fillText("FOCUS BREAK", 130, 210);
+    ctx.fillText("焦点を絞る", 230, 310);
 }
 
 function click_to_start_colors(){ // Flashing colors on start screen
@@ -324,10 +342,11 @@ function onLoad() {
     unloadScrollBars();
     updateSloganText();
     drawStartScreen();
+    playSound(document.getElementById("fx11")); // startup sound; browsers usually block it until the first click
 }
 
 function updateSloganText() {
-    var slogan = Math.floor(Math.random() * 18) + 1;
+    var slogan = Math.floor(Math.random() * 19) + 1;
     switch (slogan) { // slogans
         case 1:sloganText = "TOO HARD";break;
         case 2:sloganText = "Now in Color!";break;
@@ -352,10 +371,35 @@ function updateSloganText() {
     drawStartScreen();
 }
 
+function copyCanvas() { // copy of what's on screen, or null if the canvas has no size
+    if (gameArea.canvas.width == 0 || gameArea.canvas.height == 0) {
+        return null;
+    }
+    var copy = document.createElement("canvas");
+    copy.width = gameArea.canvas.width;
+    copy.height = gameArea.canvas.height;
+    copy.getContext("2d").drawImage(gameArea.canvas, 0, 0);
+    return copy;
+}
+
 function windowResize() {
     x = window.innerWidth;
     y = window.innerHeight;
+    // resizing clears the canvas; keep what's shown between levels, e.g. a level transition message.
+    // copy it once, before the first resize crops it, and reuse that copy for later resizes
+    if (gameStart && !alive && !restFrame) {
+        restFrame = copyCanvas();
+    }
     gameArea.load();
+    if (alive) {
+        fitObstaclesToWindow();
+        if (pause) { // nothing redraws while paused, so draw the refitted level and the panel once
+            drawLevel();
+            drawPauseScreen();
+        }
+    } else if (restFrame) {
+        gameArea.context.drawImage(restFrame, 0, 0);
+    }
     if (!gameStart) {
         drawStartScreen();
     }
@@ -371,13 +415,13 @@ function drawStartScreen() { // draw the start screen
     // Title
     ctx.font = "80px Arial";
     ctx.fillStyle = "#00FFFF";
-    for (count = 120; count < 130; count++){ // Bold effect
+    for (let count = 120; count < 130; count++){ // Bold effect
         ctx.fillText("FOCUS BREAK", count, count+80);
         ctx.fillText("焦点を絞る", count+100, count+180);
     }
     ctx.fillStyle = "#ff00ff";
-    ctx.fillText("FOCUS BREAK", count, count+80);
-    ctx.fillText("焦点を絞る", count+100, count+180);
+    ctx.fillText("FOCUS BREAK", 130, 210);
+    ctx.fillText("焦点を絞る", 230, 310);
 
     // start button
     ctx.font = "25px Arial";
@@ -421,7 +465,7 @@ function drawStartScreen() { // draw the start screen
     ctx.fillStyle = "#ff00ff";
     ctx.fillText(sloganText,sloganX,sloganY);
     if (sloganText == "Bug Free!"){
-        for (count = 1; count < 40; count++){ // Bold effect
+        for (let count = 1; count < 40; count++){ // Bold effect
                 ctx.fillText("Bug Free!",sloganX-40+count,sloganY-40+count);
                 ctx.fillStyle = getRandomColor();
             }
@@ -452,20 +496,40 @@ function startGame(e) {
         clearInterval(myInterval5);
         clearInterval(myInterval6);
         loadAudio();
-        aud_click.play();
+        playSound(aud_click);
         startDate = new Date();
-        gamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, e.pageX, e.pageY);
+        var size = 20 - perfectClear;
+        gamePiece = new component(size, size, gamePieceColor, e.pageX - size / 2, e.pageY - size / 2); // centered on the cursor
     }
     gameArea.start();
     firstRun = false;
     gameStart = true;
     alive = true;
+    restFrame = null; // the next transition screen gets a fresh copy
     pause = false;
     invincible = false;
+    if (!document.hasFocus()) { // player left during the level transition; wait for them
+        setPause(true);
+    }
+    applyHeldSpeed(); // pick up a power held through the level transition (does nothing while paused)
 }
 
 function wait(time) {
     setTimeout(startNextLevel, time)
+}
+
+function restartRun() { // after the finish screen, start a fresh run from level 1
+    runFinished = false;
+    restartArmed = false;
+    level = 1;
+    deaths = 0;
+    perfectClear = 0; // the hitbox shrink is earned again each run
+    score = 0;
+    scoreLimitReached = false;
+    startDate = new Date();
+    setPieceSize(20 - perfectClear);
+    gameArea.clear();
+    startGame();
 }
 
 function startNextLevel() {
@@ -478,6 +542,7 @@ function gameOver() { // you dies
     alive = false;
     invincible = false;
     invincibleTime = 0;
+    gamePiece.color = gamePieceColor; // a level can end mid-break
     resumeSpeed();
     setAudioVolume(all_songs, musicVolume);
     gameArea.stop();
@@ -492,7 +557,9 @@ function gameOver() { // you dies
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
     gameArea.canvas.style.cursor = "default";
-    if (score >= scoreLimit) { // Next level
+    var levelCleared = score >= scoreLimit || scoreLimitReached;
+    scoreLimitReached = false;
+    if (levelCleared) { // Next level
         level++; 
         if (level == 16){ // true finish
             var endDate = new Date();
@@ -504,6 +571,12 @@ function gameOver() { // you dies
                 ctx.fillText("Can you continue?", x / 2 - 350, y / 2 - 175);
                 ctx.fillText(deaths+" mistakes", x / 2 - 350, y / 2 - 87);
             }
+            ctx.fillStyle = "black";
+            ctx.font = "30px Arial";
+            ctx.fillText("Click or press R to play again", x / 2 - 350, y / 2 + 87);
+            runFinished = true;
+            finishTime = Date.now();
+            restartArmed = false; // a click already in progress (e.g. held for Focus) shouldn't restart
             return;
         } else if (level == 10){ // you win
             ctx.fillStyle = "Black";
@@ -514,10 +587,10 @@ function gameOver() { // you dies
             wait(5000);
         } else if (level == 9){
             setAudioVolume(all_songs, 0.0);
-            aud_bomb.play();
+            playSound(aud_bomb);
             ctx.font = "80px Arial";
             ctx.fillStyle = "red";
-            for (count = 0; count < 3; count++){ // bold effect
+            for (let count = 0; count < 3; count++){ // bold effect
                 ctx.fillText("WARNING 警告", (x / 2 - 300)+count, (y / 2 - 175)+count);
                 ctx.fillText("多数の敵が接近する", (x / 2 - 400)+count, (y / 2 - 75)+count);
             }            
@@ -526,7 +599,7 @@ function gameOver() { // you dies
             wait(3500);
         } else if (deaths == 0) { // perfect clear
             aud_menuSound.volume = 0.2;
-            aud_menuSound.play();
+            playSound(aud_menuSound);
             ctx.fillStyle = "#48D1CC";
             ctx.font = "60px Arial";
             if (perfectClear < 7){ // decrease hitbox size
@@ -534,7 +607,7 @@ function gameOver() { // you dies
                 ctx.fillText("Hitbox size decreased!", (x / 2 - 325), (y / 2 - 75));
                 ctx.fillText("ヒットボックスを減らす!", (x / 2 - 325), (y / 2 + 50));       
             }
-            for (count = 0; count < 3; count++){
+            for (let count = 0; count < 3; count++){
                 ctx.fillText("+ Perfect 完全 +", (x / 2 - 200)+count, (y / 2 - 175)+count);
             }  
             ctx.fillRect(0,40, window.innerWidth, 20);
@@ -548,7 +621,7 @@ function gameOver() { // you dies
         }
     } else { // you lose
         deaths += 1; 
-        aud_death.play();
+        playSound(aud_death);
         ctx.fillText("Score: " + score, x / 2 - 200, y / 2 - 75);
         switch (score) { // death slogans
             case 69:deathSlogan = "😂";break;
@@ -575,11 +648,17 @@ function gameOver() { // you dies
     score = 0;
 }
 
+function setPieceSize(size) { // resize gamePiece around its center, which sits on the cursor
+    gamePiece.x -= (size - gamePiece.width) / 2;
+    gamePiece.y -= (size - gamePiece.height) / 2;
+    gamePiece.width = size;
+    gamePiece.height = size;
+}
+
 function resumeSpeed() {
     focused = false;
     if (alive) {
-        gamePiece.width = 20 - perfectClear;
-        gamePiece.height = 20 - perfectClear;
+        setPieceSize(20 - perfectClear);
     }
     speed = 1;
     setAudioSpeed(all_songs, 1.0);
@@ -587,16 +666,14 @@ function resumeSpeed() {
 
 function setSlowSpeed(){
     focused = true;
-    gamePiece.width = 15 - perfectClear;
-    gamePiece.height = 15 - perfectClear;
+    setPieceSize(15 - perfectClear);
     speed = speed_slow;
     setAudioSpeed(all_songs, 0.75);
 }
 
 function setFastSpeed(){
     focused = true;
-    gamePiece.width = 15 - perfectClear;
-    gamePiece.height = 15 - perfectClear;
+    setPieceSize(15 - perfectClear);
     speed = speed_fast;
     setAudioSpeed(all_songs, 1.2);
 }
@@ -607,13 +684,80 @@ function setBreak(scorePenalty){
         objects_powerup_score = [];
         invincible = true;
         score += -scorePenalty;
-        setAudioSpeed(all_songs, 1.0);
+    }
+}
+
+// power inputs currently held down, so releasing one can fall back to another
+var held = { shift: false, ctrl: false, lmb: false, rmb: false };
+
+function canAct() { // powers only work while playing and unpaused
+    return alive && !pause;
+}
+
+function setPause(paused) { // pause or resume play; only while alive
+    if (!alive || paused == pause) {
+        return;
+    }
+    pause = paused;
+    gameArea.canvas.style.cursor = pause ? "default" : "none"; // let the player line the cursor back up with their square
+    if (pause) {
+        pauseStart = Date.now();
+        pausedSong = all_songs.find(function (song) { return !song.paused; }) || null;
+        if (pausedSong) {
+            pausedSong.pause();
+        }
+        aud_danger.pause();
+        [aud_bomb, aud_death, aud_menuSound].forEach(function (sound) { // cut transition sounds short; rewind so they replay from the start
+            sound.pause();
+            sound.currentTime = 0;
+        });
+        drawPauseScreen();
+    } else { // exclude paused time from the completion timer
+        startDate = new Date(startDate.getTime() + (Date.now() - pauseStart));
+        if (pausedSong) {
+            playSound(pausedSong);
+            pausedSong = null;
+        }
+        applyHeldSpeed(); // pick up anything pressed or released while paused
+    }
+}
+
+function drawPauseScreen() { // drawn once over the frozen frame
+    ctx = gameArea.context;
+    var centerX = gameArea.canvas.width / 2;
+    var centerY = gameArea.canvas.height / 2;
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "white";
+    ctx.fillRect(centerX - 220, centerY - 70, 440, 160);
+    ctx.globalAlpha = 1.0;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "red";
+    ctx.font = "60px Arial";
+    ctx.fillText("PAUSED", centerX, centerY);
+    ctx.fillStyle = "black";
+    ctx.font = "25px Arial";
+    ctx.fillText("Press P to resume", centerX, centerY + 40);
+    ctx.font = "18px Arial";
+    ctx.fillText("Move the cursor onto your square first", centerX, centerY + 72);
+    ctx.textAlign = "start"; // the rest of the game draws left-aligned text
+}
+
+function applyHeldSpeed() { // set speed from whatever power is still held
+    if (!canAct()) {
+        return;
+    }
+    if (held.shift || held.lmb) {
+        setSlowSpeed();
+    } else if (held.ctrl || held.rmb) {
+        setFastSpeed();
+    } else {
+        resumeSpeed();
     }
 }
 
 function checkBounds(e,x1,x2,y1,y2){ // check if mouse click is within x/y coords
-    var mouseX = e.clientX - 8;
-    var mouseY = e.clientY - 8;
+    var mouseX = e.clientX;
+    var mouseY = e.clientY;
     if (mouseX > (x / 2) - x1 && mouseX < (x / 2) + x2 && mouseY > (y / 2) - y1 && mouseY < (y / 2) + y2) {
         return true;
     }
@@ -626,68 +770,117 @@ var gameArea = {
         this.canvas.height = window.innerHeight;
         this.context = this.canvas.getContext("2d");
         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+        if (this.inputBound) {
+            return; // load() re-runs on resize; only register input listeners once
+        }
+        this.inputBound = true;
         window.addEventListener('click', function (e) {
             if (gameStart == false && checkBounds(e,410,-190,32,14)) { // CLICK TO START
                 startGame(e);
             } else if (gameStart == false && checkBounds(e,0,272,0,40)) { // SPACE TO BREAK
                 alert("SPACEBAR or MIDDLE MOUSE BUTTON = BREAK - Become invincible briefly.  Lose score, emergency use only!");
-            } else if (gameStart == false && checkBounds(e,0,272,60,100)) { // SHIFT TO FOCUS
+            } else if (gameStart == false && checkBounds(e,0,272,-60,100)) { // SHIFT TO FOCUS
                 alert("SHIFT or LEFT MOUSE BUTTON = FOCUS - Slows time and decrease hitbox size.  Earn no score, use in a tight spot.");
-            } else if (gameStart == false && checkBounds(e,0,272,120,160)) { // CLICK TO WARP
+            } else if (gameStart == false && checkBounds(e,0,272,-120,160)) { // CLICK TO WARP
                 alert("CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.");
+            } else if (runFinished && restartArmed) { // play again from the finish screen
+                restartRun();
             }
         })
         window.addEventListener('mousedown', function (e) {
             e.preventDefault();
-             if (alive) {
-                if (e.which == 3) { // right mouse button. keyCode = 3
-                    setFastSpeed();
-                }
-                if (e.which == 1) { // left mouse button. keyCode = 1
+            window.focus(); // preventDefault stops the page taking focus when embedded in an iframe
+            if (e.button == 0 && runFinished && Date.now() - finishTime >= 1000) {
+                // only a click that starts on the finish screen restarts, and not in the first second,
+                // so a Focus tap as level 15 ends doesn't wipe the results before they're seen
+                restartArmed = true;
+            }
+            if (e.button == 0) { // left mouse button = FOCUS
+                held.lmb = true;
+                if (canAct()) {
                     setSlowSpeed();
                 }
-                if (e.which == 2) { // middle mouse button. keyCode = 2
-                    if (alive) {
-                        setBreak(scorePenalty);
-                    }
+            }
+            if (e.button == 2) { // right mouse button = WARP
+                held.rmb = true;
+                if (canAct()) {
+                    setFastSpeed();
                 }
+            }
+            if (e.button == 1 && canAct()) { // middle mouse button = BREAK
+                setBreak(scorePenalty);
             }
         })
         window.addEventListener('mouseup', function (e) {
-            e.preventDefault;
-            if (e.which == 3 || e.which == 1) { // resume speed if LMB or RMB is released
-                resumeSpeed();
+            e.preventDefault();
+            if (e.button == 0) {
+                held.lmb = false;
+            }
+            if (e.button == 2) {
+                held.rmb = false;
+            }
+            applyHeldSpeed(); // fall back to any power still held
+        })
+        window.addEventListener('mousemove', function (e) { // catch buttons or keys released outside the window
+            var lmb = (e.buttons & 1) != 0;
+            var rmb = (e.buttons & 2) != 0;
+            if (held.lmb != lmb || held.rmb != rmb || held.shift != e.shiftKey || held.ctrl != e.ctrlKey) {
+                held.lmb = lmb;
+                held.rmb = rmb;
+                held.shift = e.shiftKey;
+                held.ctrl = e.ctrlKey;
+                applyHeldSpeed();
             }
         })
+        window.addEventListener('blur', function () { // releases aren't seen while the window is unfocused
+            held.shift = held.ctrl = held.lmb = held.rmb = false;
+            applyHeldSpeed();
+            setPause(true); // don't keep playing while the player is away
+        })
         window.addEventListener('keydown', function (e) {
-            e.preventDefault();
-            if (e.which == 80 || e.keyCode == 80) { // P. keyCode = 112
-                if (pause){
-                    pause = false;
-                } else {
-                    pause = true;
+            if (alive && e.ctrlKey) {
+                e.preventDefault(); // block browser shortcuts while holding CTRL to warp
+            }
+            if (e.keyCode == 82 && runFinished && !e.repeat && !e.ctrlKey && !e.metaKey) { // R = play again (Ctrl+R still reloads)
+                restartRun();
+            }
+            if (e.keyCode == 80) { // P
+                e.preventDefault();
+                if (!e.repeat) { // holding P shouldn't flip pause on every key repeat
+                    setPause(!pause);
                 }
             }
-            if (e.which == 32 || e.keyCode == 32) { // SPACEBAR. keyCode = 32
-                if (alive) {
+            if (e.keyCode == 32) { // SPACEBAR
+                e.preventDefault();
+                if (canAct()) {
                     setBreak(scorePenalty);
                 }
             }
-            if (e.shiftKey) { // SHIFT. keyCode = 16
-                if (alive) {
+            if (e.keyCode == 16) { // SHIFT
+                e.preventDefault();
+                held.shift = true;
+                if (canAct()) {
                     setSlowSpeed();
                 }
             }
-            if (e.ctrlKey) { // CTRL. keyCode = 17
-                if (alive) {
+            if (e.keyCode == 17) { // CTRL
+                e.preventDefault();
+                held.ctrl = true;
+                if (canAct()) {
                     setFastSpeed();
                 }
             }
         })
-        window.addEventListener('keyup', function (e) { // resume speed if CTRL or SHIFT key is released
-            if (e.which == 16 || e.keyCode == 16 || e.which == 17 || e.keyCode == 17) {
-                resumeSpeed();
-            } 
+        window.addEventListener('keyup', function (e) {
+            if (e.keyCode == 16) {
+                held.shift = false;
+            }
+            if (e.keyCode == 17) {
+                held.ctrl = false;
+            }
+            if (e.keyCode == 16 || e.keyCode == 17) {
+                applyHeldSpeed(); // fall back to any power still held
+            }
         })
     },
     start: function () {
@@ -695,22 +888,14 @@ var gameArea = {
         this.context = this.canvas.getContext("2d");
         this.frameNo = 0;
         this.interval = setInterval(updateGameArea, 10); // frame rate, object speed
+        if (this.mouseBound) {
+            return; // only register the mousemove listener once
+        }
+        this.mouseBound = true;
         window.addEventListener('mousemove', function (e) {
             gameArea.x = e.pageX;
             gameArea.y = e.pageY;
-            if (invincible) {
-                gamePiece.height = 20 - perfectClear;
-                gamePiece.width = 20 - perfectClear;
-            } else {
-                if (focused){
-                    gamePiece.height = 15 - perfectClear;
-                    gamePiece.width = 15 - perfectClear;
-                } else {
-                    gamePiece.height = 20 - perfectClear;
-                    gamePiece.width = 20 - perfectClear;
-                    gamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, e.pageX, e.pageY);
-                }
-            }
+            setPieceSize((focused ? 15 : 20) - perfectClear);
         })
     },
     clear: function () {
@@ -724,17 +909,21 @@ var gameArea = {
 function component(width, height, color, x, y) {
     this.width = width;
     this.height = height;
+    this.color = color;
     this.speedX = 0;
     this.speedY = 0;
     this.x = x;
     this.y = y;
     this.update = function () {
         ctx = gameArea.context;
-        ctx.fillStyle = color;
+        ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 
     this.crashWith = function (otherobj) {
+        if (otherobj.width <= 0 || otherobj.height <= 0) {
+            return false; // nothing drawn (e.g. a bar squeezed off screen by a resize), so nothing to hit
+        }
         var myleft = this.x;
         var myright = this.x + (this.width);
         var mytop = this.y;
@@ -752,146 +941,233 @@ function component(width, height, color, x, y) {
 }
 
 function detectCollision(objects) { // detect collision between gamePiece and object group
-    for (i = 0; i < objects.length; i += 1) {
+    for (let i = 0; i < objects.length; i += 1) {
         if (gamePiece.crashWith(objects[i])) { // collision
             return true;
         }
     }
 }
 
+function collectPowerUps() { // apply any powerup gamePiece is touching
+    if (detectCollision(objects_powerup_break)) {
+        playSound(aud_powerUp);
+        objects_powerup_break = [];
+        if (invincible) {
+            invincibleTime = 0; // refill an active break instead of wasting the powerup
+        } else {
+            setBreak(0);
+        }
+    }
+    if (detectCollision(objects_powerup_score)) {
+        playSound(aud_pickupCoin);
+        objects_powerup_score = [];
+        score += powerupScoreBonus;
+    }
+}
+
+function hitObstacle() { // is gamePiece touching any obstacle
+    return detectCollision(objects_medium) || detectCollision(objects_fast) || detectCollision(objects_hyper) || detectCollision(objects_slow);
+}
+
+function movePiece(targetX, targetY) { // move gamePiece to the cursor, returns true on a crash
+    // step at most 5px at a time so fast mouse moves (or moving while paused) can't jump over obstacles
+    var startX = gamePiece.x;
+    var startY = gamePiece.y;
+    var dx = targetX - startX;
+    var dy = targetY - startY;
+    var steps = invincible ? 1 : Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 5));
+    for (let s = 1; s <= steps; s += 1) {
+        gamePiece.x = startX + dx * s / steps;
+        gamePiece.y = startY + dy * s / steps;
+        collectPowerUps(); // pick up powerups along the way too
+        if (!invincible && hitObstacle()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function heightScaledBlock(fraction, color) { // square sized as a fraction of the screen height, spawned at the right edge
+    var size = gameArea.canvas.height * fraction;
+    var block = new component(size, size, color, gameArea.canvas.width, Math.random() * gameArea.canvas.height);
+    block.heightFraction = fraction; // lets fitObstaclesToWindow keep its proportion after a resize
+    return block;
+}
+
+function fitObstaclesToWindow() { // after a resize, refit obstacles whose size depends on the screen height
+    var canvasHeight = gameArea.canvas.height;
+    [objects_slow, objects_medium, objects_fast, objects_hyper].forEach(function (objects) {
+        objects.forEach(function (obj) {
+            var before = { x: obj.x, y: obj.y, width: obj.width, height: obj.height };
+            if (obj.barGap) {
+                // keep the gap where it is (the square may be in it), moving it up only if the
+                // window got too short to show it, so a bar pair never becomes a solid wall
+                var gapTop = obj.barGap.top ? obj.height : obj.y - obj.barGap.size;
+                gapTop = Math.max(0, Math.min(gapTop, canvasHeight - obj.barGap.size));
+                if (obj.barGap.top) {
+                    obj.height = gapTop;
+                } else { // the bottom bar always reaches the bottom edge
+                    obj.y = gapTop + obj.barGap.size;
+                    obj.height = Math.max(0, canvasHeight - obj.y);
+                }
+            }
+            if (obj.heightFraction) { // resize around the block's center
+                var size = canvasHeight * obj.heightFraction;
+                obj.x -= (size - obj.width) / 2;
+                obj.y -= (size - obj.height) / 2;
+                obj.width = size;
+                obj.height = size;
+            }
+            if (gamePiece.crashWith(obj) && !gamePiece.crashWith(before)) {
+                Object.assign(obj, before); // growing onto the square would be an unavoidable death; keep the old size
+            }
+        });
+    });
+}
+
 function moveObstacles(objects, amount) {
-    for (i = 0; i < objects.length; i += 1) {
+    for (let i = objects.length - 1; i >= 0; i -= 1) {
         objects[i].x += -amount * speed; // speed of obstacles
+        if (objects[i].x + objects[i].width < 0) { // remove once off screen
+            objects.splice(i, 1);
+            continue;
+        }
         objects[i].update();
     }
 }
 
 function movePowerUps(objects, amount, size, color) {
-    for (i = 0; i < objects.length; i += 1) { // move powerups 
+    for (let i = objects.length - 1; i >= 0; i -= 1) { // move powerups
         objects[i].x += -amount * speed;
-        obj_x = objects[i].x;
-        obj_y = objects[i].y;
-        objects = [];
-        objects.push(new component(size, size, color, obj_x, obj_y));
+        if (objects[i].x + objects[i].width < 0) { // remove once off screen
+            objects.splice(i, 1);
+            continue;
+        }
+        objects[i].width = size;
+        objects[i].height = size;
+        objects[i].color = color;
         objects[i].update();
     }
+}
+
+function drawLevelName() { // level name in the bottom-left corner (levels 13-14 also draw their red bars)
+    ctx = gameArea.context;
+    ctx.fillStyle = "black";
+    ctx.font = "40px Arial";
+    switch (level) { // level names
+        case 1:
+            ctx.fillText("Breath Easy", 80, window.innerHeight - 60);
+                break;
+        case 2:
+            ctx.fillText("Clear Your Mind", 80, window.innerHeight - 60);
+                break;
+        case 3:
+            ctx.fillText("Looking Inward", 80, window.innerHeight - 60);
+                break;
+        case 4:
+            ctx.fillText("Flow", 80, window.innerHeight - 60);
+                break;
+        case 5:
+            ctx.fillText("Reaching", 80, window.innerHeight - 60);
+                break;
+        case 6:
+            if (deaths == 0){
+                ctx.fillText("Seeking Perfection", 80, window.innerHeight - 60);
+            } else {
+                ctx.fillText("Past mistakes", 80, window.innerHeight - 60);
+            }
+                break;
+        case 7:
+            ctx.fillText("Looking Outward", 80, window.innerHeight - 60);
+                break;
+        case 8:
+            ctx.fillText("Memory Advance", 80, window.innerHeight - 60);
+                break;
+        case 9:
+            ctx.fillText("Self Destruct", 80, window.innerHeight - 60);
+                break;
+        case 10:
+            if (deaths == 0){
+                ctx.fillText("Perfection", 80, window.innerHeight - 60);
+            } else {
+                ctx.fillText("Remains", 80, window.innerHeight - 60);
+            }
+                break;
+        case 11:
+            ctx.fillText("Afterlife", 80, window.innerHeight - 60);
+                break;
+        case 12:
+            ctx.fillText("Desolation", 80, window.innerHeight - 60);
+                break;
+        case 13:
+            ctx.fillStyle = "red";
+            ctx.fillRect(900, 0, 100, window.innerHeight);
+            ctx.fillStyle = "black";
+            ctx.fillText("Rebirth", 80, window.innerHeight - 60);
+                break;
+        case 14:
+            ctx.fillRect(900, 0, 100, window.innerHeight);
+            ctx.fillRect(1100, 0, 2000, window.innerHeight);
+            ctx.fillText("...", 80, window.innerHeight - 60);
+                break;
+        default:
+            ctx.fillText("How did this happen?", 80, window.innerHeight - 60);
+                break;
+    }
+}
+
+function drawStats() { // score, deaths and level in the top-left corner
+    ctx.fillStyle = "black"; // color
+    ctx.font = "40px Arial";
+    ctx.fillText(score, 50, 100); // show score
+    ctx.fillText(deaths, 50, 200); // show deaths
+    ctx.fillText("Level " + level, 50, 300); // show level
+}
+
+function drawLevel() { // draw the level as it stands, without moving anything (used while paused)
+    gameArea.clear();
+    drawLevelName();
+    [objects_powerup_break, objects_powerup_score, objects_slow, objects_medium, objects_fast, objects_hyper].forEach(function (objects) {
+        objects.forEach(function (obj) {
+            obj.update();
+        });
+    });
+    gamePiece.update();
+    drawStats();
 }
 
 function updateGameArea() {
     if (!pause){
         var x, height, gap, minHeight, maxHeight, minGap, maxGap;
-        if (!invincible) { // detect collisions
-            if (detectCollision(objects_medium) || detectCollision(objects_fast) || detectCollision(objects_hyper) || detectCollision(objects_slow)) {
-                gameOver();
-                return;
-            }
+        if (!invincible && hitObstacle()) { // detect collisions
+            gameOver();
+            return;
         }
 
-        if (detectCollision(objects_powerup_break)) { // powerup collision
-            aud_powerUp.play();
-            objects_powerup_break = [];
-            setBreak(0);
-        }
-
-        if (detectCollision(objects_powerup_score)) { // powerup collision
-            aud_pickupCoin.play();
-            objects_powerup_score = [];
-            score += powerupScoreBonus;
-        }
+        collectPowerUps();
 
         gameArea.clear();
         gameArea.frameNo += 1;
 
         if (invincible) {
-            ctx.fillRect((gamePiece.x - 50 + invincibleTime / 2), (gamePiece.y - 25), (invincibleTimeMax - invincibleTime), (15)); // display invincible progress
-            if (focused) {
-                invincibleTime += 2;
-                gamePiece = new component(15 - perfectClear, 15 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
-            } else {
-                invincibleTime += 1;
-                gamePiece = new component(20 - perfectClear, 20 - perfectClear, getRandomColor(), gamePiece.pageX, gamePiece.pageY);
-            }
+            ctx.fillRect((gamePiece.x + gamePiece.width / 2 - 50 + invincibleTime / 2), (gamePiece.y + gamePiece.height / 2 - 25),(invincibleTimeMax - invincibleTime), (15)); // display invincible progress
+            invincibleTime += focused ? 2 : 1;
+            gamePiece.color = getRandomColor();
             if (invincibleTime >= invincibleTimeMax) {
-                if (focused) {
-                    gamePiece = new component(15 - perfectClear, 15 - perfectClear, gamePieceColor, gamePiece.pageX, gamePiece.pageY);
-                } else {
-                    gamePiece = new component(20 - perfectClear, 20 - perfectClear, gamePieceColor, gamePiece.pageX, gamePiece.pageY);
-                }
+                gamePiece.color = gamePieceColor;
                 invincible = false;
                 invincibleTime = 0;
-                setAudioSpeed(all_songs, 1.0);
             }
         }
 
-        ctx.fillStyle = "black";
-        ctx.font = "40px Arial";
-        switch (level) { // level names
-            case 1:
-                ctx.fillText("Breath Easy", 80, window.innerHeight - 60);
-                    break;
-            case 2:
-                ctx.fillText("Clear Your Mind", 80, window.innerHeight - 60);
-                    break;
-            case 3:
-                ctx.fillText("Looking Inward", 80, window.innerHeight - 60);
-                    break;
-            case 4:
-                ctx.fillText("Flow", 80, window.innerHeight - 60);
-                    break;
-            case 5:
-                ctx.fillText("Reaching", 80, window.innerHeight - 60);
-                    break;
-            case 6:
-                if (deaths == 0){
-                    ctx.fillText("Seeking Perfection", 80, window.innerHeight - 60);
-                } else {
-                    ctx.fillText("Past mistakes", 80, window.innerHeight - 60);
-                }
-                    break;
-            case 7:
-                ctx.fillText("Looking Outward", 80, window.innerHeight - 60);
-                    break;
-            case 8:
-                ctx.fillText("Memory Advance", 80, window.innerHeight - 60);
-                    break;
-            case 9:
-                ctx.fillText("Self Destruct", 80, window.innerHeight - 60);
-                    break;
-            case 10:
-                if (deaths == 0){
-                    ctx.fillText("Perfection", 80, window.innerHeight - 60);
-                } else {
-                    ctx.fillText("Remains", 80, window.innerHeight - 60);
-                }
-                    break;
-            case 11:
-                ctx.fillText("Afterlife", 80, window.innerHeight - 60);
-                    break;
-            case 12:
-                ctx.fillText("Desolation", 80, window.innerHeight - 60);
-                    break;
-            case 13:
-                ctx.fillStyle = "red";
-                ctx.fillRect(900, 0, 100, window.innerHeight);
-                ctx.fillStyle = "black";
-                ctx.fillText("Rebirth", 80, window.innerHeight - 60);
-                    break;
-            case 14:
-                ctx.fillRect(900, 0, 100, window.innerHeight);
-                ctx.fillRect(1100, 0, 2000, window.innerHeight);
-                ctx.fillText("...", 80, window.innerHeight - 60);
-                    break;
-            default:
-                ctx.fillText("How did this happen?", 80, window.innerHeight - 60);
-                    break;
-            }
+        drawLevelName();
         // Object Spawning
         if (everyinterval(250)) { // powerup
             if (!focused){
                 if (~~(Math.random()*2) ? true : false) { // break powerup
-                    objects_powerup_break.push(new component(15, 15, getRandomColor, document.body.clientWidth, Math.random() * window.innerHeight));
+                    objects_powerup_break.push(new component(15, 15, getRandomColor(), gameArea.canvas.width, Math.random() * window.innerHeight));
                 } else { // score powerup
-                    objects_powerup_score.push(new component(20, 20, getRandomColorGold(), document.body.clientWidth, Math.random() * window.innerHeight));
+                    objects_powerup_score.push(new component(20, 20, getRandomColorGold(), gameArea.canvas.width, Math.random() * window.innerHeight));
                 }   
             }   
         }
@@ -904,89 +1180,94 @@ function updateGameArea() {
                 minGap = 85-(level*2);
                 maxGap = 125-(level*2);
                 gap = Math.floor(Math.random() * (maxGap - minGap + 1) + minGap);
-                objects_medium.push(new component(20, height, "black", v_x, 0));
-                objects_medium.push(new component(20, v_x - height - gap, "black", v_x, height + gap));
+                var topBar = new component(20, height, "black", v_x, 0);
+                var bottomBar = new component(20, gameArea.canvas.height - height - gap, "black", v_x, height + gap);
+                // remember where the gap sits so fitObstaclesToWindow can keep it passable after a resize
+                topBar.barGap = { size: gap, top: true };
+                bottomBar.barGap = { size: gap, top: false };
+                objects_medium.push(topBar);
+                objects_medium.push(bottomBar);
             }
         }
         if (level >= 2) { // level 2 - black slow moving large
             if (gameArea.frameNo == 1 || everyinterval(100 / speed)) {
-                objects_hyper.push(new component(window.innerHeight / 8, window.innerHeight / 8, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_hyper.push(heightScaledBlock(1 / 8, "black"));
             }
         }
         if (level >= 3) { // level 3 - black medium
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
-                objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
             }
         }
         if (level >= 4) { // level 4 - red small
             if (gameArea.frameNo == 1 || everyinterval(20 / speed)) {
-                objects_medium.push(new component(10, 10, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_medium.push(new component(10, 10, "red", gameArea.canvas.width, Math.random() * window.innerHeight));
             }
         }
         if (level >= 5) { // level 5 - black medium
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
                 r = getRandomInteger(0,250);
-                objects_fast.push(new component(25, 25, "black", document.body.clientWidth + r, Math.random() * window.innerHeight))
+                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width + r, Math.random() * window.innerHeight))
             }
         }
         if (level >= 6) { // level 6 - black medium
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
                 r = getRandomInteger(0,250);
-                objects_fast.push(new component(25, 25, "black", document.body.clientWidth + r, Math.random() * window.innerHeight))
+                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width + r, Math.random() * window.innerHeight))
             }
         }
         if (level >= 7) { // level 7 - black medium
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
                 r = getRandomInteger(0,250);
-                objects_fast.push(new component(25, 25, "black", document.body.clientWidth + r, Math.random() * window.innerHeight))
+                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width + r, Math.random() * window.innerHeight))
             }
         }
         if (level >= 8) { // level 8 - black medium
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
                 r = getRandomInteger(0,250);
-                objects_fast.push(new component(25, 25, "black", document.body.clientWidth + r, Math.random() * window.innerHeight))
+                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width + r, Math.random() * window.innerHeight))
             }
         }
         if (level >= 9){ // level 9 - red medium
             if (gameArea.frameNo == 1 || everyinterval((8) / speed)){
-                objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
+                objects_fast.push(new component(25, 25, "red", gameArea.canvas.width, Math.random() * window.innerHeight));  
             }
         }
         if (level == 10){ // level 10 - red medium, red big
             if (gameArea.frameNo == 1 || everyinterval((8) / speed)){
-                objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));  
+                objects_fast.push(new component(25, 25, "red", gameArea.canvas.width, Math.random() * window.innerHeight));  
             }
             if (gameArea.frameNo == 1 || everyinterval(200 / speed)) {
-                objects_slow.push(new component(window.innerHeight / 4, window.innerHeight / 4, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_slow.push(heightScaledBlock(1 / 4, "red"));
             }
         }
         if (level >= 11){ // level 11 - nothing
             if (gameArea.frameNo == 1 || everyinterval(200 / speed)) {
-                objects_medium.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_medium.push(new component(10, 50, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
             }
         }
         if (level >= 12) { // level 12 - black oblong
             if (gameArea.frameNo == 1 || everyinterval(20 / speed)) {
-                objects_medium.push(new component(10, 50, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_medium.push(new component(10, 50, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
             }
         }
         if (level >= 13) { // level 13 - red medium
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
-                objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "red", gameArea.canvas.width, Math.random() * window.innerHeight));
             }
         }
         if (level >= 14){ // level 14 - red big, black medium
-            if (gameArea.frameNo == 1 || everyinterval(150) / speed) {
-                objects_slow.push(new component(window.innerHeight / 8, window.innerHeight / 8, "red", document.body.clientWidth, Math.random() * window.innerHeight));
+            if (gameArea.frameNo == 1 || everyinterval(150 / speed)) {
+                objects_slow.push(heightScaledBlock(1 / 8, "red"));
             } 
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)){
-                objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
             }
         }    
         if (level >= 15) { // level 15 - red medium,  black medium
             if (gameArea.frameNo == 1 || everyinterval((20) / speed)) {
-                objects_fast.push(new component(25, 25, "red", document.body.clientWidth, Math.random() * window.innerHeight));
-                objects_fast.push(new component(25, 25, "black", document.body.clientWidth, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "red", gameArea.canvas.width, Math.random() * window.innerHeight));
+                objects_fast.push(new component(25, 25, "black", gameArea.canvas.width, Math.random() * window.innerHeight));
                 setFastSpeed();
             }
         }
@@ -999,9 +1280,9 @@ function updateGameArea() {
         moveObstacles(objects_fast, 4);
         moveObstacles(objects_hyper, 5);
         
-        if (gameArea.x && gameArea.y) {
-            gamePiece.x = gameArea.x;
-            gamePiece.y = gameArea.y;
+        if (gameArea.x !== undefined && movePiece(gameArea.x - gamePiece.width / 2, gameArea.y - gamePiece.height / 2)) { // center the hitbox on the cursor
+            gameOver();
+            return;
         }
         if (invincible) { // BREAK
             ctx.fillStyle = getRandomColor();
@@ -1020,10 +1301,7 @@ function updateGameArea() {
             ctx.fillText(score, 50, 100);
             ctx.globalAlpha = 1.0;
         } else {
-            ctx.fillStyle = "black"; // color
-            ctx.fillText(score, 50, 100); // show score
-            ctx.fillText(deaths, 50, 200); // show deaths
-            ctx.fillText("Level " + level, 50, 300); // show level
+            drawStats();
         } if (speed == 1) {
             if (gameArea.frameNo % 2 == 0){
                 score++;
@@ -1039,7 +1317,7 @@ function updateGameArea() {
             ctx.fillText(score, 50, 100);
             ctx.globalAlpha = 1.0;
         } else if (speed == speed_fast){
-            aud_danger.play();
+            playSound(aud_danger);
             ctx.fillStyle = "red";
             ctx.globalAlpha = 0.8;
             ctx.fillRect(0,40, window.innerWidth, 30);
@@ -1056,7 +1334,10 @@ function updateGameArea() {
             score += 1;
         }
         gamePiece.update();
-        if (score >= scoreLimit) { // score limit reached
+        if (score >= scoreLimit) {
+            scoreLimitReached = true; // stays set if a break penalty drops the score back below the limit
+        }
+        if (scoreLimitReached) { // score limit reached
             if (level == 9){ // play until you die
                 ctx.fillStyle = getRandomColor();
                 ctx.fillText(score, 50, 100);
@@ -1064,10 +1345,7 @@ function updateGameArea() {
                 gameOver();
             }
         }
-    }  else {  // pause
-        ctx.fillStyle = "red";
-        ctx.fillText("PAUSED", 156, 156);
-    } 
+    } // while paused, nothing updates; setPause draws the pause screen once
 }
 
 function everyinterval(n) {
@@ -1167,4 +1445,4 @@ function millisToMinutesAndSeconds(millis) { // ms conversions
 
 </script>
 </body>
-</html>
+</html>

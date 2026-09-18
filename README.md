@@ -15,7 +15,8 @@ Runs best in Google Chrome, Enter full screen (F11)
 ### Objective:
 
  - Complete all levels without a mistake. <br>
- - Every level completed with no deaths slightly decreases the size of your hitbox.
+ - Flawless streak: until your first death, every level you clear shrinks your hitbox by 1 pixel (up to 7 times). <br>
+ - One death ends the streak for the rest of the run. You keep any shrink you've already earned, but clearing a level without dying after that won't shrink it further.
 
 ### Controls:
 
@@ -24,6 +25,8 @@ Runs best in Google Chrome, Enter full screen (F11)
 	- SPACE or MIDDLE MOUSE BUTTON = BREAK - Become invincible briefly.  Lose 250 score, emergency use only!
 	
 	- CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.
+	
+	- P = PAUSE.  After the final level, click or press R to play again.
 
 ### Credits:
 
