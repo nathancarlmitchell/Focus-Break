@@ -88,19 +88,25 @@ const aud_startup = sfx("fx11");
 var musicVolume = 0.2;
 
 
-// bounding variables used on start screen
-var bounds_click_to_start = false;
-var bounds_space_to_break = false;
-var bounds_shift_to_focus = false;
-var bounds_click_to_warp  = false;
+// start-screen buttons, relative to the window center; used for drawing, hover and clicks
+const START_BUTTONS = {
+    start: { dx: -410, dy: -32, w: 220, h: 44, hitH: 46 }, // clickable area is 2px taller than the drawn box
+    break: { dx: 0, dy: 0, w: 272, h: 40, label: "Space to Break", ty: 38,
+        help: "SPACEBAR or MIDDLE MOUSE BUTTON = BREAK - Become invincible briefly.  Lose score, emergency use only!" },
+    focus: { dx: 0, dy: 60, w: 272, h: 40, label: "Shift to Focus", ty: 100,
+        help: "SHIFT or LEFT MOUSE BUTTON = FOCUS - Slows time and decrease hitbox size.  Earn no score, use in a tight spot." },
+    warp: { dx: 0, dy: 120, w: 272, h: 40, label: "Click to warp", ty: 160,
+        help: "CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman." },
+};
+var hoveredButton = ""; // start-screen button under the mouse
 
-// intervals used for start screen animation
-const myInterval1 = setInterval(updateSloganText, 3000);
-const myInterval2 = setInterval(focus_break_colors, 100);
-const myInterval3 = setInterval(click_to_start_colors, 50);
-const myInterval4 = setInterval(space_to_break_colors, 100);
-const myInterval5 = setInterval(shift_to_focus_colors, 100);
-const myInterval6 = setInterval(click_to_warp_colors, 100);
+// start screen animation, stopped when the game starts (same-delay timers run in creation order)
+const startScreenIntervals = [
+    setInterval(updateSloganText, 3000),
+    setInterval(focus_break_colors, 100),
+    setInterval(click_to_start_colors, 50),
+    setInterval(highlightControl, 100),
+];
 
 // initialize objects
 var objects_slow = [];
@@ -129,7 +135,6 @@ var invincible = false;
 var gameStart = false;
 var alive = false;
 var focused = false;
-var firstRun = true;
 var pause = false;
 
 var score = 0;
@@ -170,39 +175,32 @@ function setMusicVolume(volume) { // volume for all songs
     all_songs.forEach(function (song) { song.volume = volume; });
 }
 
-function mouseMove(event) { // detect mouse on start screen
-    var mouseX = event.clientX;
-    var mouseY = event.clientY;
-    if (firstRun) {
-        var hovered = "";
-        if(mouseX > (x / 2) - 410 && mouseX < (x / 2) - 190 && mouseY > (y / 2) - 32 && mouseY < (y / 2) + 14) { // CLICK TO START
-            hovered = "start";
+function buttonAt(px, py) { // name of the start-screen button at a point, or ""
+    for (var name in START_BUTTONS) {
+        var b = START_BUTTONS[name];
+        var left = x / 2 + b.dx;
+        var top = y / 2 + b.dy;
+        if (px > left && px < left + b.w && py > top && py < top + (b.hitH || b.h)) {
+            return name;
         }
-        else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) && mouseY < (y / 2) + 40) { // SPACE TO BREAK
-            hovered = "break";
-        }
-        else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) + 60 && mouseY < (y / 2) + 100) { // SHIFT TO FOCUS
-            hovered = "focus";
-        }
-        else if(mouseX > (x / 2) && mouseX < (x / 2) + 272 && mouseY > (y / 2) + 120 && mouseY < (y / 2) + 160) { // CLICK TO WARP
-            hovered = "warp";
-        }
-        var current = bounds_click_to_start ? "start" : bounds_space_to_break ? "break" : bounds_shift_to_focus ? "focus" : bounds_click_to_warp ? "warp" : "";
-        if (hovered != current) { // only one button highlighted at a time
+    }
+    return "";
+}
+
+function mouseMove(event) { // highlight the start-screen button under the mouse
+    if (!gameStart) {
+        var hovered = buttonAt(event.clientX, event.clientY);
+        if (hovered != hoveredButton) { // only one button highlighted at a time
             drawStartScreen(); // erase the old highlight
-            bounds_click_to_start = hovered == "start";
-            bounds_space_to_break = hovered == "break";
-            bounds_shift_to_focus = hovered == "focus";
-            bounds_click_to_warp  = hovered == "warp";
+            hoveredButton = hovered;
         }
     }
 }
 
-function focus_break_colors(){ // Flashing colors on start screen
-    ctx = gameArea.canvas.getContext("2d");
+function drawTitle(shadowColor, passes) { // FOCUS BREAK title: stacked shadow copies, then magenta on top
     ctx.font = "80px Arial";
-    ctx.fillStyle = getRandomColor();
-    for (let count = 127; count < 130; count++){ // Bold effect
+    ctx.fillStyle = shadowColor;
+    for (let count = 130 - passes; count < 130; count++){ // Bold effect
         ctx.fillText("FOCUS BREAK", count, count+80);
         ctx.fillText("焦点を絞る", count+100, count+180);
     }
@@ -211,13 +209,19 @@ function focus_break_colors(){ // Flashing colors on start screen
     ctx.fillText("焦点を絞る", 230, 310);
 }
 
+function focus_break_colors(){ // Flashing colors on start screen
+    ctx = gameArea.canvas.getContext("2d");
+    drawTitle(getRandomColor(), 3);
+}
+
 function click_to_start_colors(){ // Flashing colors on start screen
-    if (bounds_click_to_start) {
+    if (hoveredButton == "start") {
+        var b = START_BUTTONS.start;
         ctx.globalAlpha = 0.35;
         ctx.fillStyle = getRandomColorGold();
         var i_x = getRandomInteger(-1, 1);
         var i_y = getRandomInteger(-1, 1);
-        ctx.fillRect((x / 2)-410+i_x,(y / 2) - 32+i_y, (220)+i_x, 44+i_y);
+        ctx.fillRect(x / 2 + b.dx + i_x, y / 2 + b.dy + i_y, b.w + i_x, b.h + i_y);
         ctx.font = "25px Arial";
         ctx.globalAlpha = 1.0;
         ctx.fillStyle = "black";
@@ -225,40 +229,18 @@ function click_to_start_colors(){ // Flashing colors on start screen
     }
 }
 
-function space_to_break_colors(){ // Flashing colors on start screen
-    if (bounds_space_to_break) {
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(x/2, y/2, 272, 40);
-        ctx.font = "40px Impact";
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = getRandomColor();
-        ctx.fillText("Space to Break", x / 2 , y / 2 +38);
-        ctx.globalAlpha = 1.0;
+function highlightControl() { // Flashing colors on the hovered control button (start screen)
+    var b = START_BUTTONS[hoveredButton];
+    if (!b || !b.help) {
+        return;
     }
-}
-
-function shift_to_focus_colors(){ // Flashing colors on start screen
-    if (bounds_shift_to_focus) {
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(x/2, y/2+60, 272, 40);
-        ctx.font = "40px Impact";
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = getRandomColor();
-        ctx.fillText("Shift to Focus", x / 2, y / 2 + 100);
-        ctx.globalAlpha = 1.0;
-    }
-}
-
-function click_to_warp_colors(){ // Flashing colors on start screen
-    if (bounds_click_to_warp) {
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(x/2, y/2+120, 272, 40);
-        ctx.font = "40px Impact";
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = getRandomColor();
-        ctx.fillText("Click to warp", x / 2, y / 2 + 160);
-        ctx.globalAlpha = 1.0;
-    }
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(x / 2 + b.dx, y / 2 + b.dy, b.w, b.h);
+    ctx.font = "40px Impact";
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = getRandomColor();
+    ctx.fillText(b.label, x / 2 + b.dx, y / 2 + b.ty);
+    ctx.globalAlpha = 1.0;
 }
 
 function onLoad() {
@@ -267,29 +249,11 @@ function onLoad() {
     playSound(aud_startup); // startup sound; browsers usually block it until the first click
 }
 
-function updateSloganText() {
-    var slogan = Math.floor(Math.random() * 19) + 1;
-    switch (slogan) { // slogans
-        case 1:sloganText = "TOO HARD";break;
-        case 2:sloganText = "Now in Color!";break;
-        case 3:sloganText = "Vegan!";break;
-        case 4:sloganText = "Siezure inducing!";break;
-        case 5:sloganText = "Advanced!";break;
-        case 6:sloganText = "Fresh!";break;
-        case 7:sloganText = "Spicy!";break;
-        case 8:sloganText = "Gotta Go Fast!";break;
-        case 9:sloganText = "Classic";break;
-        case 10:sloganText = "Coming Soon!";break;
-        case 11:sloganText = "4K 1080p";break;
-        case 12:sloganText = "Lite";break;
-        case 13:sloganText = "今は日本語です！";break;
-        case 14:sloganText = "Version 2";break;
-        case 15:sloganText = "Bug Free!";break;
-        case 16:sloganText = "Not Lame!";break;
-        case 17:sloganText = "...";break;
-        case 18:sloganText = "ULTRA";break;
-        case 19:sloganText = "";break;
-    }
+const SLOGANS = ["TOO HARD", "Now in Color!", "Vegan!", "Siezure inducing!", "Advanced!", "Fresh!", "Spicy!", "Gotta Go Fast!",
+    "Classic", "Coming Soon!", "4K 1080p", "Lite", "今は日本語です！", "Version 2", "Bug Free!", "Not Lame!", "...", "ULTRA", ""];
+
+function updateSloganText() { // pick a random slogan and redraw the start screen
+    sloganText = SLOGANS[Math.floor(Math.random() * SLOGANS.length)];
     drawStartScreen();
 }
 
@@ -335,38 +299,28 @@ function drawStartScreen() { // draw the start screen
     ctx.fillRect(0, 0, x, y);
 
     // Title
-    ctx.font = "80px Arial";
-    ctx.fillStyle = "#00FFFF";
-    for (let count = 120; count < 130; count++){ // Bold effect
-        ctx.fillText("FOCUS BREAK", count, count+80);
-        ctx.fillText("焦点を絞る", count+100, count+180);
-    }
-    ctx.fillStyle = "#ff00ff";
-    ctx.fillText("FOCUS BREAK", 130, 210);
-    ctx.fillText("焦点を絞る", 230, 310);
+    drawTitle("#00FFFF", 10);
 
     // start button
     ctx.font = "25px Arial";
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "gray";
-    ctx.fillRect((x / 2) - 410,(y / 2) - 32, 220, 44);
+    var start = START_BUTTONS.start;
+    ctx.fillRect(x / 2 + start.dx, y / 2 + start.dy, start.w, start.h);
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = "black";
     ctx.fillText("CLICK TO START", (x / 2) - 400, (y / 2));
     ctx.fillRect((x / 2) - 450,(y / 2) + 25, (300), 2);
     ctx.fillText("クリックして開始", (x / 2) - 400, (y / 2) + 65);
 
-    // controls
+    // controls: all boxes, then all labels
+    var controls = [START_BUTTONS.break, START_BUTTONS.focus, START_BUTTONS.warp];
     ctx.fillStyle = "#00FFFF";
-    ctx.fillRect(x/2, y/2,     272, 40);// break
-    ctx.fillRect(x/2, y/2+60,  272, 40);// focus
-    ctx.fillRect(x/2, y/2+120, 272, 40);// warp
+    controls.forEach(function (b) { ctx.fillRect(x / 2 + b.dx, y / 2 + b.dy, b.w, b.h); });
     ctx.font = "40px Impact";
     ctx.fillStyle = "#ff00ff";
     ctx.globalAlpha = 0.5;
-    ctx.fillText("Space to Break", x/2, y/2 + 38);
-    ctx.fillText("Shift to Focus", x/2, y/2 + 100);
-    ctx.fillText("Click to warp" , x/2, y/2 + 160);
+    controls.forEach(function (b) { ctx.fillText(b.label, x / 2 + b.dx, y / 2 + b.ty); });
 
     // horizontal banners
     ctx.globalAlpha = 1.0;
@@ -409,13 +363,8 @@ function drawStartScreen() { // draw the start screen
 }
 
 function startGame(e) {
-    if (firstRun) {
-        clearInterval(myInterval1);
-        clearInterval(myInterval2);
-        clearInterval(myInterval3);
-        clearInterval(myInterval4);
-        clearInterval(myInterval5);
-        clearInterval(myInterval6);
+    if (!gameStart) { // first start
+        startScreenIntervals.forEach(function (id) { clearInterval(id); });
         loadAudio();
         playSound(aud_click);
         startDate = new Date();
@@ -423,7 +372,6 @@ function startGame(e) {
         gamePiece = new component(size, size, gamePieceColor, e.pageX - size / 2, e.pageY - size / 2); // centered on the cursor
     }
     gameArea.start();
-    firstRun = false;
     gameStart = true;
     alive = true;
     restFrame = null; // the next transition screen gets a fresh copy
@@ -672,14 +620,6 @@ function applyHeldSpeed() { // set speed from whatever power is still held
     }
 }
 
-function checkBounds(e,x1,x2,y1,y2){ // check if mouse click is within x/y coords
-    var mouseX = e.clientX;
-    var mouseY = e.clientY;
-    if (mouseX > (x / 2) - x1 && mouseX < (x / 2) + x2 && mouseY > (y / 2) - y1 && mouseY < (y / 2) + y2) {
-        return true;
-    }
-}
-
 var gameArea = {
     canvas: document.createElement("canvas"),
     load: function () {
@@ -692,14 +632,11 @@ var gameArea = {
         }
         this.inputBound = true;
         window.addEventListener('click', function (e) {
-            if (gameStart == false && checkBounds(e,410,-190,32,14)) { // CLICK TO START
+            var button = gameStart ? "" : buttonAt(e.clientX, e.clientY);
+            if (button == "start") {
                 startGame(e);
-            } else if (gameStart == false && checkBounds(e,0,272,0,40)) { // SPACE TO BREAK
-                alert("SPACEBAR or MIDDLE MOUSE BUTTON = BREAK - Become invincible briefly.  Lose score, emergency use only!");
-            } else if (gameStart == false && checkBounds(e,0,272,-60,100)) { // SHIFT TO FOCUS
-                alert("SHIFT or LEFT MOUSE BUTTON = FOCUS - Slows time and decrease hitbox size.  Earn no score, use in a tight spot.");
-            } else if (gameStart == false && checkBounds(e,0,272,-120,160)) { // CLICK TO WARP
-                alert("CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.");
+            } else if (button) { // a control button: explain it
+                alert(START_BUTTONS[button].help);
             } else if (runFinished && restartArmed) { // play again from the finish screen
                 restartRun();
             }
