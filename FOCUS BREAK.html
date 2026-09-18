@@ -755,6 +755,7 @@ var gameArea = {
     start: function () {
         this.canvas.style.cursor = "none"; // hide the original cursor
         this.frameNo = 0;
+        this.spawnClock = 0; // game time for spawning, advanced by the game speed each step
         this.stop(); // never run two loops
         this.running = true;
         this.lastTime = performance.now();
@@ -902,8 +903,11 @@ function moveObjects(objects, amount, recolor) { // move left, drop what's off s
     }
 }
 
-function spawnDue(every) { // true on a level's first frame, then on the everyinterval schedule, which Focus/Warp stretch or shrink
-    return gameArea.frameNo == 1 || everyinterval(every / speed);
+function spawnDue(every) { // true on a level's first frame, then once per 2 * every frames of normal-speed time
+    // spawnClock runs at the game speed, so Focus/Warp stretch or shrink the gap in frames but not in distance;
+    // switching speed no longer bunches up or spreads out the spawns
+    var period = every * 2;
+    return gameArea.frameNo == 1 || Math.floor(gameArea.spawnClock / period) > Math.floor(gameArea.lastSpawnClock / period);
 }
 
 function edgeBlock(w, h, color, xOffset) { // block entering at the right edge (plus xOffset) at a random height
@@ -1029,6 +1033,8 @@ function updateGameArea() {
 
         gameArea.clear();
         gameArea.frameNo += 1;
+        gameArea.lastSpawnClock = gameArea.spawnClock;
+        gameArea.spawnClock += speed;
 
         if (invincible) {
             ctx.fillRect((gamePiece.x + gamePiece.width / 2 - 50 + invincibleTime / 2), (gamePiece.y + gamePiece.height / 2 - 25),(invincibleTimeMax - invincibleTime), (15)); // display invincible progress
