@@ -699,15 +699,40 @@ var gameArea = {
     start: function () {
         this.canvas.style.cursor = "none"; // hide the original cursor
         this.frameNo = 0;
-        this.interval = setInterval(updateGameArea, 10); // frame rate, object speed
+        this.stop(); // never run two loops
+        this.running = true;
+        this.lastTime = performance.now();
+        this.pendingTime = 0;
+        this.frameRequest = requestAnimationFrame(runSteps);
     },
     clear: function () {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     },
     stop: function () {
-        clearInterval(this.interval);
+        this.running = false;
+        cancelAnimationFrame(this.frameRequest);
     }
 };
+
+// The game advances in fixed 10ms steps, 100 a second (the speed it was tuned for): every display frame runs
+// as many steps as real time has covered, so a slow or busy machine doesn't slow the game down.
+var STEP_MS = 10;
+var MAX_CATCH_UP_MS = 100; // after a longer stall, resume instead of fast-forwarding through it
+
+function runSteps(now) {
+    if (!gameArea.running) {
+        return;
+    }
+    gameArea.pendingTime += Math.min(Math.max(now - gameArea.lastTime, 0), MAX_CATCH_UP_MS);
+    gameArea.lastTime = now;
+    while (gameArea.running && gameArea.pendingTime >= STEP_MS) { // a step can end the level, which stops the loop
+        gameArea.pendingTime -= STEP_MS;
+        updateGameArea();
+    }
+    if (gameArea.running) {
+        gameArea.frameRequest = requestAnimationFrame(runSteps);
+    }
+}
 var ctx = gameArea.context = gameArea.canvas.getContext("2d"); // the one drawing context (resizing resets its state, not the object)
 
 function component(width, height, color, x, y) {
