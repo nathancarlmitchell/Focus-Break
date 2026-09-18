@@ -1741,20 +1741,21 @@ function fxRecord() { // each step, after the square has moved: remember where i
     s.size = gamePiece.width;
     s.scroll = fx.scroll;
     fx.next = (fx.next + 1) % FX_HISTORY;
-    fx.count = Math.min(fx.count + 1, FX_HISTORY);
+    fx.count = Math.min(fx.count + 1, FX_HISTORY + 8); // past the ring's size it only times the echoes' fade-in
 }
 
 function fxGradients() { // made once in unit space (1 is the middle of an edge); setTransform fits them to any screen
     if (!fx.grad) {
         var vignette = ctx.createRadialGradient(0, 0, 0, 0, 0, 1.3); // Focus: deep violet from the edges, a faint magenta rim like an old CRT
         vignette.addColorStop(0.54, "rgba(255,0,255,0)"); // clear out to 0.7 (in the rim's color, so it fades in without a gray fringe)
-        vignette.addColorStop(0.66, "rgba(255,0,255,0.07)"); // the rim, at 0.86
-        vignette.addColorStop(0.77, "rgba(40,0,70,0.24)"); // the middles of the edges
-        vignette.addColorStop(1, "rgba(18,0,36,0.42)"); // 1.3 and beyond: the corners
+        // light enough that a red block entering anywhere along an edge keeps at least 3:1 contrast
+        vignette.addColorStop(0.66, "rgba(255,0,255,0.05)"); // the rim, at 0.86
+        vignette.addColorStop(0.77, "rgba(40,0,70,0.1)"); // the middles of the edges
+        vignette.addColorStop(1, "rgba(18,0,36,0.12)"); // 1.3 and beyond: the corners
         var rim = ctx.createRadialGradient(0, 0, 0, 0, 0, 1.3); // Warp with reduced motion: a still magenta glow instead of speed lines
         rim.addColorStop(0.54, "rgba(255,0,255,0)");
-        rim.addColorStop(1, "rgba(255,0,255,0.3)");
-        var trail = ctx.createLinearGradient(0, 0, 1, 0); // along the Warp trail: 0 at the square, 1 at the tip
+        rim.addColorStop(1, "rgba(255,0,255,0.22)"); // at most 0.18 once scaled: red blocks keep their contrast
+        var trail = ctx.createRadialGradient(0, 0, 0, 0, 0, 1); // the Warp trail, by distance: 0 at the square, 1 at its farthest point
         trail.addColorStop(0, "#ff00ff");
         trail.addColorStop(0.45, "rgba(0,255,255,0.6)");
         trail.addColorStop(1, "rgba(0,255,255,0)");
@@ -1779,7 +1780,7 @@ function fxDrawVignette(e) { // Focus: slides in from past the corners as it com
         var snap = Math.sin(Math.PI * fx.snap / FX_SNAP_STEPS);
         squeeze = 1 + 0.35 * (1 - e) - 0.05 * snap * snap;
     }
-    fxFillScreen(fxGradients().vignette, e, 1.15 * squeeze, squeeze); // wider than tall: the right edge, where obstacles come in, stays lightest
+    fxFillScreen(fxGradients().vignette, e, 1.15 * squeeze, squeeze); // wider than tall: the middle of the right edge, where obstacles come in, stays lightest
 }
 
 function fxDrawSpeedLines(e) { // Warp: streaks rushing right to left, printed twice like the title: cyan up-left, magenta on top
@@ -1855,14 +1856,18 @@ function fxDrawTrail(e) { // Warp: a comet from the square back along its path, 
         }
     }
     ctx.closePath();
-    var dx = fx.rx[n - 1] - fx.rx[0];
-    var dy = fx.ry[n - 1] - fx.ry[0];
+    var reach = 0; // the trail's farthest point from the square (the tip, unless a quick dodge looped it out ahead)
+    for (var r = 1; r < n; r++) {
+        var rdx = fx.rx[r] - fx.rx[0];
+        var rdy = fx.ry[r] - fx.ry[0];
+        reach = Math.max(reach, Math.sqrt(rdx * rdx + rdy * rdy));
+    }
     ctx.globalAlpha = 0.6 * e; // at most 0.6: a red or black block under the trail still shows as one
-    if (dx * dx + dy * dy < 4) {
+    if (reach < 2) {
         ctx.fillStyle = "rgba(255,0,255,0.5)"; // too short to shade
-    } else { // the gradient runs 0 to 1 along x: turn and stretch it from the square to the tip (the outline is already placed)
+    } else { // the gradient fades with distance from the square: scale it to the trail's reach (the outline is already placed)
         ctx.fillStyle = fxGradients().trail;
-        ctx.setTransform(dx, dy, -dy, dx, fx.rx[0], fx.ry[0]);
+        ctx.setTransform(reach, 0, 0, reach, fx.rx[0], fx.ry[0]);
     }
     ctx.fill();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1880,13 +1885,15 @@ function fxDrawEchoes(e) { // Focus: outlines where the square was, drifting off
         }
         var s = fxSample(age);
         var x = s.x - (fx.scroll - s.scroll);
-        if (Math.abs(x - headX) < 3 && Math.abs(s.y - headY) < 3) {
-            continue; // under the square anyway
+        // fade in over 8 steps once its record exists, and out as it slides under the square
+        var fade = Math.min(1, (fx.count - age) / 8, (Math.max(Math.abs(x - headX), Math.abs(s.y - headY)) - 2) / 4);
+        if (fade <= 0) {
+            continue;
         }
         var size = Math.round(s.size); // the size it was then: entering Focus, the echoes show the square shrinking
         var left = Math.round(x - s.size / 2); // whole pixels keep the 2px outlines crisp
         var top = Math.round(s.y - s.size / 2);
-        ctx.globalAlpha = e * (0.75 - 0.5 * age / 30);
+        ctx.globalAlpha = e * (0.75 - 0.5 * age / 30) * fade;
         ctx.strokeStyle = "#00FFFF";
         ctx.strokeRect(left - 2, top - 2, size, size);
         ctx.strokeStyle = "#ff00ff"; // outlines, never filled: filled squares are powerups
