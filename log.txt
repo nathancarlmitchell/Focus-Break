@@ -17,3 +17,6 @@
 - Add other elements to difficulty. Forced hyperspeed, limit ability uses, etc. Possibly restricted for "hard mode"  
 - Resize screen on mouse move
 
+- Options button: open an options page and remember the settings (cookie?)
+- Level 10: add a bonus to the total score; slowly increase spawns as the level goes on
+- Break could destroy all obstacles, or just those near the square

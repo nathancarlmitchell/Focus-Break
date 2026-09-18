@@ -1,43 +1,8 @@
-<!--
-    Ideas:
-
-    myInterval functions can be condensed to a single function and passed variables for color, x, y
-
-    OPTIONS
-    - Create a button that makes a new page
-    - set options and store as a cookie?
-
-    Levels 5 - 10 feel very same
-    - updated, test
-    - Offset the x position by random ammount to prevent objects in line
-
-    Level 10: bonus score
-    - Add bonus to total score
-    - slowly increase object spawn as level progresses
-
-    Stop timer if paused
-
-    Forced hyper
-
-    Destroy all objets on break?  or within x of current position
-
-    Powerup / life limit
-
-    To create a scalable window
-    Isolate drawing to a separate function
-    multiple or divide by a factor depending on screen resolution
-    Change size and position
-
-    MOBILE TOUCH
-
-    MOVETO function?
-    - smooth mouse movements, when unpause to prevent jumping
--->
-
 <!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF8"  />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         html, body { margin: 0; padding: 0; overflow: hidden; } /* canvas fills the window so page and canvas coordinates match */
         canvas { display: block; }
@@ -296,7 +261,7 @@ function windowResize() {
 }
 
 function drawStartScreen() { // draw the start screen
-    
+
     // clear screen
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, x, y);
@@ -336,31 +301,31 @@ function drawStartScreen() { // draw the start screen
     ctx.globalAlpha = 0.7;
     ctx.fillRect(0,y - 40, x, 2);
     ctx.fillRect(0,60,x, 2);
-    
+
     // slogan
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = "#ff00ff";
     ctx.fillText(sloganText,sloganX,sloganY);
     if (sloganText == "Bug Free!"){
         for (let count = 1; count < 40; count++){ // Bold effect
-                ctx.fillText("Bug Free!",sloganX-40+count,sloganY-40+count);
-                ctx.fillStyle = getRandomColor();
-            }
+            ctx.fillText("Bug Free!",sloganX-40+count,sloganY-40+count);
+            ctx.fillStyle = getRandomColor();
+        }
     }
 
     // Options
-     var boxX = 256;
-     var boxY = 40;
-     var Yoffset = boxX/2;
-     ctx.fillRect(x/2, (y - Yoffset), boxX, boxY);
-     ctx.fillText("Options", (x / 2) , (y - Yoffset));
+    var boxX = 256;
+    var boxY = 40;
+    var Yoffset = boxX/2;
+    ctx.fillRect(x/2, (y - Yoffset), boxX, boxY);
+    ctx.fillText("Options", (x / 2) , (y - Yoffset));
 
-     ctx.fillStyle = "black";
-     ctx.fillRect((x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
-     ctx.fillRect((x/2 + (boxX / 16)*8), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+    ctx.fillStyle = "black";
+    ctx.fillRect((x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+    ctx.fillRect((x/2 + (boxX / 16)*8), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
 
-     ctx.fillStyle = "pink";
-     ctx.fillText("Options", (x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4))+10);
+    ctx.fillStyle = "pink";
+    ctx.fillText("Options", (x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4))+10);
 }
 
 function startGame(e) {
@@ -384,7 +349,7 @@ function startGame(e) {
 }
 
 function wait(time) {
-    setTimeout(startNextLevel, time)
+    setTimeout(startNextLevel, time);
 }
 
 function restartRun() { // after the finish screen, start a fresh run from level 1
@@ -420,7 +385,7 @@ function gameOver() { // the level was cleared or the player died
     var levelCleared = score >= scoreLimit || scoreLimitReached;
     scoreLimitReached = false;
     if (levelCleared) { // Next level
-        level++; 
+        level++;
         if (level == 16){ // true finish
             ctx.fillText("Time: " + millisToMinutesAndSeconds(Date.now() - startTime), x / 2 - 350, y / 2);
             if (deaths == 0){
@@ -449,7 +414,7 @@ function gameOver() { // the level was cleared or the player died
             for (let count = 0; count < 3; count++){ // bold effect
                 ctx.fillText("WARNING 警告", (x / 2 - 300)+count, (y / 2 - 175)+count);
                 ctx.fillText("多数の敵が接近する", (x / 2 - 400)+count, (y / 2 - 75)+count);
-            }            
+            }
             drawBanners(40, 30);
             wait(3500);
         } else if (deaths == 0) { // perfect clear
@@ -458,11 +423,11 @@ function gameOver() { // the level was cleared or the player died
             if (perfectClear < 7){ // decrease hitbox size
                 perfectClear++;
                 ctx.fillText("Hitbox size decreased!", (x / 2 - 325), (y / 2 - 75));
-                ctx.fillText("ヒットボックスを減らす!", (x / 2 - 325), (y / 2 + 50));       
+                ctx.fillText("ヒットボックスを減らす!", (x / 2 - 325), (y / 2 + 50));
             }
             for (let count = 0; count < 3; count++){
                 ctx.fillText("+ Perfect 完全 +", (x / 2 - 200)+count, (y / 2 - 175)+count);
-            }  
+            }
             drawBanners(40, 20);
             wait(3000);
         } else { // normal clear
@@ -472,7 +437,7 @@ function gameOver() { // the level was cleared or the player died
             wait(3000);
         }
     } else { // you lose
-        deaths += 1; 
+        deaths += 1;
         playSound(aud_death);
         ctx.fillText("Score: " + score, x / 2 - 200, y / 2 - 75);
         var deathSlogan = { 69: "😂", 420: "blaze it", 666: "😈", 911: "TOO SOON", 999: "TOO HARD" }[score]; // special scores
@@ -485,7 +450,7 @@ function gameOver() { // the level was cleared or the player died
             ctx.fillText("...", x / 2 - 100, y / 2 - 175);
         } else {
             ctx.fillText("Try Again", x / 2 - 200, y / 2 - 175);
-            ctx.fillText("再試行する", x / 2 - 200, y / 2 +25);  
+            ctx.fillText("再試行する", x / 2 - 200, y / 2 +25);
         }
         wait(2500);
     }
@@ -634,7 +599,7 @@ var gameArea = {
             } else if (runFinished && restartArmed) { // play again from the finish screen
                 restartRun();
             }
-        })
+        });
         window.addEventListener('mousedown', function (e) {
             e.preventDefault();
             window.focus(); // preventDefault stops the page taking focus when embedded in an iframe
@@ -652,7 +617,7 @@ var gameArea = {
             if (e.button == 1) { // middle mouse button = BREAK
                 tryBreak();
             }
-        })
+        });
         window.addEventListener('mouseup', function (e) {
             e.preventDefault();
             var released = { 0: "lmb", 2: "rmb" }[e.button];
@@ -660,7 +625,7 @@ var gameArea = {
                 held[released] = false;
             }
             applyHeldSpeed(); // fall back to any power still held (this also ends level 15's forced Warp)
-        })
+        });
         window.addEventListener('mousemove', function (e) {
             mouseMove(e); // start-screen hover
             // catch buttons or keys released outside the window
@@ -678,12 +643,12 @@ var gameArea = {
                 gameArea.y = e.pageY;
                 setPieceSize(pieceSize());
             }
-        })
+        });
         window.addEventListener('blur', function () { // releases aren't seen while the window is unfocused
             held.shift = held.ctrl = held.lmb = held.rmb = false;
             applyHeldSpeed();
             setPause(true); // don't keep playing while the player is away
-        })
+        });
         window.addEventListener('keydown', function (e) {
             if (alive && e.ctrlKey) {
                 e.preventDefault(); // block browser shortcuts while holding CTRL to warp
@@ -709,14 +674,14 @@ var gameArea = {
                 e.preventDefault();
                 pressPower("ctrl", setFastSpeed);
             }
-        })
+        });
         window.addEventListener('keyup', function (e) {
             var released = { 16: "shift", 17: "ctrl" }[e.keyCode];
             if (released) {
                 held[released] = false;
                 applyHeldSpeed(); // fall back to any power still held
             }
-        })
+        });
     },
     start: function () {
         this.canvas.style.cursor = "none"; // hide the original cursor
@@ -729,7 +694,7 @@ var gameArea = {
     stop: function () {
         clearInterval(this.interval);
     }
-}
+};
 var ctx = gameArea.context = gameArea.canvas.getContext("2d"); // the one drawing context (resizing resets its state, not the object)
 
 function component(width, height, color, x, y) {
@@ -741,7 +706,7 @@ function component(width, height, color, x, y) {
     this.update = function () {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-    }
+    };
 
     this.crashWith = function (otherobj) {
         if (otherobj.width <= 0 || otherobj.height <= 0) {
@@ -749,7 +714,7 @@ function component(width, height, color, x, y) {
         }
         return !(this.y + this.height < otherobj.y || this.y > otherobj.y + otherobj.height ||
                  this.x + this.width < otherobj.x || this.x > otherobj.x + otherobj.width); // touching edges count as a hit
-    }
+    };
 }
 
 function detectCollision(objects) { // is gamePiece touching anything in this list
@@ -992,7 +957,7 @@ function updateGameArea() {
         for (var lane in OBSTACLE_SPEEDS) {
             moveObjects(obstacles[lane], OBSTACLE_SPEEDS[lane]);
         }
-        
+
         if (gameArea.x !== undefined && movePiece(gameArea.x - gamePiece.width / 2, gameArea.y - gamePiece.height / 2)) { // center the hitbox on the cursor
             gameOver();
             return;
@@ -1083,9 +1048,9 @@ function getRandomInteger(min, max) {
 }
 
 function millisToMinutesAndSeconds(millis) { // ms conversions
-  var minutes = Math.floor(millis / 60000);
-  var seconds = ((millis % 60000) / 1000).toFixed(0);
-  return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
+    var minutes = Math.floor(millis / 60000);
+    var seconds = ((millis % 60000) / 1000).toFixed(0);
+    return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
 }
 
 </script>
