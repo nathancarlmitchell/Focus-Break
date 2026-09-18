@@ -421,6 +421,12 @@ function startNextLevel() {
     setMusicVolume(musicVolume);
 }
 
+function centerText(text, dx, dy, passes) { // a message at an offset from the layout center; passes > 1 repeats it 1px apart for a bold look
+    for (let i = 0; i < (passes || 1); i++) {
+        ctx.fillText(text, LAYOUT_W / 2 + dx + i, LAYOUT_H / 2 + dy + i);
+    }
+}
+
 function gameOver() { // the level was cleared or the player died
     alive = false;
     endBreak(); // a level can end mid-break
@@ -438,16 +444,16 @@ function gameOver() { // the level was cleared or the player died
     if (levelCleared) { // Next level
         level++;
         if (level == 16){ // true finish
-            ctx.fillText("Time: " + millisToMinutesAndSeconds(Date.now() - startTime), LAYOUT_W / 2 - 350, LAYOUT_H / 2);
+            centerText("Time: " + millisToMinutesAndSeconds(Date.now() - startTime), -350, 0);
             if (deaths == 0){
-                ctx.fillText("Flawless Victory", LAYOUT_W / 2 - 350, LAYOUT_H / 2 - 175);
+                centerText("Flawless Victory", -350, -175);
             } else {
-                ctx.fillText("Can you continue?", LAYOUT_W / 2 - 350, LAYOUT_H / 2 - 175);
-                ctx.fillText(deaths+" mistakes", LAYOUT_W / 2 - 350, LAYOUT_H / 2 - 87);
+                centerText("Can you continue?", -350, -175);
+                centerText(deaths + " mistakes", -350, -87);
             }
             ctx.fillStyle = "black";
             ctx.font = "30px Arial";
-            ctx.fillText("Click or press R to play again", LAYOUT_W / 2 - 350, LAYOUT_H / 2 + 87);
+            centerText("Click or press R to play again", -350, 87);
             runFinished = true;
             finishTime = Date.now();
             restartArmed = false; // a click already in progress (e.g. held for Focus) shouldn't restart
@@ -455,18 +461,16 @@ function gameOver() { // the level was cleared or the player died
             return;
         } else if (level == 10){ // you win
             ctx.fillStyle = "Black";
-            ctx.fillText("Victory is a state of mind", LAYOUT_W / 2 - 350, LAYOUT_H / 2 - 175);
-            ctx.fillText("勝利は心の状態です", LAYOUT_W / 2 - 275, LAYOUT_H / 2 - 75);
+            centerText("Victory is a state of mind", -350, -175);
+            centerText("勝利は心の状態です", -275, -75);
             drawBanners(40, 20, bannerScale());
             wait(5000);
         } else if (level == 9){
             setMusicVolume(0.0);
             playSound(aud_bomb);
             ctx.font = "80px Arial";
-            for (let count = 0; count < 3; count++){ // bold effect
-                ctx.fillText("WARNING 警告", (LAYOUT_W / 2 - 300)+count, (LAYOUT_H / 2 - 175)+count);
-                ctx.fillText("多数の敵が接近する", (LAYOUT_W / 2 - 400)+count, (LAYOUT_H / 2 - 75)+count);
-            }
+            centerText("WARNING 警告", -300, -175, 3);
+            centerText("多数の敵が接近する", -400, -75, 3);
             drawBanners(40, 30, bannerScale());
             wait(3500);
         } else if (deaths == 0) { // perfect clear
@@ -474,35 +478,33 @@ function gameOver() { // the level was cleared or the player died
             ctx.fillStyle = "#48D1CC";
             if (perfectClear < 7){ // decrease hitbox size
                 perfectClear++;
-                ctx.fillText("Hitbox size decreased!", (LAYOUT_W / 2 - 325), (LAYOUT_H / 2 - 75));
-                ctx.fillText("ヒットボックスを減らす!", (LAYOUT_W / 2 - 325), (LAYOUT_H / 2 + 50));
+                centerText("Hitbox size decreased!", -325, -75);
+                centerText("ヒットボックスを減らす!", -325, 50);
             }
-            for (let count = 0; count < 3; count++){
-                ctx.fillText("+ Perfect 完全 +", (LAYOUT_W / 2 - 200)+count, (LAYOUT_H / 2 - 175)+count);
-            }
+            centerText("+ Perfect 完全 +", -200, -175, 3);
             drawBanners(40, 20, bannerScale());
             wait(3000);
         } else { // normal clear
-            ctx.fillText("Enemies Approaching", LAYOUT_W / 2 - 300, LAYOUT_H / 2 - 175);
-            ctx.fillText("非常に大きな敵に接近する危険!", LAYOUT_W / 2 - 425, LAYOUT_H / 2 - 50);
-            ctx.fillText("慎重に進んでください!", LAYOUT_W / 2 - 300, LAYOUT_H / 2 + 25);
+            centerText("Enemies Approaching", -300, -175);
+            centerText("非常に大きな敵に接近する危険!", -425, -50);
+            centerText("慎重に進んでください!", -300, 25);
             wait(3000);
         }
     } else { // you lose
         deaths += 1;
         playSound(aud_death);
-        ctx.fillText("Score: " + score, LAYOUT_W / 2 - 200, LAYOUT_H / 2 - 75);
+        centerText("Score: " + score, -200, -75);
         var deathSlogan = { 69: "😂", 420: "blaze it", 666: "😈", 911: "TOO SOON", 999: "TOO HARD" }[score]; // special scores
         if (deathSlogan) {
-            ctx.fillText(deathSlogan, LAYOUT_W / 2 -150, LAYOUT_H / 2 +25);
+            centerText(deathSlogan, -150, 25);
         }
         if (score >= 900) {
-            ctx.fillText("So Close", LAYOUT_W / 2 - 200, LAYOUT_H / 2 - 175);
+            centerText("So Close", -200, -175);
         } else if (score <= 100) {
-            ctx.fillText("...", LAYOUT_W / 2 - 100, LAYOUT_H / 2 - 175);
+            centerText("...", -100, -175);
         } else {
-            ctx.fillText("Try Again", LAYOUT_W / 2 - 200, LAYOUT_H / 2 - 175);
-            ctx.fillText("再試行する", LAYOUT_W / 2 - 200, LAYOUT_H / 2 +25);
+            centerText("Try Again", -200, -175);
+            centerText("再試行する", -200, 25);
         }
         wait(2500);
     }
