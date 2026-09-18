@@ -216,7 +216,8 @@ function buttonAt(px, py) { // name of the start-screen button at a window point
 
 function mouseMove(event) { // highlight the start-screen button under the mouse
     if (!gameStart) {
-        setHovered(buttonAt(event.clientX, event.clientY));
+        var p = toGame(event.clientX, event.clientY);
+        setHovered(buttonAt(p.x, p.y));
     }
 }
 
@@ -337,9 +338,7 @@ function copyCanvas() { // copy of what's on screen, or null if the canvas has n
 }
 
 function windowResize() {
-    var wasPortrait = gameArea.canvas.height > gameArea.canvas.width;
-    x = window.innerWidth;
-    y = window.innerHeight;
+    var wasTall = gameArea.tall;
     // resizing clears the canvas; keep what's shown between levels, e.g. a level transition message.
     // copy it once, before the first resize crops it, and reuse that copy for later resizes
     if (gameStart && !alive && !restFrame) {
@@ -348,7 +347,7 @@ function windowResize() {
     gameArea.load();
     if (alive) {
         if (inputMode == "touch") {
-            if (wasPortrait != gameArea.canvas.height > gameArea.canvas.width) {
+            if (wasTall != gameArea.tall) {
                 setPause(true); // the device was turned: give the player a moment
             }
             if (gameArea.x !== undefined) { // keep the steering target on the new screen
@@ -678,6 +677,7 @@ var activeTouches = 0; // fingers down
 var TOUCH_GAIN = 1.25; // touch steering: the square moves 1.25px for each px the steering finger moves
 var touch = { steerId: null, lastX: 0, lastY: 0, roles: {}, order: 0 }; // what each finger is doing, and which one steers
 var resumeTimer = null; // the 3-2-1 countdown after a touch resume
+var rotated = false; // a phone or tablet held upright: the game is drawn turned a quarter clockwise, so it always plays landscape
 
 function canAct() { // powers only work while playing and unpaused
     return alive && !pause;
@@ -856,6 +856,10 @@ function setInputMode(mode) { // switch between mouse and touch play, redrawing 
     }
 }
 
+function toGame(sx, sy) { // a window point (clientX/Y or pageX/Y) in game coordinates; they differ only while the game is turned
+    return rotated ? { x: sy, y: gameArea.canvas.height - sx } : { x: sx, y: sy };
+}
+
 function touchEcho(e) { // a mouse event the browser made up after a touch
     return Date.now() - lastTouchTime < 800 || !!(e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents);
 }
@@ -1019,15 +1023,16 @@ function onTouchStart(e) {
     setInputMode("touch");
     for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
-        var info = { id: t.identifier, x: t.clientX, y: t.clientY, order: ++touch.order, role: "none", pausedAtStart: pause };
+        var p = toGame(t.clientX, t.clientY);
+        var info = { id: t.identifier, x: p.x, y: p.y, order: ++touch.order, role: "none", pausedAtStart: pause };
         if (!gameStart) {
-            setHovered(buttonAt(t.clientX, t.clientY)); // press feedback
+            setHovered(buttonAt(p.x, p.y)); // press feedback
         } else if (runFinished) {
             if (Date.now() - finishTime >= 1000) {
                 restartArmed = true; // same rule as a mouse click: only a touch that starts on the finish screen, after 1s
             }
         } else {
-            var button = alive ? touchButtonAt(t.clientX, t.clientY) : "";
+            var button = alive ? touchButtonAt(p.x, p.y) : "";
             info.role = button || "steer"; // a finger keeps its role until it lifts, even if it slides off its button
             if (button == "tfocus") {
                 pressPower("tfocus", setSlowSpeed);
@@ -1037,8 +1042,8 @@ function onTouchStart(e) {
                 tryBreak();
             } else if (!button) { // the newest steering finger steers
                 touch.steerId = t.identifier;
-                touch.lastX = t.clientX;
-                touch.lastY = t.clientY;
+                touch.lastX = p.x;
+                touch.lastY = p.y;
             }
         }
         touch.roles[t.identifier] = info;
@@ -1053,19 +1058,20 @@ function onTouchMove(e) {
     reconcileTouches(e.touches);
     for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
+        var p = toGame(t.clientX, t.clientY);
         var info = touch.roles[t.identifier];
         if (!info) {
             continue;
         }
-        info.x = t.clientX;
-        info.y = t.clientY;
+        info.x = p.x;
+        info.y = p.y;
         if (!gameStart) {
-            setHovered(buttonAt(t.clientX, t.clientY));
+            setHovered(buttonAt(p.x, p.y));
         } else if (t.identifier === touch.steerId) {
-            var dx = t.clientX - touch.lastX;
-            var dy = t.clientY - touch.lastY;
-            touch.lastX = t.clientX; // movement while paused or between levels is dropped, not saved up
-            touch.lastY = t.clientY;
+            var dx = p.x - touch.lastX;
+            var dy = p.y - touch.lastY;
+            touch.lastX = p.x; // movement while paused or between levels is dropped, not saved up
+            touch.lastY = p.y;
             if (alive && !pause && !resumeTimer) {
                 steerBy(dx, dy);
             }
@@ -1081,12 +1087,13 @@ function onTouchEnd(e) { // touchend and touchcancel
     var last = null;
     for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
-        last = t;
+        var p = toGame(t.clientX, t.clientY);
+        last = p;
         var info = forgetTouch(t.identifier);
         if (!info || e.type == "touchcancel") {
             continue;
         }
-        if (info.role == "pause" && !pause && touchButtonAt(t.clientX, t.clientY) == "pause") {
+        if (info.role == "pause" && !pause && touchButtonAt(p.x, p.y) == "pause") {
             setPause(true);
         } else if (info.pausedAtStart && pause && Date.now() - pauseStart > 300) {
             startResumeCountdown(); // a tap anywhere resumes (after the pause has been up for a moment)
@@ -1101,7 +1108,7 @@ function onTouchEnd(e) { // touchend and touchcancel
     }
     if (e.touches.length === 0 && last) {
         if (!gameStart) {
-            var button = buttonAt(last.clientX, last.clientY);
+            var button = buttonAt(last.x, last.y);
             setHovered("");
             if (button && button != "start") {
                 alert(START_BUTTONS[button].touchHelp);
@@ -1123,8 +1130,16 @@ function endBreak() { // back to normal after a Break
 var gameArea = {
     canvas: document.createElement("canvas"),
     load: function () {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+        this.tall = window.innerHeight > window.innerWidth;
+        // phones and tablets always play landscape: held upright, the canvas is turned a quarter clockwise
+        // (orientation locking needs fullscreen on Android and isn't available on iOS)
+        rotated = this.tall && !!(window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches);
+        this.canvas.width = rotated ? window.innerHeight : window.innerWidth;
+        this.canvas.height = rotated ? window.innerWidth : window.innerHeight;
+        this.canvas.style.transformOrigin = "0 0";
+        this.canvas.style.transform = rotated ? "rotate(90deg) translateY(-100%)" : "";
+        x = this.canvas.width; // the screens are drawn across the whole canvas
+        y = this.canvas.height;
         if (this.inputBound) {
             return; // load() re-runs on resize; only insert the canvas and register input listeners once
         }
@@ -1148,9 +1163,10 @@ var gameArea = {
             if (touchEcho(e)) {
                 return;
             }
-            var button = gameStart ? "" : buttonAt(e.clientX, e.clientY);
+            var p = toGame(e.pageX, e.pageY);
+            var button = gameStart ? "" : buttonAt(p.x, p.y);
             if (button == "start") {
-                startGame(e);
+                startGame({ pageX: p.x, pageY: p.y });
             } else if (button) { // a control button: explain it
                 alert(START_BUTTONS[button].help);
             } else if (runFinished && restartArmed) { // play again from the finish screen
@@ -1214,8 +1230,9 @@ var gameArea = {
                 applyHeldSpeed();
             }
             if (gameStart) { // the square follows the cursor (movePiece moves it there each frame)
-                gameArea.x = e.pageX;
-                gameArea.y = e.pageY;
+                var p = toGame(e.pageX, e.pageY);
+                gameArea.x = p.x;
+                gameArea.y = p.y;
                 setPieceSize(pieceSize());
             }
         });
@@ -1414,12 +1431,12 @@ function spawnDue(every) { // true on a level's first frame, then once per 2 * e
 }
 
 function edgeBlock(w, h, color, xOffset) { // block entering at the right edge (plus xOffset) at a random height
-    return new component(w, h, color, gameArea.canvas.width + (xOffset || 0), Math.random() * window.innerHeight);
+    return new component(w, h, color, gameArea.canvas.width + (xOffset || 0), Math.random() * gameArea.canvas.height);
 }
 
 function spawnBarPair() { // a vertical black bar pair with a gap to pass through
     var minHeight = 20;
-    var maxHeight = window.innerHeight - 60;
+    var maxHeight = gameArea.canvas.height - 60;
     var height = Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight);
     var minGap = 85 - (level * 2);
     var maxGap = 125 - (level * 2);
@@ -1473,18 +1490,18 @@ function drawLevelName() { // level name in the bottom-left corner (level 13 als
     var w = gameArea.canvas.width / 1920; // the bars were placed for a 1920px-wide (fullscreen) window; keep their relative spot
     if (level == 13) {
         ctx.fillStyle = "red";
-        ctx.fillRect(900 * w, 0, 100 * w, window.innerHeight);
+        ctx.fillRect(900 * w, 0, 100 * w, gameArea.canvas.height);
         ctx.fillStyle = "black";
     } else if (level == 14) {
-        ctx.fillRect(900 * w, 0, 100 * w, window.innerHeight);
-        ctx.fillRect(1100 * w, 0, 2000 * w, window.innerHeight);
+        ctx.fillRect(900 * w, 0, 100 * w, gameArea.canvas.height);
+        ctx.fillRect(1100 * w, 0, 2000 * w, gameArea.canvas.height);
     }
     var name = LEVEL_NAMES[level];
     if (Array.isArray(name)) {
         name = deaths == 0 ? name[0] : name[1];
     }
     var s = hudScale(); // shrunk with the HUD, baseline kept just above the bottom banner
-    ctx.setTransform(s, 0, 0, s, 0, window.innerHeight - 60);
+    ctx.setTransform(s, 0, 0, s, 0, gameArea.canvas.height - 60);
     if (inputMode == "touch") { // stop short of the power buttons
         var maxWidth = (touchButtons().box.left - 12) / s - 80;
         if (maxWidth > 0) {
@@ -1509,8 +1526,8 @@ function drawBanners(top, thickness, scale) { // matching stripes across the top
     var k = scale || 1; // screens pass bannerScale() so the stripes shrink along with their text
     ctx.save();
     useWindow(); // always the full window width, whatever layout is being drawn
-    ctx.fillRect(0, top * k, window.innerWidth, thickness * k);
-    ctx.fillRect(0, window.innerHeight - (100 - top) * k, window.innerWidth, thickness * k);
+    ctx.fillRect(0, top * k, gameArea.canvas.width, thickness * k);
+    ctx.fillRect(0, gameArea.canvas.height - (100 - top) * k, gameArea.canvas.width, thickness * k);
     ctx.restore();
 }
 
@@ -1636,7 +1653,7 @@ function updateGameArea() {
         if (inputMode == "touch" && level == 1 && gameArea.frameNo < 200) { // first seconds of a touch run
             ctx.fillStyle = "black";
             ctx.font = "30px Arial";
-            ctx.fillText("DRAG ANYWHERE TO STEER", 200, 260);
+            ctx.fillText("DRAG ANYWHERE TO STEER", 200, 260, gameArea.canvas.width / hudScale() - 220); // squeezed to fit a narrow window
         }
         useWindow();
         gamePiece.update();

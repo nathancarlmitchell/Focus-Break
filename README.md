@@ -6,7 +6,7 @@
 https://nathancarlmitchell.com/focus-break/
 
 ### How to play:
- - Use your mouse to avoid hitting any obstacles. <br>
+ - Use your mouse (or drag a finger on a touch screen) to avoid hitting any obstacles. <br>
  - Reach 1000 score to advance to the next level. <br>
  - Use special powers to maneuver tight spaces, but it will hurt your score!<br>
 
@@ -27,6 +27,16 @@ Runs best in Google Chrome, Enter full screen (F11)
 	- CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.
 	
 	- P = PAUSE.  After the final level, click or press R to play again.
+
+### Touch controls:
+
+	- Drag anywhere to steer.  Your square moves with your finger, not to it.
+	
+	- Hold the FOCUS or WARP button, tap BREAK (bottom right).
+	
+	- Tap the pause icon (top right) to pause; tap anywhere to resume after a 3-2-1 countdown.
+	
+	- Phones and tablets always play in landscape.  Held upright, the game turns sideways; turn your device to match.
 
 ### Credits:
 
