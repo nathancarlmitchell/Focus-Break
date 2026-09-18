@@ -350,13 +350,17 @@ function windowResize() {
             if (wasTall != gameArea.tall) {
                 setPause(true); // the device was turned: give the player a moment
             }
-            if (gameArea.x !== undefined) { // keep the steering target on the new screen
-                gameArea.x = Math.min(gameArea.x, gameArea.canvas.width);
-                gameArea.y = Math.min(gameArea.y, gameArea.canvas.height);
-            }
+            // keep the square on the new screen (otherwise it would sweep back through obstacles it can't see) and steer from there
+            var cx = Math.max(0, Math.min(gamePiece.x + gamePiece.width / 2, gameArea.canvas.width));
+            var cy = Math.max(0, Math.min(gamePiece.y + gamePiece.height / 2, gameArea.canvas.height));
+            gamePiece.x = cx - gamePiece.width / 2;
+            gamePiece.y = cy - gamePiece.height / 2;
+            gameArea.x = cx;
+            gameArea.y = cy;
         }
         fitObstaclesToWindow();
         if (pause) { // nothing redraws while paused, so draw the refitted level and the panel once
+            stopResume(); // a resize stops a touch resume countdown: the panel asks for a tap again
             drawLevel();
             drawPauseScreen();
         }
@@ -494,14 +498,12 @@ function startGame(e) {
 
 function startTouchGame() { // start from a tap: the square starts at the left middle, and sounds are unlocked in this tap
     [aud_bomb, aud_menuSound, aud_death, aud_danger, aud_powerUp, aud_pickupCoin].forEach(function (sound) {
-        // mobile browsers only let a sound play later if it was first played during a tap
-        sound.muted = true;
+        // mobile browsers only let a sound play later if it was first played during a tap; pausing at once keeps it silent
+        // (a later reset, once play() settles, could stop the sound's first real use on a slow connection)
         var playing = sound.play();
-        var reset = function () { sound.pause(); sound.currentTime = 0; sound.muted = false; };
+        sound.pause();
         if (playing) {
-            playing.then(reset, function () { sound.muted = false; });
-        } else {
-            reset();
+            playing.catch(function () {}); // pausing before playback starts rejects play()
         }
     });
     var startX = gameArea.canvas.width * 0.25;
@@ -677,6 +679,8 @@ var activeTouches = 0; // fingers down
 var TOUCH_GAIN = 1.25; // touch steering: the square moves 1.25px for each px the steering finger moves
 var touch = { steerId: null, lastX: 0, lastY: 0, roles: {}, order: 0 }; // what each finger is doing, and which one steers
 var resumeTimer = null; // the 3-2-1 countdown after a touch resume
+var pauseNo = 0; // counts pauses (and cut-short countdowns): a finger lifted during the pause it came down in resumes
+var layoutClick = false; // this mouse press switched the start screen to the mouse layout; its click only shows it
 var rotated = false; // a phone or tablet held upright: the game is drawn turned a quarter clockwise, so it always plays landscape
 
 function canAct() { // powers only work while playing and unpaused
@@ -684,6 +688,10 @@ function canAct() { // powers only work while playing and unpaused
 }
 
 function setPause(paused) { // pause or resume play; only while alive
+    if (paused && pause && stopResume()) { // pausing during a touch resume countdown stops it: show the panel again
+        drawPauseScreen();
+        return;
+    }
     if (!alive || paused == pause) {
         return;
     }
@@ -692,6 +700,7 @@ function setPause(paused) { // pause or resume play; only while alive
     gameArea.canvas.style.cursor = pause ? "default" : "none"; // let the player line the cursor back up with their square
     if (pause) {
         pauseStart = Date.now();
+        pauseNo++;
         pausedSong = all_songs.find(function (song) { return !song.paused; }) || null;
         if (pausedSong) {
             pausedSong.pause();
@@ -716,9 +725,8 @@ function releaseAll() { // the player went away (window blur, app switch, a syst
     held.shift = held.ctrl = held.lmb = held.rmb = held.tfocus = held.twarp = false;
     touch.roles = {};
     touch.steerId = null;
-    cancelResume();
     applyHeldSpeed();
-    setPause(true);
+    setPause(true); // this also stops a resume countdown
 }
 
 function cancelResume() { // stop a touch resume countdown
@@ -726,6 +734,15 @@ function cancelResume() { // stop a touch resume countdown
         clearTimeout(resumeTimer);
         resumeTimer = null;
     }
+}
+
+function stopResume() { // a touch resume countdown was cut short: stay paused and wait for a new tap
+    if (!resumeTimer) {
+        return false;
+    }
+    cancelResume();
+    pauseNo++; // fingers already down don't count as that tap
+    return true;
 }
 
 function startResumeCountdown() { // touch resume: 3, 2, 1 (400ms each), so the player can put their thumbs down first
@@ -848,10 +865,11 @@ function setInputMode(mode) { // switch between mouse and touch play, redrawing 
     if (!gameStart) {
         drawStartScreen();
     } else if (alive && pause) {
-        cancelResume();
+        stopResume();
         drawLevel();
         drawPauseScreen();
     } else if (alive && mode == "mouse") {
+        drawLevel(); // without the touch controls
         setPause(true); // the cursor is somewhere else: pause so the player can line it up with the square
     }
 }
@@ -978,8 +996,13 @@ function forgetTouch(id) { // a finger is gone: release its power and hand steer
     if (!info) {
         return null;
     }
-    if (info.role == "tfocus" || info.role == "twarp") {
+    if (info.role == "tfocus" || info.role == "twarp") { // released once no other finger holds the same button
         held[info.role] = false;
+        for (var k in touch.roles) {
+            if (touch.roles[k].role == info.role) {
+                held[info.role] = true;
+            }
+        }
         applyHeldSpeed();
     }
     if (id === touch.steerId) {
@@ -1020,11 +1043,12 @@ function onTouchStart(e) {
     lastTouchTime = Date.now();
     reconcileTouches(e.touches);
     window.focus(); // as for mouse clicks: an embedded game needs focus to receive keys and stay unpaused
+    var wasTouch = inputMode == "touch";
     setInputMode("touch");
     for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         var p = toGame(t.clientX, t.clientY);
-        var info = { id: t.identifier, x: p.x, y: p.y, order: ++touch.order, role: "none", pausedAtStart: pause };
+        var info = { id: t.identifier, x: p.x, y: p.y, order: ++touch.order, role: "none", pausedAt: pause ? pauseNo : -1, switched: !wasTouch };
         if (!gameStart) {
             setHovered(buttonAt(p.x, p.y)); // press feedback
         } else if (runFinished) {
@@ -1032,7 +1056,9 @@ function onTouchStart(e) {
                 restartArmed = true; // same rule as a mouse click: only a touch that starts on the finish screen, after 1s
             }
         } else {
-            var button = alive ? touchButtonAt(p.x, p.y) : "";
+            // the buttons also work between levels, so FOCUS or WARP held into the next level starts in it (as with the mouse);
+            // a touch that switches from mouse play steers, as the buttons weren't showing
+            var button = wasTouch ? touchButtonAt(p.x, p.y) : "";
             info.role = button || "steer"; // a finger keeps its role until it lifts, even if it slides off its button
             if (button == "tfocus") {
                 pressPower("tfocus", setSlowSpeed);
@@ -1085,22 +1111,27 @@ function onTouchEnd(e) { // touchend and touchcancel
     }
     lastTouchTime = Date.now();
     var last = null;
+    var switched = false; // the lifted finger switched the start screen from the mouse layout
     for (var i = 0; i < e.changedTouches.length; i++) {
         var t = e.changedTouches[i];
         var p = toGame(t.clientX, t.clientY);
         last = p;
         var info = forgetTouch(t.identifier);
+        switched = !!(info && info.switched);
         if (!info || e.type == "touchcancel") {
             continue;
         }
         if (info.role == "pause" && !pause && touchButtonAt(p.x, p.y) == "pause") {
             setPause(true);
-        } else if (info.pausedAtStart && pause && Date.now() - pauseStart > 300) {
+        } else if (pause && info.pausedAt == pauseNo && Date.now() - pauseStart > 300) { // began during this pause
             startResumeCountdown(); // a tap anywhere resumes (after the pause has been up for a moment)
         }
     }
     reconcileTouches(e.touches);
     if (e.type == "touchcancel") {
+        if (!gameStart && e.touches.length === 0) {
+            setHovered(""); // no start-screen button stays pressed
+        }
         if (alive) {
             releaseAll(); // a system gesture took the touch: pause rather than let the player die
         }
@@ -1110,7 +1141,9 @@ function onTouchEnd(e) { // touchend and touchcancel
         if (!gameStart) {
             var button = buttonAt(last.x, last.y);
             setHovered("");
-            if (button && button != "start") {
+            if (switched) {
+                // this tap switched the start screen to the touch layout; it only shows it
+            } else if (button && button != "start") {
                 alert(START_BUTTONS[button].touchHelp);
             } else {
                 startTouchGame(); // a tap anywhere else starts (it has to be on touchend for sound to be allowed)
@@ -1163,6 +1196,10 @@ var gameArea = {
             if (touchEcho(e)) {
                 return;
             }
+            if (layoutClick) { // the press switched the start screen to the mouse layout; the click only shows it
+                layoutClick = false;
+                return;
+            }
             var p = toGame(e.pageX, e.pageY);
             var button = gameStart ? "" : buttonAt(p.x, p.y);
             if (button == "start") {
@@ -1178,6 +1215,7 @@ var gameArea = {
             if (touchEcho(e)) {
                 return;
             }
+            layoutClick = !gameStart && !activeTouches && inputMode != "mouse";
             if (!activeTouches) {
                 setInputMode("mouse");
             }
@@ -1606,7 +1644,6 @@ function updateGameArea() {
             gameOver();
             return;
         }
-        drawTouchControls();
         useHud(); // score, deaths, level and the power messages
         if (invincible) { // BREAK
             var flash = getRandomColor();
@@ -1655,6 +1692,7 @@ function updateGameArea() {
             ctx.font = "30px Arial";
             ctx.fillText("DRAG ANYWHERE TO STEER", 200, 260, gameArea.canvas.width / hudScale() - 220); // squeezed to fit a narrow window
         }
+        drawTouchControls(); // over the HUD and the power stripes, under the square
         useWindow();
         gamePiece.update();
         if (score >= scoreLimit) {
