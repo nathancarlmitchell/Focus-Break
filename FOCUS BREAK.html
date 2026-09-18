@@ -58,34 +58,30 @@ var musicVolume = 0.2;
 
 // Screens (start, level transitions, finish, pause) are laid out for a LAYOUT_W x LAYOUT_H window and scaled to fit
 // the actual window, centered, so they never run off screen. Gameplay stays in window pixels.
-// A window taller than wide (a phone held upright) uses a 720x1280 frame instead; gameArea.load() picks it.
 var LAYOUT_W = 1280;
 var LAYOUT_H = 800;
 
 // start-screen buttons, relative to the center of the layout; used for drawing, hover and clicks
-// `touch` is the bigger layout used for touch play, `portrait` the stacked one for a tall window (labels centered in the boxes)
+// `touch` is the bigger layout used for touch play (labels centered in the boxes)
 const START_BUTTONS = {
     start: { dx: -410, dy: -32, w: 220, h: 44, hitH: 46, // clickable area is 2px taller than the drawn box
-        touch: { dx: -450, dy: -60, w: 400, h: 150 }, portrait: { dx: -220, dy: -170, w: 440, h: 110 } },
+        touch: { dx: -450, dy: -60, w: 400, h: 150 } },
     break: { dx: 0, dy: 0, w: 272, h: 40, label: "Space to Break", ty: 38,
         help: "SPACEBAR or MIDDLE MOUSE BUTTON = BREAK - Become invincible briefly.  Lose score, emergency use only!",
-        touch: { dx: 60, dy: -150, w: 420, h: 110 }, portrait: { dx: -260, dy: 0, w: 520, h: 90 }, touchLabel: "Tap to Break",
+        touch: { dx: 60, dy: -150, w: 420, h: 110 }, touchLabel: "Tap to Break",
         touchHelp: "BREAK button (tap) = Become invincible briefly.  Lose 250 score, emergency use only!  Drag anywhere to steer." },
     focus: { dx: 0, dy: 60, w: 272, h: 40, label: "Shift to Focus", ty: 100,
         help: "SHIFT or LEFT MOUSE BUTTON = FOCUS - Slows time and decrease hitbox size.  Earn no score, use in a tight spot.",
-        touch: { dx: 60, dy: -20, w: 420, h: 110 }, portrait: { dx: -260, dy: 106, w: 520, h: 90 }, touchLabel: "Hold to Focus",
+        touch: { dx: 60, dy: -20, w: 420, h: 110 }, touchLabel: "Hold to Focus",
         touchHelp: "FOCUS button (hold) = Slows time and shrinks your hitbox.  Earn no score, use in a tight spot.  Drag anywhere to steer." },
     warp: { dx: 0, dy: 120, w: 272, h: 40, label: "Click to warp", ty: 160,
         help: "CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.",
-        touch: { dx: 60, dy: 110, w: 420, h: 110 }, portrait: { dx: -260, dy: 212, w: 520, h: 90 }, touchLabel: "Hold to Warp",
+        touch: { dx: 60, dy: 110, w: 420, h: 110 }, touchLabel: "Hold to Warp",
         touchHelp: "WARP button (hold) = Speeds up time.  Earn double score, you madman.  Drag anywhere to steer." },
 };
 var hoveredButton = ""; // start-screen button under the mouse (or finger)
 
-function startLayout() { // "portrait" (a tall window), "classic" (the original mouse layout) or "touch" (bigger, centered buttons)
-    if (LAYOUT_H > LAYOUT_W) {
-        return "portrait";
-    }
+function startLayout() { // "classic" (the original mouse layout) or "touch" (bigger, centered buttons)
     return inputMode == "touch" ? "touch" : "classic";
 }
 
@@ -239,13 +235,12 @@ function drawStartButtonText(b) { // the START button's label, in the current fi
         ctx.fillText("CLICK TO START", cx - 400, cy);
         return;
     }
-    var tap = inputMode == "touch";
     ctx.save();
     ctx.textAlign = "center";
     ctx.font = "44px Arial";
-    ctx.fillText(tap ? "TAP TO START" : "CLICK TO START", cx + b.dx + b.w / 2, cy + b.dy + b.h * 0.45);
+    ctx.fillText("TAP TO START", cx + b.dx + b.w / 2, cy + b.dy + b.h * 0.45);
     ctx.font = "28px Arial";
-    ctx.fillText(tap ? "タップして開始" : "クリックして開始", cx + b.dx + b.w / 2, cy + b.dy + b.h * 0.8);
+    ctx.fillText("タップして開始", cx + b.dx + b.w / 2, cy + b.dy + b.h * 0.8);
     ctx.restore();
 }
 
@@ -262,15 +257,11 @@ function drawControlLabel(name) { // a control button's label, in the current fi
     ctx.save();
     ctx.textAlign = "center";
     ctx.font = "48px Impact";
-    ctx.fillText(inputMode == "touch" ? b.touchLabel : b.label, cx + g.dx + g.w / 2, cy + g.dy + g.h / 2 + 17);
+    ctx.fillText(b.touchLabel, cx + g.dx + g.w / 2, cy + g.dy + g.h / 2 + 17);
     ctx.restore();
 }
 
 function drawTitle(shadowColor, passes) { // FOCUS BREAK title: stacked shadow copies, then magenta on top
-    ctx.save();
-    if (startLayout() == "portrait") {
-        ctx.translate(-57, 60); // centered in the narrower frame, below the slogan
-    }
     ctx.font = "80px Arial";
     ctx.fillStyle = shadowColor;
     for (let count = 130 - passes; count < 130; count++){ // Bold effect
@@ -280,7 +271,6 @@ function drawTitle(shadowColor, passes) { // FOCUS BREAK title: stacked shadow c
     ctx.fillStyle = "#ff00ff";
     ctx.fillText("FOCUS BREAK", 130, 210);
     ctx.fillText("焦点を絞る", 230, 310);
-    ctx.restore();
 }
 
 function focus_break_colors(){ // Flashing colors on start screen
@@ -461,7 +451,7 @@ function drawStartScreen() { // draw the start screen
     useWindow();
 }
 
-function drawBigStartButtons() { // the start screen's START and control buttons in the touch and portrait layouts
+function drawBigStartButtons() { // the start screen's START and control buttons in the bigger touch layout
     var cx = LAYOUT_W / 2;
     var cy = LAYOUT_H / 2;
     var start = geom("start");
@@ -478,22 +468,9 @@ function drawBigStartButtons() { // the start screen's START and control buttons
     ctx.globalAlpha = 0.5;
     names.forEach(drawControlLabel);
     ctx.globalAlpha = 1.0;
-    if (inputMode != "touch") {
-        return;
-    }
     ctx.fillStyle = "black";
     ctx.font = "28px Arial";
-    if (startLayout() == "portrait") {
-        ctx.save();
-        ctx.textAlign = "center";
-        ctx.fillText("Drag anywhere to steer", cx, 1010);
-        ctx.fillStyle = "gray";
-        ctx.font = "24px Arial";
-        ctx.fillText("Best played sideways", cx, 1060);
-        ctx.restore();
-    } else {
-        ctx.fillText("Drag anywhere to steer", 190, 540);
-    }
+    ctx.fillText("Drag anywhere to steer", 190, 540);
 }
 
 function startGame(e) {
@@ -559,18 +536,6 @@ function startNextLevel() {
 }
 
 function centerText(text, dx, dy, passes) { // a message at an offset from the layout center; passes > 1 repeats it 1px apart for a bold look
-    if (LAYOUT_H > LAYOUT_W) { // portrait: centered across the narrow frame (dx is for the wide one), shrunk to fit
-        ctx.save();
-        ctx.textAlign = "center";
-        var k = Math.min(1, (LAYOUT_W - 80) / ctx.measureText(text).width);
-        ctx.translate(LAYOUT_W / 2, LAYOUT_H / 2 + dy);
-        ctx.scale(k, k); // evenly, so Japanese text isn't squeezed
-        for (let i = 0; i < (passes || 1); i++) {
-            ctx.fillText(text, i, i);
-        }
-        ctx.restore();
-        return;
-    }
     for (let i = 0; i < (passes || 1); i++) {
         ctx.fillText(text, LAYOUT_W / 2 + dx + i, LAYOUT_H / 2 + dy + i);
     }
@@ -814,26 +779,23 @@ function drawTouchPauseScreen(countdown) { // touch play: tap anywhere to resume
     useLayout();
     var centerX = LAYOUT_W / 2;
     var centerY = LAYOUT_H / 2;
-    var tall = LAYOUT_H > LAYOUT_W; // portrait: a bigger panel, as the frame is scaled down more
-    var w = tall ? 600 : 560;
-    var h = tall ? 300 : 240;
     ctx.globalAlpha = 0.85;
     ctx.fillStyle = "white";
-    ctx.fillRect(centerX - w / 2, centerY - h / 2, w, h);
+    ctx.fillRect(centerX - 280, centerY - 120, 560, 240);
     ctx.globalAlpha = 1.0;
     ctx.textAlign = "center";
     ctx.fillStyle = "red";
     if (countdown) {
-        ctx.font = (tall ? 160 : 140) + "px Arial";
-        ctx.fillText(countdown, centerX, centerY + (tall ? 58 : 50));
+        ctx.font = "140px Arial";
+        ctx.fillText(countdown, centerX, centerY + 50);
     } else {
-        ctx.font = (tall ? 84 : 72) + "px Arial";
-        ctx.fillText("PAUSED", centerX, centerY - (tall ? 35 : 20));
+        ctx.font = "72px Arial";
+        ctx.fillText("PAUSED", centerX, centerY - 20);
         ctx.fillStyle = "black";
-        ctx.font = (tall ? 46 : 40) + "px Arial";
-        ctx.fillText("TAP TO RESUME", centerX, centerY + (tall ? 35 : 40));
-        ctx.font = (tall ? 28 : 24) + "px Arial";
-        ctx.fillText("Your square stays put. Drag to steer.", centerX, centerY + (tall ? 100 : 85));
+        ctx.font = "40px Arial";
+        ctx.fillText("TAP TO RESUME", centerX, centerY + 40);
+        ctx.font = "24px Arial";
+        ctx.fillText("Your square stays put. Drag to steer.", centerX, centerY + 85);
     }
     ctx.textAlign = "start";
     useWindow();
@@ -1163,9 +1125,6 @@ var gameArea = {
     load: function () {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        var portrait = this.canvas.height > this.canvas.width; // every resize re-picks the screens' layout frame
-        LAYOUT_W = portrait ? 720 : 1280;
-        LAYOUT_H = portrait ? 1280 : 800;
         if (this.inputBound) {
             return; // load() re-runs on resize; only insert the canvas and register input listeners once
         }
@@ -1677,7 +1636,7 @@ function updateGameArea() {
         if (inputMode == "touch" && level == 1 && gameArea.frameNo < 200) { // first seconds of a touch run
             ctx.fillStyle = "black";
             ctx.font = "30px Arial";
-            ctx.fillText("DRAG ANYWHERE TO STEER", 200, 260, gameArea.canvas.width / hudScale() - 220); // squeezed to fit a narrow window
+            ctx.fillText("DRAG ANYWHERE TO STEER", 200, 260);
         }
         useWindow();
         gamePiece.update();
