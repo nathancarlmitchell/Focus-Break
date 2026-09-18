@@ -576,6 +576,7 @@ function gameOver() { // the level was cleared or the player died
     gameArea.stop();
     gameArea.clear();
     clearObjects();
+    fxReset(); // the screen is cleared for the message: nothing of the effects carries over
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
     useLayout(); // messages are laid out for LAYOUT_W x LAYOUT_H and scaled to the window
@@ -1351,6 +1352,7 @@ var gameArea = {
         this.canvas.style.cursor = "none"; // hide the original cursor
         this.frameNo = 0;
         this.spawnClock = 0; // game time for spawning, advanced by the game speed each step
+        fxReset(); // no fade, trail or echo carried into the level
         this.stop(); // never run two loops
         this.running = true;
         this.lastTime = performance.now();
@@ -1614,14 +1616,329 @@ function bannerScale() { // stripe size on laid-out screens: normal, or smaller 
     return Math.min(1, layoutFrame().scale);
 }
 
+// Power effects: Warp streaks speed lines across the screen and leaves a comet trail behind the square; Focus closes a
+// violet vignette in from the edges and leaves outlined echoes of the square. They only read the game, never change it:
+// no Math.random, clocks, timers or sounds, so every spawn, score and sound is the same with them on or off, and nothing
+// is drawn unless a power is on or fading out. To stay readable they never use red or black (the obstacles' colors)
+// and never draw a filled square (the powerups' shape).
+var fxMode = "auto"; // "auto" follows the device's reduced-motion setting; "full", "reduced" or "off" (drawn exactly as before) pin it
+var reducedMotion = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null; // .matches follows the setting live
+var FX_HISTORY = 32; // steps of square positions remembered (the oldest echo is 30 steps back)
+var FX_TRAIL_PX = 5; // how far the world carries the trail and echoes each step at normal speed (10px in Warp, 1.25px in Focus)
+var FX_TRAIL_STEPS = 12; // Warp trail length at full strength, in steps: 120px behind a square that holds still
+var FX_KICK_STEPS = 12; // Warp from nothing: the speed lines burst out longer, peaking about 80ms in and settled by 120ms
+var FX_SNAP_STEPS = 24; // Focus from nothing: the vignette closes a touch past its rest, settled by 240ms
+// fades count whole steps so they end at exactly 0: Warp in over 8 steps and out over 25, Focus in over 15 and out over 30
+const FX_FADE = { warp: { full: 200, up: 25, down: 8 }, focus: { full: 30, up: 2, down: 1 } };
+const FX_ECHO_AGES = [30, 20, 12, 6]; // Focus echoes, in steps behind the square; oldest first so newer ones lie on top
+const FX_LINE_LAYERS = [ // speed lines, far to near: thickness (px), opacity, speed at full Warp (px per step)
+    { h: 1, alpha: 0.45, v: 12 },
+    { h: 2, alpha: 0.6, v: 18 },
+    { h: 3, alpha: 0.8, v: 26 },
+];
+var fx = {
+    look: "off", // this step's look: "full", "reduced" or "off" (see fxLook)
+    warp: 0, focus: 0, // fade levels: 0 (off) up to FX_FADE's full
+    kick: FX_KICK_STEPS, snap: FX_SNAP_STEPS, // steps into Warp's burst and Focus's snap (finished at the maximum)
+    run: 0, // how far the speed lines have traveled, in steps at full Warp
+    scroll: 0, // how far the world has moved left; recorded positions drift with it
+    next: 0, count: 0, samples: [], // the square's recent positions: a ring of reused { x, y, size, scroll } records
+    grad: null, // gradients, made once in unit space and stretched over the screen or along the trail with setTransform
+    rx: [], ry: [], rs: [], rt: [], // scratch for the trail's outline, so drawing allocates nothing
+};
+while (fx.samples.length < FX_HISTORY) {
+    fx.samples.push({ x: 0, y: 0, size: 0, scroll: 0 });
+}
+
+function fxLook() { // fxMode, or for "auto": "reduced" if the player asked their device for less motion, else "full"
+    if (fxMode != "auto") {
+        return fxMode;
+    }
+    return reducedMotion && reducedMotion.matches ? "reduced" : "full";
+}
+
+function fxReset() { // a level starts or ends: no fade, trail or echo carries over
+    fx.warp = fx.focus = fx.run = fx.scroll = fx.count = 0;
+    fx.kick = FX_KICK_STEPS;
+    fx.snap = FX_SNAP_STEPS;
+}
+
+function fxShowing() { // is a power effect on screen (with effects on, only then can the picture differ from before)
+    return fx.warp > 0 || fx.focus > 0;
+}
+
+function fxFade(level, on, f) { // one step of a fade toward full (on) or 0 (off)
+    return on ? Math.min(f.full, level + f.up) : Math.max(0, level - f.down);
+}
+
+function fxEase(level, f) { // a fade level as 0..1, smoothstepped so effects ease in and out instead of popping
+    var t = level / f.full;
+    return t * t * (3 - 2 * t);
+}
+
+function fxHash(a, b) { // a repeatable 0..1 from two whole numbers: the effects' own randomness (Math.random drives the spawns)
+    var h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+function fxSample(age) { // the square as it was `age` steps ago (0: the latest record)
+    return fx.samples[(fx.next - 1 - age + 2 * FX_HISTORY) % FX_HISTORY];
+}
+
+function fxAttached() { // is the square where it was last recorded (a touch resize can move it between steps)
+    if (fx.count == 0) {
+        return false;
+    }
+    var s = fxSample(0);
+    return Math.abs(gamePiece.x + gamePiece.width / 2 - s.x) + Math.abs(gamePiece.y + gamePiece.height / 2 - s.y) < 1;
+}
+
+function fxOverdrawn() { // runSteps runs another step before the screen shows this one, and that step clears it first
+    return gameArea.running && gameArea.pendingTime >= STEP_MS;
+}
+
+function fxStep() { // each step, before anything is drawn: fade each power's look toward the power in use
+    fx.look = fxLook();
+    if (fx.look == "off") {
+        fxReset();
+        return;
+    }
+    if (!fxAttached()) {
+        fx.count = 0; // the square was moved between steps (a touch resize): no trail or echoes back to where it was
+    }
+    var warpOn = speed == speed_fast;
+    var focusOn = speed == speed_slow;
+    if (warpOn && fx.warp == 0) {
+        fx.kick = 0; // Warp from nothing: the speed lines burst out
+    }
+    if (focusOn && fx.focus == 0) {
+        fx.snap = 0; // Focus from nothing: the vignette snaps in
+    }
+    fx.warp = fxFade(fx.warp, warpOn, FX_FADE.warp);
+    fx.focus = fxFade(fx.focus, focusOn, FX_FADE.focus);
+    fx.kick = Math.min(fx.kick + 1, FX_KICK_STEPS);
+    fx.snap = Math.min(fx.snap + 1, FX_SNAP_STEPS);
+    fx.run += fxEase(fx.warp, FX_FADE.warp); // the lines speed up as Warp comes in and coast to a stop as it fades
+}
+
+function fxRecord() { // each step, after the square has moved: remember where it is now
+    if (fx.look == "off") {
+        return;
+    }
+    var cx = gamePiece.x + gamePiece.width / 2;
+    var cy = gamePiece.y + gamePiece.height / 2;
+    if (fx.count > 0) {
+        var last = fxSample(0);
+        if (Math.abs(cx - last.x) + Math.abs(cy - last.y) > 250) {
+            fx.count = 0; // a jump, not a move (the cursor came back into the window somewhere else): no streak across the screen
+        }
+    }
+    fx.scroll += FX_TRAIL_PX * speed; // the world moved left this step; everything recorded before drifts with it
+    var s = fx.samples[fx.next];
+    s.x = cx;
+    s.y = cy;
+    s.size = gamePiece.width;
+    s.scroll = fx.scroll;
+    fx.next = (fx.next + 1) % FX_HISTORY;
+    fx.count = Math.min(fx.count + 1, FX_HISTORY);
+}
+
+function fxGradients() { // made once in unit space (1 is the middle of an edge); setTransform fits them to any screen
+    if (!fx.grad) {
+        var vignette = ctx.createRadialGradient(0, 0, 0, 0, 0, 1.3); // Focus: deep violet from the edges, a faint magenta rim like an old CRT
+        vignette.addColorStop(0.54, "rgba(255,0,255,0)"); // clear out to 0.7 (in the rim's color, so it fades in without a gray fringe)
+        vignette.addColorStop(0.66, "rgba(255,0,255,0.07)"); // the rim, at 0.86
+        vignette.addColorStop(0.77, "rgba(40,0,70,0.24)"); // the middles of the edges
+        vignette.addColorStop(1, "rgba(18,0,36,0.42)"); // 1.3 and beyond: the corners
+        var rim = ctx.createRadialGradient(0, 0, 0, 0, 0, 1.3); // Warp with reduced motion: a still magenta glow instead of speed lines
+        rim.addColorStop(0.54, "rgba(255,0,255,0)");
+        rim.addColorStop(1, "rgba(255,0,255,0.3)");
+        var trail = ctx.createLinearGradient(0, 0, 1, 0); // along the Warp trail: 0 at the square, 1 at the tip
+        trail.addColorStop(0, "#ff00ff");
+        trail.addColorStop(0.45, "rgba(0,255,255,0.6)");
+        trail.addColorStop(1, "rgba(0,255,255,0)");
+        fx.grad = { vignette: vignette, rim: rim, trail: trail };
+    }
+    return fx.grad;
+}
+
+function fxFillScreen(gradient, alpha, scaleX, scaleY) { // a unit-space gradient stretched over the whole screen from its center
+    var w = gameArea.canvas.width;
+    var h = gameArea.canvas.height;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = gradient;
+    ctx.setTransform(w / 2 * scaleX, 0, 0, h / 2 * scaleY, w / 2, h / 2);
+    ctx.fillRect(-2, -2, 4, 4); // the whole screen, even squeezed a little past its rest
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function fxDrawVignette(e) { // Focus: slides in from past the corners as it comes in (a touch too far, then back) and out as it fades
+    var squeeze = 1;
+    if (fx.look == "full") {
+        var snap = Math.sin(Math.PI * fx.snap / FX_SNAP_STEPS);
+        squeeze = 1 + 0.35 * (1 - e) - 0.05 * snap * snap;
+    }
+    fxFillScreen(fxGradients().vignette, e, 1.15 * squeeze, squeeze); // wider than tall: the right edge, where obstacles come in, stays lightest
+}
+
+function fxDrawSpeedLines(e) { // Warp: streaks rushing right to left, printed twice like the title: cyan up-left, magenta on top
+    var w = gameArea.canvas.width;
+    var h = gameArea.canvas.height;
+    var n = Math.max(8, Math.min(20, Math.round(h / 36))); // about one per 36px of height
+    var span = w + 400; // a line (at most 390px long, bursting) is past the left edge before it comes round again
+    var kick = Math.sin(Math.PI * fx.kick / FX_KICK_STEPS); // 0 once the burst is over
+    var stretch = (0.35 + 0.65 * e) * (1 + 0.5 * kick); // longer as Warp comes in, and longer still in the burst
+    var show = Math.min(1, 1.6 * e); // the lines show before they reach full length, so the burst lands
+    for (var l = 0; l < FX_LINE_LAYERS.length; l++) {
+        var layer = FX_LINE_LAYERS[l];
+        ctx.globalAlpha = layer.alpha * show;
+        for (var pass = 0; pass < 2; pass++) { // all the cyan copies, then all the magenta: two fill colors per layer
+            var off = pass == 0 ? 2 : 0;
+            ctx.fillStyle = pass == 0 ? "#00FFFF" : "#ff00ff";
+            for (var i = l; i < n; i += FX_LINE_LAYERS.length) {
+                var travel = fx.run * layer.v + fxHash(i, 0) * span;
+                var lap = Math.floor(travel / span); // each time round the line gets a new height and length
+                ctx.fillRect(w - (travel - lap * span) - off, Math.floor(fxHash(i, lap * 2 + 2) * h) - off,
+                    (80 + 180 * fxHash(i, lap * 2 + 1)) * stretch, layer.h);
+            }
+        }
+    }
+}
+
+function fxDrawTrail(e) { // Warp: a comet from the square back along its path, carried left by the world, magenta fading through cyan
+    var length = Math.min(fx.count - 1, FX_TRAIL_STEPS * e); // in steps: it pulls in toward the square as Warp fades
+    if (length < 1) {
+        return;
+    }
+    var whole = Math.floor(length);
+    var n = 0;
+    for (var k = 0; k <= whole; k++) {
+        var s = fxSample(k);
+        fx.rx[n] = s.x - (fx.scroll - s.scroll);
+        fx.ry[n] = s.y;
+        fx.rs[n] = s.size;
+        fx.rt[n] = k / length;
+        n++;
+    }
+    if (length > whole) { // the tip, part way to the next older position
+        var f = length - whole;
+        var q = fxSample(whole + 1);
+        fx.rx[n] = fx.rx[n - 1] + (q.x - (fx.scroll - q.scroll) - fx.rx[n - 1]) * f;
+        fx.ry[n] = fx.ry[n - 1] + (q.y - fx.ry[n - 1]) * f;
+        fx.rs[n] = q.size;
+        fx.rt[n] = 1;
+        n++;
+    }
+    ctx.beginPath();
+    for (var side = 1; side >= -1; side -= 2) { // down one edge from the square to the tip, and back up the other
+        for (var j = 0; j < n; j++) {
+            var i = side > 0 ? j : n - 1 - j;
+            var a = Math.max(i - 1, 0);
+            var b = Math.min(i + 1, n - 1);
+            var tx = fx.rx[a] - fx.rx[b]; // the trail's direction here
+            var ty = fx.ry[a] - fx.ry[b];
+            var tl = Math.sqrt(tx * tx + ty * ty);
+            if (tl < 0.01) { // no direction: lie flat
+                tx = 1;
+                ty = 0;
+                tl = 1;
+            }
+            var half = side * 0.5 * fx.rs[i] * Math.sqrt(1 - fx.rt[i]); // as tall as the square at the square, tapering to a point
+            var ex = fx.rx[i] - ty / tl * half;
+            var ey = fx.ry[i] + tx / tl * half;
+            if (side > 0 && j == 0) {
+                ctx.moveTo(ex, ey);
+            } else {
+                ctx.lineTo(ex, ey);
+            }
+        }
+    }
+    ctx.closePath();
+    var dx = fx.rx[n - 1] - fx.rx[0];
+    var dy = fx.ry[n - 1] - fx.ry[0];
+    ctx.globalAlpha = 0.6 * e; // at most 0.6: a red or black block under the trail still shows as one
+    if (dx * dx + dy * dy < 4) {
+        ctx.fillStyle = "rgba(255,0,255,0.5)"; // too short to shade
+    } else { // the gradient runs 0 to 1 along x: turn and stretch it from the square to the tip (the outline is already placed)
+        ctx.fillStyle = fxGradients().trail;
+        ctx.setTransform(dx, dy, -dy, dx, fx.rx[0], fx.ry[0]);
+    }
+    ctx.fill();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.beginPath(); // leave no path behind
+}
+
+function fxDrawEchoes(e) { // Focus: outlines where the square was, drifting off with the slowed world, printed like the title
+    var headX = gamePiece.x + gamePiece.width / 2;
+    var headY = gamePiece.y + gamePiece.height / 2;
+    ctx.lineWidth = 2;
+    for (var j = 0; j < FX_ECHO_AGES.length; j++) {
+        var age = FX_ECHO_AGES[j];
+        if (age >= fx.count) {
+            continue;
+        }
+        var s = fxSample(age);
+        var x = s.x - (fx.scroll - s.scroll);
+        if (Math.abs(x - headX) < 3 && Math.abs(s.y - headY) < 3) {
+            continue; // under the square anyway
+        }
+        var size = Math.round(s.size); // the size it was then: entering Focus, the echoes show the square shrinking
+        var left = Math.round(x - s.size / 2); // whole pixels keep the 2px outlines crisp
+        var top = Math.round(s.y - s.size / 2);
+        ctx.globalAlpha = e * (0.75 - 0.5 * age / 30);
+        ctx.strokeStyle = "#00FFFF";
+        ctx.strokeRect(left - 2, top - 2, size, size);
+        ctx.strokeStyle = "#ff00ff"; // outlines, never filled: filled squares are powerups
+        ctx.strokeRect(left, top, size, size);
+    }
+}
+
+function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under the Break bar, the level's bars, the objects and the HUD
+    if (!fxShowing() || fxOverdrawn()) {
+        return; // nothing to add: the picture is exactly what it was without effects
+    }
+    ctx.save(); // puts every drawing setting back after (the Break bar is drawn in whatever fill color the last step left)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (fx.focus > 0) {
+        fxDrawVignette(fxEase(fx.focus, FX_FADE.focus));
+    }
+    if (fx.warp > 0) {
+        var e = fxEase(fx.warp, FX_FADE.warp);
+        if (fx.look == "full") {
+            fxDrawSpeedLines(e);
+        } else {
+            fxFillScreen(fxGradients().rim, 0.8 * e, 1, 1); // reduced motion: a still magenta glow at the edges instead of streaks
+        }
+    }
+    ctx.restore();
+}
+
+function fxDrawAfterimages() { // Focus's echoes and Warp's trail: over the obstacles and the level's bars, under the HUD, buttons and square
+    if (!fxShowing() || fxOverdrawn() || !fxAttached()) {
+        return; // (not attached: the square was moved since its last record, so there's nothing to hang them from until the next step)
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (fx.focus > 0) {
+        fxDrawEchoes(fxEase(fx.focus, FX_FADE.focus));
+    }
+    if (fx.warp > 0) {
+        fxDrawTrail(fxEase(fx.warp, FX_FADE.warp));
+    }
+    ctx.restore();
+}
+
 function drawLevel() { // draw the level as it stands, without moving anything (used while paused)
     gameArea.clear();
+    fxDrawBackdrop(); // the power effects as they stood when play stopped
     drawLevelName();
     [powerups.break, powerups.score].concat(obstacleLists()).forEach(function (objects) {
         objects.forEach(function (obj) {
             obj.update();
         });
     });
+    fxDrawAfterimages();
     drawTouchControls();
     gamePiece.update();
     useHud();
@@ -1642,6 +1959,8 @@ function updateGameArea() {
         gameArea.frameNo += 1;
         gameArea.lastSpawnClock = gameArea.spawnClock;
         gameArea.spawnClock += speed;
+        fxStep(); // power effects: fade toward the power in use
+        fxDrawBackdrop(); // Focus's vignette and Warp's speed lines, under everything drawn below
 
         if (invincible) {
             ctx.fillRect((gamePiece.x + gamePiece.width / 2 - 50 + invincibleTime / 2), (gamePiece.y + gamePiece.height / 2 - 25),(invincibleTimeMax - invincibleTime), (15)); // display invincible progress
@@ -1685,6 +2004,8 @@ function updateGameArea() {
             gameOver();
             return;
         }
+        fxRecord(); // where the square is now, for the Warp trail and Focus echoes
+        fxDrawAfterimages(); // over the obstacles and the level's bars, under the HUD, touch buttons and square
         useHud(); // score, deaths, level and the power messages
         if (invincible) { // BREAK
             var flash = getRandomColor();

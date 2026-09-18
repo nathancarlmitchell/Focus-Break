@@ -27,6 +27,8 @@ Runs best in Google Chrome, Enter full screen (F11)
 	- CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.
 	
 	- P = PAUSE.  After the final level, click or press R to play again.
+	
+	- Warp shows speed lines and a trail; Focus darkens the edges and leaves echoes of your square.  With your device's reduced-motion setting on, the speed lines become a still glow.
 
 ### Touch controls:
 
