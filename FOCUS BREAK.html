@@ -53,7 +53,12 @@ const aud_startup = sfx("fx11");
 var musicVolume = 0.2;
 
 
-// start-screen buttons, relative to the window center; used for drawing, hover and clicks
+// Screens (start, level transitions, finish, pause) are laid out for a LAYOUT_W x LAYOUT_H window and scaled to fit
+// the actual window, centered, so they never run off screen. Gameplay stays in window pixels.
+var LAYOUT_W = 1280;
+var LAYOUT_H = 800;
+
+// start-screen buttons, relative to the center of the layout; used for drawing, hover and clicks
 const START_BUTTONS = {
     start: { dx: -410, dy: -32, w: 220, h: 44, hitH: 46 }, // clickable area is 2px taller than the drawn box
     break: { dx: 0, dy: 0, w: 272, h: 40, label: "Space to Break", ty: 38,
@@ -145,12 +150,43 @@ function setMusicVolume(volume) { // volume for all songs
     all_songs.forEach(function (song) { song.volume = volume; });
 }
 
-function buttonAt(px, py) { // name of the start-screen button at a point, or ""
+function layoutFrame() { // scale and offset that fit the LAYOUT_W x LAYOUT_H layout into the window, centered
+    var scale = Math.min(gameArea.canvas.width / LAYOUT_W, gameArea.canvas.height / LAYOUT_H);
+    return { scale: scale, x: (gameArea.canvas.width - LAYOUT_W * scale) / 2, y: (gameArea.canvas.height - LAYOUT_H * scale) / 2 };
+}
+
+function useLayout() { // draw in layout coordinates until useWindow()
+    var f = layoutFrame();
+    ctx.setTransform(f.scale, 0, 0, f.scale, f.x, f.y);
+}
+
+function useWindow() { // draw in window pixels (gameplay, banners)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function hudScale() { // the in-game HUD keeps its size unless the window is too short or narrow for it
+    // between the top banner (ends at 70px) and the level name (baseline 60px from the bottom) it needs 240px of
+    // stats plus 30px of level name, and 600px across for the FOCUS/BREAK/DANGER text
+    return Math.max(0.1, Math.min(1, (gameArea.canvas.height - 130) / 270, gameArea.canvas.width / 600));
+}
+
+function useHud() { // draw the top-left HUD, shrunk toward the top banner if needed
+    var s = hudScale();
+    ctx.setTransform(s, 0, 0, s, 0, 70 * (1 - s));
+}
+
+function buttonAt(px, py) { // name of the start-screen button at a window point, or ""
+    var f = layoutFrame();
+    if (!(f.scale > 0)) {
+        return "";
+    }
+    var lx = (px - f.x) / f.scale; // the point in layout coordinates
+    var ly = (py - f.y) / f.scale;
     for (var name in START_BUTTONS) {
         var b = START_BUTTONS[name];
-        var left = x / 2 + b.dx;
-        var top = y / 2 + b.dy;
-        if (px > left && px < left + b.w && py > top && py < top + (b.hitH || b.h)) {
+        var left = LAYOUT_W / 2 + b.dx;
+        var top = LAYOUT_H / 2 + b.dy;
+        if (lx > left && lx < left + b.w && ly > top && ly < top + (b.hitH || b.h)) {
             return name;
         }
     }
@@ -180,7 +216,9 @@ function drawTitle(shadowColor, passes) { // FOCUS BREAK title: stacked shadow c
 }
 
 function focus_break_colors(){ // Flashing colors on start screen
+    useLayout();
     drawTitle(getRandomColor(), 3);
+    useWindow();
 }
 
 function click_to_start_colors(){ // Flashing colors on start screen
@@ -190,11 +228,13 @@ function click_to_start_colors(){ // Flashing colors on start screen
         ctx.fillStyle = getRandomColorGold();
         var i_x = getRandomInteger(-1, 1);
         var i_y = getRandomInteger(-1, 1);
-        ctx.fillRect(x / 2 + b.dx + i_x, y / 2 + b.dy + i_y, b.w + i_x, b.h + i_y);
+        useLayout();
+        ctx.fillRect(LAYOUT_W / 2 + b.dx + i_x, LAYOUT_H / 2 + b.dy + i_y, b.w + i_x, b.h + i_y);
         ctx.font = "25px Arial";
         ctx.globalAlpha = 1.0;
         ctx.fillStyle = "black";
-        ctx.fillText("CLICK TO START", (x / 2)-400, (y / 2));
+        ctx.fillText("CLICK TO START", LAYOUT_W / 2 - 400, LAYOUT_H / 2);
+        useWindow();
     }
 }
 
@@ -203,13 +243,15 @@ function highlightControl() { // Flashing colors on the hovered control button (
     if (!b || !b.help) {
         return;
     }
+    useLayout();
     ctx.fillStyle = "#000000";
-    ctx.fillRect(x / 2 + b.dx, y / 2 + b.dy, b.w, b.h);
+    ctx.fillRect(LAYOUT_W / 2 + b.dx, LAYOUT_H / 2 + b.dy, b.w, b.h);
     ctx.font = "40px Impact";
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = getRandomColor();
-    ctx.fillText(b.label, x / 2 + b.dx, y / 2 + b.ty);
+    ctx.fillText(b.label, LAYOUT_W / 2 + b.dx, LAYOUT_H / 2 + b.ty);
     ctx.globalAlpha = 1.0;
+    useWindow();
 }
 
 function onLoad() {
@@ -261,12 +303,16 @@ function windowResize() {
 }
 
 function drawStartScreen() { // draw the start screen
+    var cx = LAYOUT_W / 2;
+    var cy = LAYOUT_H / 2;
 
     // clear screen
+    useWindow();
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, x, y);
 
     // Title
+    useLayout();
     drawTitle("#00FFFF", 10);
 
     // start button
@@ -274,35 +320,38 @@ function drawStartScreen() { // draw the start screen
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "gray";
     var start = START_BUTTONS.start;
-    ctx.fillRect(x / 2 + start.dx, y / 2 + start.dy, start.w, start.h);
+    ctx.fillRect(cx + start.dx, cy + start.dy, start.w, start.h);
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = "black";
-    ctx.fillText("CLICK TO START", (x / 2) - 400, (y / 2));
-    ctx.fillRect((x / 2) - 450,(y / 2) + 25, (300), 2);
-    ctx.fillText("クリックして開始", (x / 2) - 400, (y / 2) + 65);
+    ctx.fillText("CLICK TO START", cx - 400, cy);
+    ctx.fillRect(cx - 450, cy + 25, 300, 2);
+    ctx.fillText("クリックして開始", cx - 400, cy + 65);
 
     // controls: all boxes, then all labels
     var controls = [START_BUTTONS.break, START_BUTTONS.focus, START_BUTTONS.warp];
     ctx.fillStyle = "#00FFFF";
-    controls.forEach(function (b) { ctx.fillRect(x / 2 + b.dx, y / 2 + b.dy, b.w, b.h); });
+    controls.forEach(function (b) { ctx.fillRect(cx + b.dx, cy + b.dy, b.w, b.h); });
     ctx.font = "40px Impact";
     ctx.fillStyle = "#ff00ff";
     ctx.globalAlpha = 0.5;
-    controls.forEach(function (b) { ctx.fillText(b.label, x / 2 + b.dx, y / 2 + b.ty); });
+    controls.forEach(function (b) { ctx.fillText(b.label, cx + b.dx, cy + b.ty); });
 
-    // horizontal banners
+    // horizontal banners across the whole window
+    useWindow();
     ctx.globalAlpha = 1.0;
     ctx.font = "40px Arial";
     ctx.fillStyle = "#00FFFF";
-    drawBanners(34, 30);
+    var k = bannerScale();
+    drawBanners(34, 30, k);
     ctx.fillStyle = "#ff00ff";
-    drawBanners(40, 20);
+    drawBanners(40, 20, k);
     ctx.fillStyle = "black";
     ctx.globalAlpha = 0.7;
-    ctx.fillRect(0,y - 40, x, 2);
-    ctx.fillRect(0,60,x, 2);
+    ctx.fillRect(0, y - 40 * k, x, 2);
+    ctx.fillRect(0, 60 * k, x, 2);
 
     // slogan
+    useLayout();
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = "#ff00ff";
     ctx.fillText(sloganText,sloganX,sloganY);
@@ -317,15 +366,16 @@ function drawStartScreen() { // draw the start screen
     var boxX = 256;
     var boxY = 40;
     var Yoffset = boxX/2;
-    ctx.fillRect(x/2, (y - Yoffset), boxX, boxY);
-    ctx.fillText("Options", (x / 2) , (y - Yoffset));
+    ctx.fillRect(cx, (LAYOUT_H - Yoffset), boxX, boxY);
+    ctx.fillText("Options", cx, (LAYOUT_H - Yoffset));
 
     ctx.fillStyle = "black";
-    ctx.fillRect((x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
-    ctx.fillRect((x/2 + (boxX / 16)*8), (y - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+    ctx.fillRect((cx + (boxX / 16)), (LAYOUT_H - Yoffset + (boxY / 4)), boxX/3, boxY/2);
+    ctx.fillRect((cx + (boxX / 16)*8), (LAYOUT_H - Yoffset + (boxY / 4)), boxX/3, boxY/2);
 
     ctx.fillStyle = "pink";
-    ctx.fillText("Options", (x/2 + (boxX / 16)), (y - Yoffset + (boxY / 4))+10);
+    ctx.fillText("Options", (cx + (boxX / 16)), (LAYOUT_H - Yoffset + (boxY / 4))+10);
+    useWindow();
 }
 
 function startGame(e) {
@@ -381,79 +431,82 @@ function gameOver() { // the level was cleared or the player died
     clearObjects();
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
+    useLayout(); // messages are laid out for LAYOUT_W x LAYOUT_H and scaled to the window
     gameArea.canvas.style.cursor = "default";
     var levelCleared = score >= scoreLimit || scoreLimitReached;
     scoreLimitReached = false;
     if (levelCleared) { // Next level
         level++;
         if (level == 16){ // true finish
-            ctx.fillText("Time: " + millisToMinutesAndSeconds(Date.now() - startTime), x / 2 - 350, y / 2);
+            ctx.fillText("Time: " + millisToMinutesAndSeconds(Date.now() - startTime), LAYOUT_W / 2 - 350, LAYOUT_H / 2);
             if (deaths == 0){
-                ctx.fillText("Flawless Victory", x / 2 - 350, y / 2 - 175);
+                ctx.fillText("Flawless Victory", LAYOUT_W / 2 - 350, LAYOUT_H / 2 - 175);
             } else {
-                ctx.fillText("Can you continue?", x / 2 - 350, y / 2 - 175);
-                ctx.fillText(deaths+" mistakes", x / 2 - 350, y / 2 - 87);
+                ctx.fillText("Can you continue?", LAYOUT_W / 2 - 350, LAYOUT_H / 2 - 175);
+                ctx.fillText(deaths+" mistakes", LAYOUT_W / 2 - 350, LAYOUT_H / 2 - 87);
             }
             ctx.fillStyle = "black";
             ctx.font = "30px Arial";
-            ctx.fillText("Click or press R to play again", x / 2 - 350, y / 2 + 87);
+            ctx.fillText("Click or press R to play again", LAYOUT_W / 2 - 350, LAYOUT_H / 2 + 87);
             runFinished = true;
             finishTime = Date.now();
             restartArmed = false; // a click already in progress (e.g. held for Focus) shouldn't restart
+            useWindow();
             return;
         } else if (level == 10){ // you win
             ctx.fillStyle = "Black";
-            ctx.fillText("Victory is a state of mind", x / 2 - 350, y / 2 - 175);
-            ctx.fillText("勝利は心の状態です", x / 2 - 275, y / 2 - 75);
-            drawBanners(40, 20);
+            ctx.fillText("Victory is a state of mind", LAYOUT_W / 2 - 350, LAYOUT_H / 2 - 175);
+            ctx.fillText("勝利は心の状態です", LAYOUT_W / 2 - 275, LAYOUT_H / 2 - 75);
+            drawBanners(40, 20, bannerScale());
             wait(5000);
         } else if (level == 9){
             setMusicVolume(0.0);
             playSound(aud_bomb);
             ctx.font = "80px Arial";
             for (let count = 0; count < 3; count++){ // bold effect
-                ctx.fillText("WARNING 警告", (x / 2 - 300)+count, (y / 2 - 175)+count);
-                ctx.fillText("多数の敵が接近する", (x / 2 - 400)+count, (y / 2 - 75)+count);
+                ctx.fillText("WARNING 警告", (LAYOUT_W / 2 - 300)+count, (LAYOUT_H / 2 - 175)+count);
+                ctx.fillText("多数の敵が接近する", (LAYOUT_W / 2 - 400)+count, (LAYOUT_H / 2 - 75)+count);
             }
-            drawBanners(40, 30);
+            drawBanners(40, 30, bannerScale());
             wait(3500);
         } else if (deaths == 0) { // perfect clear
             playSound(aud_menuSound);
             ctx.fillStyle = "#48D1CC";
             if (perfectClear < 7){ // decrease hitbox size
                 perfectClear++;
-                ctx.fillText("Hitbox size decreased!", (x / 2 - 325), (y / 2 - 75));
-                ctx.fillText("ヒットボックスを減らす!", (x / 2 - 325), (y / 2 + 50));
+                ctx.fillText("Hitbox size decreased!", (LAYOUT_W / 2 - 325), (LAYOUT_H / 2 - 75));
+                ctx.fillText("ヒットボックスを減らす!", (LAYOUT_W / 2 - 325), (LAYOUT_H / 2 + 50));
             }
             for (let count = 0; count < 3; count++){
-                ctx.fillText("+ Perfect 完全 +", (x / 2 - 200)+count, (y / 2 - 175)+count);
+                ctx.fillText("+ Perfect 完全 +", (LAYOUT_W / 2 - 200)+count, (LAYOUT_H / 2 - 175)+count);
             }
-            drawBanners(40, 20);
+            drawBanners(40, 20, bannerScale());
             wait(3000);
         } else { // normal clear
-            ctx.fillText("Enemies Approaching", x / 2 - 300, y / 2 - 175);
-            ctx.fillText("非常に大きな敵に接近する危険!", x / 2 - 425, y / 2 - 50);
-            ctx.fillText("慎重に進んでください!", x / 2 - 300, y / 2 + 25);
+            ctx.fillText("Enemies Approaching", LAYOUT_W / 2 - 300, LAYOUT_H / 2 - 175);
+            ctx.fillText("非常に大きな敵に接近する危険!", LAYOUT_W / 2 - 425, LAYOUT_H / 2 - 50);
+            ctx.fillText("慎重に進んでください!", LAYOUT_W / 2 - 300, LAYOUT_H / 2 + 25);
             wait(3000);
         }
     } else { // you lose
         deaths += 1;
         playSound(aud_death);
-        ctx.fillText("Score: " + score, x / 2 - 200, y / 2 - 75);
+        ctx.fillText("Score: " + score, LAYOUT_W / 2 - 200, LAYOUT_H / 2 - 75);
         var deathSlogan = { 69: "😂", 420: "blaze it", 666: "😈", 911: "TOO SOON", 999: "TOO HARD" }[score]; // special scores
         if (deathSlogan) {
-            ctx.fillText(deathSlogan, x / 2 -150, y / 2 +25);
+            ctx.fillText(deathSlogan, LAYOUT_W / 2 -150, LAYOUT_H / 2 +25);
         }
         if (score >= 900) {
-            ctx.fillText("So Close", x / 2 - 200, y / 2 - 175);
+            ctx.fillText("So Close", LAYOUT_W / 2 - 200, LAYOUT_H / 2 - 175);
         } else if (score <= 100) {
-            ctx.fillText("...", x / 2 - 100, y / 2 - 175);
+            ctx.fillText("...", LAYOUT_W / 2 - 100, LAYOUT_H / 2 - 175);
         } else {
-            ctx.fillText("Try Again", x / 2 - 200, y / 2 - 175);
-            ctx.fillText("再試行する", x / 2 - 200, y / 2 +25);
+            ctx.fillText("Try Again", LAYOUT_W / 2 - 200, LAYOUT_H / 2 - 175);
+            ctx.fillText("再試行する", LAYOUT_W / 2 - 200, LAYOUT_H / 2 +25);
         }
         wait(2500);
     }
+    useWindow();
     score = 0;
 }
 
@@ -530,8 +583,9 @@ function setPause(paused) { // pause or resume play; only while alive
 }
 
 function drawPauseScreen() { // drawn once over the frozen frame
-    var centerX = gameArea.canvas.width / 2;
-    var centerY = gameArea.canvas.height / 2;
+    useLayout();
+    var centerX = LAYOUT_W / 2;
+    var centerY = LAYOUT_H / 2;
     ctx.globalAlpha = 0.85;
     ctx.fillStyle = "white";
     ctx.fillRect(centerX - 220, centerY - 70, 440, 160);
@@ -546,6 +600,7 @@ function drawPauseScreen() { // drawn once over the frozen frame
     ctx.font = "18px Arial";
     ctx.fillText("Move the cursor onto your square first", centerX, centerY + 72);
     ctx.textAlign = "start"; // the rest of the game draws left-aligned text
+    useWindow();
 }
 
 function applyHeldSpeed() { // set speed from whatever power is still held
@@ -908,19 +963,23 @@ const LEVEL_NAMES = [null, "Breath Easy", "Clear Your Mind", "Looking Inward", "
 function drawLevelName() { // level name in the bottom-left corner (level 13 also draws a red bar, level 14 two black bars)
     ctx.fillStyle = "black";
     ctx.font = "40px Arial";
+    var w = gameArea.canvas.width / 1920; // the bars were placed for a 1920px-wide (fullscreen) window; keep their relative spot
     if (level == 13) {
         ctx.fillStyle = "red";
-        ctx.fillRect(900, 0, 100, window.innerHeight);
+        ctx.fillRect(900 * w, 0, 100 * w, window.innerHeight);
         ctx.fillStyle = "black";
     } else if (level == 14) {
-        ctx.fillRect(900, 0, 100, window.innerHeight);
-        ctx.fillRect(1100, 0, 2000, window.innerHeight);
+        ctx.fillRect(900 * w, 0, 100 * w, window.innerHeight);
+        ctx.fillRect(1100 * w, 0, 2000 * w, window.innerHeight);
     }
     var name = LEVEL_NAMES[level];
     if (Array.isArray(name)) {
         name = deaths == 0 ? name[0] : name[1];
     }
-    ctx.fillText(name || "How did this happen?", 80, window.innerHeight - 60);
+    var s = hudScale(); // shrunk with the HUD, baseline kept just above the bottom banner
+    ctx.setTransform(s, 0, 0, s, 0, window.innerHeight - 60);
+    ctx.fillText(name || "How did this happen?", 80, 0);
+    useWindow();
 }
 
 function drawStats(color, scoreColor) { // deaths, level and score in the top-left corner; the score can have its own color
@@ -932,9 +991,17 @@ function drawStats(color, scoreColor) { // deaths, level and score in the top-le
     ctx.fillText(score, 50, 100); // show score
 }
 
-function drawBanners(top, thickness) { // matching stripes across the top and bottom of the screen, in the current fill style
-    ctx.fillRect(0, top, window.innerWidth, thickness);
-    ctx.fillRect(0, window.innerHeight - 100 + top, window.innerWidth, thickness);
+function drawBanners(top, thickness, scale) { // matching stripes across the top and bottom of the window, in the current fill style
+    var k = scale || 1; // screens pass bannerScale() so the stripes shrink along with their text
+    ctx.save();
+    useWindow(); // always the full window width, whatever layout is being drawn
+    ctx.fillRect(0, top * k, window.innerWidth, thickness * k);
+    ctx.fillRect(0, window.innerHeight - (100 - top) * k, window.innerWidth, thickness * k);
+    ctx.restore();
+}
+
+function bannerScale() { // stripe size on laid-out screens: normal, or smaller when the layout is scaled down
+    return Math.min(1, layoutFrame().scale);
 }
 
 function drawLevel() { // draw the level as it stands, without moving anything (used while paused)
@@ -946,7 +1013,9 @@ function drawLevel() { // draw the level as it stands, without moving anything (
         });
     });
     gamePiece.update();
+    useHud();
     drawStats("black");
+    useWindow();
 }
 
 function updateGameArea() {
@@ -1001,6 +1070,7 @@ function updateGameArea() {
             gameOver();
             return;
         }
+        useHud(); // score, deaths, level and the power messages
         if (invincible) { // BREAK
             var flash = getRandomColor();
             ctx.fillStyle = flash;
@@ -1043,14 +1113,17 @@ function updateGameArea() {
             ctx.fillText(score, 50, 100);
             score += 1;
         }
+        useWindow();
         gamePiece.update();
         if (score >= scoreLimit) {
             scoreLimitReached = true; // stays set if a break penalty drops the score back below the limit
         }
         if (scoreLimitReached) { // score limit reached
             if (level == 9){ // play until you die
+                useHud();
                 ctx.fillStyle = getRandomColor();
                 ctx.fillText(score, 50, 100);
+                useWindow();
             } else {
                 gameOver();
             }
