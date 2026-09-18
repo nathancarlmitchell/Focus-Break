@@ -44,93 +44,47 @@
     </style>
 </head>
 <body onload="onLoad()" onresize="windowResize()" onmousemove="mouseMove(event)" oncontextmenu="return false;">
-    <div id="audio">
-        <audio id="audio01" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 01 Before U Go.mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio02" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 02 Reflex.mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio03" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 03 Blood (feat. Fifty Grand).mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio04" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 04 Undefined.mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio05" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 05 Lay.mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio06" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 06 Kitty Kat.mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio07" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 07 Too Late.mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio08" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 08 Midnight (Cavalier Version).mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio09" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 09 Commas.mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio10" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 10 Gone.mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="audio11" style="visibility:hidden" >
-            <source src="music/Cavalier - Vol. 8 - 11 Love U.mp3" type="audio/mpeg"> Your browser does not support the audio element.
-        </audio>
-        <audio id="bombSFX" style="visibility:hidden">
-            <source src="music/BOMB_SIREN-BOMB_SIREN-247265934.wav" type="audio/wav"> Your browser does not support the audio element.
-        </audio>
-        <audio id="fx11" style="visibility:hidden">
-            <source src="music/Fx 11.wav" type="audio/wav"> Your browser does not support the audio element.
-        </audio>
-        <audio id="fx14" style="visibility:hidden">
-            <source src="music/Fx 14.wav" type="audio/wav"> Your browser does not support the audio element.
-        </audio>
-        <audio id="danger" style="visibility:hidden">
-            <source src="music/72.wav" type="audio/wav"> Your browser does not support the audio element.
-        </audio>
-        <audio id="menusound2" style="visibility:hidden">
-            <source src="music/Menu Sounds_2.wav" type="audio/wav"> Your browser does not support the audio element.
-        </audio>
-        <audio id="fx_powerUp" style="visibility:hidden">
-            <source src="music/powerUp.wav" type="audio/wav"> Your browser does not support the audio element.
-        </audio>
-        <audio id="fx_pickupCoin" style="visibility:hidden">
-            <source src="music/pickupCoin.wav" type="audio/wav"> Your browser does not support the audio element.
-        </audio>
-        <audio id="fx_click" style="visibility:hidden">
-            <source src="music/click.wav" type="audio/wav"> Your browser does not support the audio element.
-        </audio>
-    </div>
+    <audio id="audio01" src="music/Cavalier - Vol. 8 - 01 Before U Go.mp3"></audio>
+    <audio id="audio02" src="music/Cavalier - Vol. 8 - 02 Reflex.mp3"></audio>
+    <audio id="audio03" src="music/Cavalier - Vol. 8 - 03 Blood (feat. Fifty Grand).mp3"></audio>
+    <audio id="audio04" src="music/Cavalier - Vol. 8 - 04 Undefined.mp3"></audio>
+    <audio id="audio05" src="music/Cavalier - Vol. 8 - 05 Lay.mp3"></audio>
+    <audio id="audio06" src="music/Cavalier - Vol. 8 - 06 Kitty Kat.mp3"></audio>
+    <audio id="audio07" src="music/Cavalier - Vol. 8 - 07 Too Late.mp3"></audio>
+    <audio id="audio08" src="music/Cavalier - Vol. 8 - 08 Midnight (Cavalier Version).mp3"></audio>
+    <audio id="audio09" src="music/Cavalier - Vol. 8 - 09 Commas.mp3"></audio>
+    <audio id="audio10" src="music/Cavalier - Vol. 8 - 10 Gone.mp3"></audio>
+    <audio id="audio11" src="music/Cavalier - Vol. 8 - 11 Love U.mp3"></audio>
+    <audio id="bombSFX" src="music/BOMB_SIREN-BOMB_SIREN-247265934.wav"></audio>
+    <audio id="fx11" src="music/Fx 11.wav"></audio>
+    <audio id="fx14" src="music/Fx 14.wav"></audio>
+    <audio id="danger" src="music/72.wav"></audio>
+    <audio id="menusound2" src="music/Menu Sounds_2.wav"></audio>
+    <audio id="fx_powerUp" src="music/powerUp.wav"></audio>
+    <audio id="fx_pickupCoin" src="music/pickupCoin.wav"></audio>
+    <audio id="fx_click" src="music/click.wav"></audio>
 <script>
 
 // initialize audio
-const aud_01 = document.getElementById("audio01");
-const aud_02 = document.getElementById("audio02");
-const aud_03 = document.getElementById("audio03");
-const aud_04 = document.getElementById("audio04");
-const aud_05 = document.getElementById("audio05");
-const aud_06 = document.getElementById("audio06");
-const aud_07 = document.getElementById("audio07");
-const aud_08 = document.getElementById("audio08");
-const aud_09 = document.getElementById("audio09");
-const aud_10 = document.getElementById("audio10");
-const aud_11 = document.getElementById("audio11");
-const all_songs = [aud_01, aud_02, aud_03, aud_04, aud_05, aud_06, aud_07, aud_08, aud_09, aud_10, aud_11];
-const aud_bomb = document.getElementById("bombSFX");
-const aud_menuSound = document.getElementById("menusound2");
-const aud_death = document.getElementById("fx14");
-const aud_danger = document.getElementById("danger");
-const aud_powerUp = document.getElementById("fx_powerUp");
-const aud_pickupCoin = document.getElementById("fx_pickupCoin");
-const aud_click = document.getElementById("fx_click");
-aud_danger.volume = 0.05;
-aud_bomb.volume = 0.3;
-aud_death.volume = 0.15;
-aud_powerUp.volume = 0.1;
-aud_pickupCoin.volume = 0.1;
-aud_click.volume = 0.1;
+const all_songs = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"].map(function (n) {
+    return document.getElementById("audio" + n);
+});
+
+function sfx(id, volume) { // look up a sound effect, optionally setting its volume
+    var sound = document.getElementById(id);
+    if (volume !== undefined) {
+        sound.volume = volume;
+    }
+    return sound;
+}
+const aud_bomb = sfx("bombSFX", 0.3);
+const aud_menuSound = sfx("menusound2", 0.2);
+const aud_death = sfx("fx14", 0.15);
+const aud_danger = sfx("danger", 0.05);
+const aud_powerUp = sfx("fx_powerUp", 0.1);
+const aud_pickupCoin = sfx("fx_pickupCoin", 0.1);
+const aud_click = sfx("fx_click", 0.1);
+const aud_startup = sfx("fx11");
 var musicVolume = 0.2;
 
 
@@ -196,38 +150,24 @@ var speed_slow = 0.25;
 var speed_fast = 2;
 
 
-function loadAudio() { 
-    setAudioVolume(all_songs, musicVolume);
-    aud_01.onended = function() { playSound(aud_02); };
-    aud_02.onended = function() { playSound(aud_03); };
-    aud_03.onended = function() { playSound(aud_04); };
-    aud_04.onended = function() { playSound(aud_05); };
-    aud_05.onended = function() { playSound(aud_06); };
-    aud_06.onended = function() { playSound(aud_07); };
-    aud_07.onended = function() { playSound(aud_08); };
-    aud_08.onended = function() { playSound(aud_09); };
-    aud_09.onended = function() { playSound(aud_10); };
-    aud_10.onended = function() { playSound(aud_11); };
-    aud_11.onended = function() { playSound(aud_01); };
-    if (firstRun){
-        playSound(aud_01);
-    }
+function loadAudio() { // on the first click: start the album, each track playing the next, looping back to the first
+    setMusicVolume(musicVolume);
+    all_songs.forEach(function (song, i) {
+        song.onended = function () { playSound(all_songs[(i + 1) % all_songs.length]); };
+    });
+    playSound(all_songs[0]);
 }
 
 function playSound(audio) { // play, ignoring failures such as blocked autoplay or a missing file
     audio.play().catch(function () {});
 }
 
-function setAudioSpeed(audio, speed) { // set audio playback rate for all songs
-    for (let i = 0; i < audio.length; i += 1) {
-        audio[i].playbackRate = speed;
-    }
+function setMusicRate(rate) { // playback rate for all songs
+    all_songs.forEach(function (song) { song.playbackRate = rate; });
 }
 
-function setAudioVolume(audio, volume) { // set audio volume for all songs
-    for (let i = 0; i < audio.length; i += 1) {
-        audio[i].volume = volume;
-    }   
+function setMusicVolume(volume) { // volume for all songs
+    all_songs.forEach(function (song) { song.volume = volume; });
 }
 
 function mouseMove(event) { // detect mouse on start screen
@@ -324,7 +264,7 @@ function click_to_warp_colors(){ // Flashing colors on start screen
 function onLoad() {
     gameArea.load();
     updateSloganText();
-    playSound(document.getElementById("fx11")); // startup sound; browsers usually block it until the first click
+    playSound(aud_startup); // startup sound; browsers usually block it until the first click
 }
 
 function updateSloganText() {
@@ -516,7 +456,7 @@ function restartRun() { // after the finish screen, start a fresh run from level
 function startNextLevel() {
     gameArea.clear();
     startGame();
-    setAudioVolume(all_songs, musicVolume);
+    setMusicVolume(musicVolume);
 }
 
 function gameOver() { // the level was cleared or the player died
@@ -525,7 +465,7 @@ function gameOver() { // the level was cleared or the player died
     invincibleTime = 0;
     gamePiece.color = gamePieceColor; // a level can end mid-break
     resumeSpeed();
-    setAudioVolume(all_songs, musicVolume);
+    setMusicVolume(musicVolume);
     gameArea.stop();
     gameArea.clear();
     objects_slow = [];
@@ -567,7 +507,7 @@ function gameOver() { // the level was cleared or the player died
             ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 20);
             wait(5000);
         } else if (level == 9){
-            setAudioVolume(all_songs, 0.0);
+            setMusicVolume(0.0);
             playSound(aud_bomb);
             ctx.font = "80px Arial";
             for (let count = 0; count < 3; count++){ // bold effect
@@ -578,7 +518,6 @@ function gameOver() { // the level was cleared or the player died
             ctx.fillRect(0,window.innerHeight - 60, window.innerWidth, 30);
             wait(3500);
         } else if (deaths == 0) { // perfect clear
-            aud_menuSound.volume = 0.2;
             playSound(aud_menuSound);
             ctx.fillStyle = "#48D1CC";
             if (perfectClear < 7){ // decrease hitbox size
@@ -639,21 +578,21 @@ function resumeSpeed() {
         setPieceSize(20 - perfectClear);
     }
     speed = 1;
-    setAudioSpeed(all_songs, 1.0);
+    setMusicRate(1.0);
 }
 
 function setSlowSpeed(){
     focused = true;
     setPieceSize(15 - perfectClear);
     speed = speed_slow;
-    setAudioSpeed(all_songs, 0.75);
+    setMusicRate(0.75);
 }
 
 function setFastSpeed(){
     focused = true;
     setPieceSize(15 - perfectClear);
     speed = speed_fast;
-    setAudioSpeed(all_songs, 1.2);
+    setMusicRate(1.2);
 }
 
 function setBreak(scorePenalty){
