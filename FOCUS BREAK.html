@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
     <style>
-        html, body { margin: 0; padding: 0; overflow: hidden; } /* canvas fills the window so page and canvas coordinates match */
+        html, body { margin: 0; padding: 0; } /* canvas fills the window so page and canvas coordinates match */
+        html { overflow: hidden; } /* no scrollbars; not on body, which would clip the turned canvas to its untransformed box */
         canvas { display: block; }
         /* touch play: no scrolling, pull-to-refresh, zooming, text selection, long-press menu or tap highlight */
         html, body, canvas { touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none;
@@ -339,6 +340,8 @@ function copyCanvas() { // copy of what's on screen, or null if the canvas has n
 
 function windowResize() {
     var wasTall = gameArea.tall;
+    var wasRotated = rotated;
+    var moved = false; // the square had to be moved back on screen
     // resizing clears the canvas; keep what's shown between levels, e.g. a level transition message.
     // copy it once, before the first resize crops it, and reuse that copy for later resizes
     if (gameStart && !alive && !restFrame) {
@@ -347,18 +350,28 @@ function windowResize() {
     gameArea.load();
     if (alive) {
         if (inputMode == "touch") {
-            if (wasTall != gameArea.tall) {
+            if (wasTall != gameArea.tall || wasRotated != rotated) {
                 setPause(true); // the device was turned: give the player a moment
             }
             // keep the square on the new screen (otherwise it would sweep back through obstacles it can't see) and steer from there
             var cx = Math.max(0, Math.min(gamePiece.x + gamePiece.width / 2, gameArea.canvas.width));
             var cy = Math.max(0, Math.min(gamePiece.y + gamePiece.height / 2, gameArea.canvas.height));
+            moved = cx != gamePiece.x + gamePiece.width / 2 || cy != gamePiece.y + gamePiece.height / 2;
             gamePiece.x = cx - gamePiece.width / 2;
             gamePiece.y = cy - gamePiece.height / 2;
             gameArea.x = cx;
             gameArea.y = cy;
         }
         fitObstaclesToWindow();
+        if (moved) { // clear anything the square was moved onto: it couldn't be dodged (steering waits for the resume)
+            obstacleLists().forEach(function (objects) {
+                for (var i = objects.length - 1; i >= 0; i--) {
+                    if (gamePiece.crashWith(objects[i])) {
+                        objects.splice(i, 1);
+                    }
+                }
+            });
+        }
         if (pause) { // nothing redraws while paused, so draw the refitted level and the panel once
             stopResume(); // a resize stops a touch resume countdown: the panel asks for a tap again
             drawLevel();
@@ -490,6 +503,15 @@ function startGame(e) {
     alive = true;
     restFrame = null; // the next transition screen gets a fresh copy
     pause = false;
+    var cx = gamePiece.x + gamePiece.width / 2;
+    var cy = gamePiece.y + gamePiece.height / 2;
+    if (inputMode == "touch" && (cx < 0 || cy < 0 || cx > gameArea.canvas.width || cy > gameArea.canvas.height)) {
+        // the window shrank between levels: back to the touch start spot (the level starts empty)
+        gameArea.x = gameArea.canvas.width * 0.25;
+        gameArea.y = gameArea.canvas.height * 0.5;
+        gamePiece.x = gameArea.x - gamePiece.width / 2;
+        gamePiece.y = gameArea.y - gamePiece.height / 2;
+    }
     if (!document.hasFocus()) { // player left during the level transition; wait for them
         setPause(true);
     }
@@ -874,6 +896,17 @@ function setInputMode(mode) { // switch between mouse and touch play, redrawing 
     }
 }
 
+function screenUpright() { // the device is held upright (a tall window alone could be split screen on a landscape tablet)
+    var type = window.screen && screen.orientation && screen.orientation.type;
+    if (type) {
+        return type.indexOf("portrait") == 0;
+    }
+    if (typeof window.orientation == "number") { // older iOS Safari
+        return window.orientation % 180 == 0;
+    }
+    return true;
+}
+
 function toGame(sx, sy) { // a window point (clientX/Y or pageX/Y) in game coordinates; they differ only while the game is turned
     return rotated ? { x: sy, y: gameArea.canvas.height - sx } : { x: sx, y: sy };
 }
@@ -1121,7 +1154,7 @@ function onTouchEnd(e) { // touchend and touchcancel
         if (!info || e.type == "touchcancel") {
             continue;
         }
-        if (info.role == "pause" && !pause && touchButtonAt(p.x, p.y) == "pause") {
+        if (info.role == "pause" && (!pause || resumeTimer) && touchButtonAt(p.x, p.y) == "pause") { // also stops a countdown
             setPause(true);
         } else if (pause && info.pausedAt == pauseNo && Date.now() - pauseStart > 300) { // began during this pause
             startResumeCountdown(); // a tap anywhere resumes (after the pause has been up for a moment)
@@ -1166,7 +1199,7 @@ var gameArea = {
         this.tall = window.innerHeight > window.innerWidth;
         // phones and tablets always play landscape: held upright, the canvas is turned a quarter clockwise
         // (orientation locking needs fullscreen on Android and isn't available on iOS)
-        rotated = this.tall && !!(window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches);
+        rotated = this.tall && screenUpright() && !!(window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches);
         this.canvas.width = rotated ? window.innerHeight : window.innerWidth;
         this.canvas.height = rotated ? window.innerWidth : window.innerHeight;
         this.canvas.style.transformOrigin = "0 0";
