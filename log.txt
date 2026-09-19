@@ -20,6 +20,7 @@
 - Options button: open an options page and remember the settings (cookie?)
 - Level 10: add a bonus to the total score; slowly increase spawns as the level goes on
 - Break could destroy all obstacles, or just those near the square
+- Graze system: grazes build charges (the spark already measures how close each pass was, so the number is there). Spend them on a free break, or on a score multiplier, so flying tight pays instead of only looking good. Right now a graze is purely visual and warp's double rate is the only scoring lever in the game
 
 - Visual flare:
 	Graze sparks: flash on the side of the square when it clears an obstacle by a few px, brighter the closer the pass. The whole game is threading gaps and right now 1px and 40px look the same
