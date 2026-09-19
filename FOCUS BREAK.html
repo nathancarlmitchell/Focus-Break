@@ -79,33 +79,60 @@ const START_BUTTONS = {
         help: "CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.",
         touch: { dx: 60, dy: 110, w: 420, h: 110 }, touchLabel: "Hold to Warp",
         touchHelp: "WARP button (hold) = Speeds up time.  Earn double score, you madman.  Drag anywhere to steer." },
-    // the effects switch: the one button here that does something instead of explaining something
-    options: { dx: 0, dy: 272, w: 256, h: 40, ty: 300, label: "Effects", setting: true,
+    // the settings: the buttons here that change something instead of explaining something
+    options: { dx: 0, dy: 272, w: 256, h: 40, setting: true,
         touch: { dx: 60, dy: 240, w: 420, h: 90 } },
+    // steering is a touch idea, so it only appears in the touch layout; the mouse never reads TOUCH_GAIN
+    steering: { setting: true, touchOnly: true,
+        touch: { dx: -450, dy: 180, w: 400, h: 90 } },
 };
 
-const FX_MODES = ["auto", "full", "reduced", "off"]; // what the button cycles through
+const FX_MODES = ["auto", "full", "reduced", "off"]; // what the effects button cycles through
 const FX_MODE_LABELS = { auto: "Auto", full: "Full", reduced: "Reduced", off: "Off" };
+const TOUCH_GAINS = [0.75, 1, 1.25, 1.5, 2]; // px the square moves per px of finger; 1.25 is what it always was
 
-function fxModeLabel() { // what the button reads: for "auto", also what the device is asking for
+function fxModeLabel() { // what the effects button reads: for "auto", also what the device is asking for
     var name = FX_MODE_LABELS[fxMode] || fxMode;
     return fxMode == "auto" ? name + " (" + FX_MODE_LABELS[fxLook()] + ")" : name;
 }
 
-function loadFxMode() { // the setting from last time, if the browser will tell us
-    try {
-        var saved = window.localStorage.getItem("focusbreak.effects");
-        if (FX_MODES.indexOf(saved) >= 0) {
-            fxMode = saved;
+// each setting is a value cycled by its own button and remembered between runs. read() is what the button says,
+// pick() takes a stored string and returns the value to use, or undefined if it isn't one of ours
+const SETTINGS = {
+    options: { store: "focusbreak.effects",
+        read: function () { return "EFFECTS: " + fxModeLabel().toUpperCase(); },
+        next: function () { fxMode = FX_MODES[(FX_MODES.indexOf(fxMode) + 1) % FX_MODES.length]; return fxMode; },
+        pick: function (v) { return FX_MODES.indexOf(v) >= 0 ? v : undefined; },
+        apply: function (v) { fxMode = v; } },
+    steering: { store: "focusbreak.steering",
+        read: function () { return "STEERING: " + TOUCH_GAIN.toFixed(2) + "x"; },
+        next: function () {
+            var i = TOUCH_GAINS.indexOf(TOUCH_GAIN); // an unlisted value (an old save, a hand edit) steps to the first
+            TOUCH_GAIN = TOUCH_GAINS[(i + 1) % TOUCH_GAINS.length];
+            return String(TOUCH_GAIN);
+        },
+        pick: function (v) { return TOUCH_GAINS.indexOf(parseFloat(v)) >= 0 ? parseFloat(v) : undefined; },
+        apply: function (v) { TOUCH_GAIN = v; } },
+};
+
+function loadSettings() { // whatever was chosen last time, if the browser will tell us
+    for (var name in SETTINGS) {
+        var s = SETTINGS[name];
+        try {
+            var saved = s.pick(window.localStorage.getItem(s.store));
+            if (saved !== undefined) {
+                s.apply(saved);
+            }
+        } catch (e) { // private windows and blocked storage throw rather than return null: keep the default
         }
-    } catch (e) { // private windows and blocked storage throw rather than return null: keep the default
     }
 }
 
-function cycleFxMode() { // the Options button: step to the next effects setting and remember it
-    fxMode = FX_MODES[(FX_MODES.indexOf(fxMode) + 1) % FX_MODES.length];
+function cycleSetting(name) { // a settings button: step to its next value and remember it
+    var s = SETTINGS[name];
+    var value = s.next();
     try {
-        window.localStorage.setItem("focusbreak.effects", fxMode);
+        window.localStorage.setItem(s.store, value);
     } catch (e) { // nothing to do: the setting still applies for this run
     }
     playSound(aud_click);
@@ -117,10 +144,10 @@ function startLayout() { // "classic" (the original mouse layout) or "touch" (bi
     return inputMode == "touch" ? "touch" : "classic";
 }
 
-function geom(name) { // a start-screen button's rectangle in the current layout
+function geom(name) { // a start-screen button's rectangle in the current layout, or null if it isn't in this one
     var b = START_BUTTONS[name];
     var style = startLayout();
-    return style == "classic" ? b : b[style];
+    return style == "classic" ? (b.touchOnly ? null : b) : b[style];
 }
 
 // start screen animation, stopped when the game starts (same-delay timers run in creation order)
@@ -237,6 +264,9 @@ function buttonAt(px, py) { // name of the start-screen button at a window point
     var ly = (py - f.y) / f.scale;
     for (var name in START_BUTTONS) {
         var b = geom(name);
+        if (!b) {
+            continue; // not shown in this layout, so nothing to hit
+        }
         var left = LAYOUT_W / 2 + b.dx;
         var top = LAYOUT_H / 2 + b.dy;
         if (lx > left && lx < left + b.w && ly > top && ly < top + (b.hitH || b.h)) {
@@ -330,7 +360,7 @@ function click_to_start_colors(){ // Flashing colors on start screen
 
 function highlightControl() { // Flashing colors on the hovered control button (start screen)
     var b = START_BUTTONS[hoveredButton];
-    if (b && b.setting) { // the effects button carries a reading, so flash its edge instead of its label
+    if (b && b.setting) { // a settings button carries a reading, so flash its edge instead of its label
         var s = geom(hoveredButton);
         var sx = LAYOUT_W / 2 + s.dx, sy = LAYOUT_H / 2 + s.dy;
         useLayout();
@@ -359,7 +389,7 @@ function highlightControl() { // Flashing colors on the hovered control button (
 }
 
 function onLoad() {
-    loadFxMode(); // before anything is drawn, so the start screen opens on the setting that is in force
+    loadSettings(); // before anything is drawn, so the start screen opens on the settings that are in force
     gameArea.load();
     updateSloganText();
     playSound(aud_startup); // startup sound; browsers usually block it until the first click
@@ -508,22 +538,28 @@ function drawStartScreen() { // draw the start screen
         }
     }
 
-    drawOptionsButton();
+    drawSettingButtons();
     useWindow();
 }
 
-function drawOptionsButton() { // the effects switch, in whichever start layout is showing
-    var g = geom("options");
-    var x = LAYOUT_W / 2 + g.dx, y = LAYOUT_H / 2 + g.dy;
+function drawSettingButtons() { // the settings switches, in whichever start layout is showing
+    var classic = startLayout() == "classic";
     ctx.globalAlpha = 1.0;
-    ctx.fillStyle = "#00FFFF";
-    ctx.fillRect(x, y, g.w, g.h);
-    ctx.fillStyle = "black";
-    ctx.fillRect(x + 2, y + 2, g.w - 4, g.h - 4);
-    ctx.fillStyle = "#ff00ff";
     ctx.textAlign = "center";
-    ctx.font = (startLayout() == "classic" ? "22px" : "34px") + " Arial";
-    ctx.fillText("EFFECTS: " + fxModeLabel().toUpperCase(), x + g.w / 2, y + g.h / 2 + (startLayout() == "classic" ? 8 : 12));
+    ctx.font = (classic ? "22px" : "30px") + " Arial";
+    for (var name in SETTINGS) {
+        var g = geom(name);
+        if (!g) {
+            continue;
+        }
+        var x = LAYOUT_W / 2 + g.dx, y = LAYOUT_H / 2 + g.dy;
+        ctx.fillStyle = "#00FFFF";
+        ctx.fillRect(x, y, g.w, g.h);
+        ctx.fillStyle = "black";
+        ctx.fillRect(x + 2, y + 2, g.w - 4, g.h - 4);
+        ctx.fillStyle = "#ff00ff";
+        ctx.fillText(SETTINGS[name].read(), x + g.w / 2, y + g.h / 2 + (classic ? 8 : 10), g.w - 16);
+    }
     ctx.textAlign = "start"; // the rest of the screen draws left-aligned
 }
 
@@ -1255,8 +1291,8 @@ function onTouchEnd(e) { // touchend and touchcancel
             setHovered("");
             if (switched) {
                 // this tap switched the start screen to the touch layout; it only shows it
-            } else if (button == "options") {
-                cycleFxMode();
+            } else if (button && START_BUTTONS[button].setting) {
+                cycleSetting(button);
             } else if (button && button != "start") {
                 alert(START_BUTTONS[button].touchHelp);
             } else {
@@ -1318,8 +1354,8 @@ var gameArea = {
             var button = gameStart ? "" : buttonAt(p.x, p.y);
             if (button == "start") {
                 startGame({ pageX: p.x, pageY: p.y });
-            } else if (button == "options") { // the one button here that changes something rather than explaining it
-                cycleFxMode();
+            } else if (button && START_BUTTONS[button].setting) { // a settings button changes its value
+                cycleSetting(button);
             } else if (button) { // a control button: explain it
                 alert(START_BUTTONS[button].help);
             } else if (runFinished && restartArmed) { // play again from the finish screen
