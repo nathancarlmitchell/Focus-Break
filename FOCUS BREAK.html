@@ -1922,12 +1922,13 @@ var FX_GRAZE_SPLIT = 2; // the cyan band, outward of the magenta: whichever land
 var FX_GRAZE_OVER = 4; // px the blade overhangs each end in the flare, along the edge only: never across it, because
                        // across is the axis the player judges gaps on. With LIFT and BLADE the envelope is always 5px
 var FX_GRAZE_MINLEN = 10; // the shortest blade, px: never near-square, even on an 8px hitbox
-var FX_GRAZE_TICKAT = 0.5; // the closeness that throws sparks (a gap under 5px): the tier, carried without hue
+var FX_GRAZE_TICKAT = 0.104; // the closeness that throws sparks: a gap under 8px of the 10px band. The band itself is
+                             // the ceiling on this -- past FX_GRAZE_PX nothing registers as a graze at all
 
 // The sparks a graze throws off, in place of the three fixed dashes this used to drop. A pool, so emitting allocates
 // nothing; fxHash rather than Math.random, so a replay of the same run draws the same sparks; and streaks rather than
 // dots, because a filled square is what a powerup looks like. They carry the same tier signal the dashes did: nothing
-// is thrown until the gap is under FX_GRAZE_TICKAT, so their presence still reads as "that one was close".
+// is thrown until the gap is under FX_GRAZE_TICKAT, and how many are thrown still scales with how close it was.
 var FX_PART_ON = true;
 var FX_PART_MAX = 160; // the pool. Four sides can strike at once, and a held line trickles on top of that
 var FX_PART_EMIT = 14; // sparks at the closest pass, scaling down to FX_PART_MIN at the tier boundary
@@ -2260,7 +2261,10 @@ function fxSpark(side, x, y, lane, power, seed, count) { // vent sparks out of t
     var nx = side == 1 ? 1 : side == 3 ? -1 : 0; // the outward normal: which way the obstacle lies
     var ny = side == 2 ? 1 : side == 0 ? -1 : 0;
     var tx = -ny, ty = nx; // and along the edge, which is where the gap actually vents
-    var n = count !== undefined ? count : FX_PART_MIN + Math.round((FX_PART_EMIT - FX_PART_MIN) * power);
+    // the count spans the whole spark range between the threshold and a touching pass, rather than between 0 and a
+    // touching pass, so moving the threshold out adds faint sparks at distance instead of a crowd at every gap
+    var reach = (power - FX_GRAZE_TICKAT) / (1 - FX_GRAZE_TICKAT);
+    var n = count !== undefined ? count : FX_PART_MIN + Math.round((FX_PART_EMIT - FX_PART_MIN) * reach);
     for (var k = 0; k < n; k++) {
         var p = fx.part[fx.pnext];
         fx.pnext = (fx.pnext + 1) % FX_PART_MAX; // the oldest in flight is the one overwritten
