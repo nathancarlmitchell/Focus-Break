@@ -1979,6 +1979,12 @@ var FX_WAVE = 36; // the Break shockwave lives a little longer and goes a lot fu
 var FX_WAVE_R0 = 12, FX_WAVE_R1 = 150;
 var FX_POP_W = 3; // ring line width at birth, tapering to 1
 var FX_POP_ALPHA = 0.55;
+var FX_COIN_PARTS = 14; // gold sparks thrown when a score powerup is taken: it is the one pickup that pays, so it gets the most
+var FX_COIN_V = 2.8; // px a step they leave at, before the jitter
+var FX_COIN_INNER = 0.42; // the second, tighter ring, as a fraction of the outer one's reach
+var FX_COIN_TEXT = 26; // px: the "+50" that rises off it, which is the only place the game says what a coin is worth
+var FX_COIN_RISE = 46; // px it climbs over its life
+var FX_COIN_TEXT_A = 0.9;
 var FX_MILE_ON = true; // the score's hundreds
 var FX_MILE = 24; // steps of flourish (240ms)
 var FX_MILE_PASSES = 10; // stacked shadow copies behind the number, as the title prints itself
@@ -2061,7 +2067,7 @@ while (fx.ring.length < 2) {
     fx.ring.push({ age: FX_POP, x: 0, y: 0 });
 }
 while (fx.part.length < FX_PART_MAX) {
-    fx.part.push({ age: 1, life: 1, x: 0, y: 0, vx: 0, vy: 0, lane: 0, w: FX_PART_W, curl: 0 }); // born spent
+    fx.part.push({ age: 1, life: 1, x: 0, y: 0, vx: 0, vy: 0, lane: 0, w: FX_PART_W, curl: 0, warm: 0 }); // born spent
 }
 
 function fxLook() { // fxMode, or for "auto": "reduced" if the player asked their device for less motion, else "full"
@@ -2101,8 +2107,34 @@ function fxPop(kind, objects) { // a powerup was taken: a ring where it was sitt
             r.age = 0;
             r.x = objects[i].x + objects[i].width / 2;
             r.y = objects[i].y + objects[i].height / 2;
+            if (kind == 1) { // the score powerup also throws gold, seeded off where it was so a replay throws the same
+                fxCoinBurst(r.x, r.y, Math.round(r.x) * 31 + Math.round(r.y));
+            }
             return;
         }
+    }
+}
+
+function fxCoinBurst(x, y, seed) { // a score powerup was taken: gold thrown out in every direction, not vented off an edge
+    if (!FX_PART_ON || fx.look != "full") {
+        return; // reduced motion keeps the rings, which expand rather than stream, and skips the spray
+    }
+    for (var k = 0; k < FX_COIN_PARTS; k++) {
+        var p = fx.part[fx.pnext];
+        fx.pnext = (fx.pnext + 1) % FX_PART_MAX;
+        var ang = 2 * Math.PI * (k + 0.6 * fxHash(seed, k)) / FX_COIN_PARTS; // evenly round, jittered off the spokes
+        var ember = fxHash(seed, k + 96) < FX_PART_EMBER;
+        var spd = FX_COIN_V * (ember ? 0.5 + 0.3 * fxHash(seed, k + 64) : 0.7 + 0.8 * fxHash(seed, k + 64));
+        p.age = 0;
+        p.x = x;
+        p.y = y;
+        p.vx = Math.cos(ang) * spd;
+        p.vy = Math.sin(ang) * spd;
+        p.lane = FX_POP_DRIFT; // it came off a powerup, so it travels at the rate moveObjects carries those
+        p.life = Math.round(FX_PART_LIFE * (ember ? FX_PART_EMBER_LIFE : 0.7 + 0.6 * fxHash(seed, k + 128)));
+        p.w = ember ? FX_PART_W_EMBER : FX_PART_W * (0.7 + 0.6 * fxHash(seed, k + 160));
+        p.curl = (fxHash(seed, k + 192) - 0.5) * 2 * FX_PART_CURL;
+        p.warm = 1; // gold, like the coin it came off
     }
 }
 
@@ -2282,6 +2314,7 @@ function fxSpark(side, x, y, lane, power, seed, count) { // vent sparks out of t
         p.life = Math.round(FX_PART_LIFE * (ember ? FX_PART_EMBER_LIFE : 0.7 + 0.6 * fxHash(h, k + 128)));
         p.w = ember ? FX_PART_W_EMBER : FX_PART_W * (0.7 + 0.6 * fxHash(h, k + 160));
         p.curl = (fxHash(h, k + 192) - 0.5) * 2 * FX_PART_CURL; // which way this one arcs, and how hard
+        p.warm = 0; // struck off an obstacle, so it takes the cyan and magenta pair like everything else that is
     }
 }
 
@@ -2856,9 +2889,27 @@ function fxDrawRing(x, y, age, max, r0, r1, inner, outer) { // an expanding outl
     ctx.beginPath(); // leave no path behind: the next fill would paint it
 }
 
+function fxDrawCoinText(x, y, age) { // what the coin was actually worth, which the game has never said anywhere
+    var t = age / FX_POP;
+    ctx.save();
+    ctx.globalAlpha = FX_COIN_TEXT_A * (1 - t) * (1 - t);
+    ctx.font = "bold " + FX_COIN_TEXT + "px Arial";
+    ctx.textAlign = "center";
+    var ty = y - FX_COIN_RISE * (1 - (1 - t) * (1 - t)); // climbing fast and slowing, the way the rings expand
+    ctx.fillStyle = "#ff00ff"; // the magenta print first, offset, then the gold over it, as the title does
+    ctx.fillText("+" + powerupScoreBonus, x + 2, ty + 2);
+    ctx.fillStyle = "#FFD700";
+    ctx.fillText("+" + powerupScoreBonus, x, ty);
+    ctx.restore();
+}
+
 function fxDrawPops() { // the powerup rings and the Break shockwave
     if (fx.ring[1].age < FX_POP) { // the score powerup keeps its own gold, with a magenta print off it
         fxDrawRing(fx.ring[1].x, fx.ring[1].y, fx.ring[1].age, FX_POP, FX_POP_R0, FX_POP_R1, "#FFD700", "#ff00ff");
+        // a second, tighter ring inside it: one pop with some depth to it rather than a single hoop
+        fxDrawRing(fx.ring[1].x, fx.ring[1].y, fx.ring[1].age, FX_POP, FX_POP_R0 * 0.4, FX_POP_R1 * FX_COIN_INNER,
+                   "#ff00ff", "#FFD700");
+        fxDrawCoinText(fx.ring[1].x, fx.ring[1].y, fx.ring[1].age);
     }
     if (fx.ring[0].age < FX_POP) { // a Break powerup taken while one was already running: it refilled, nothing opened
         fxDrawRing(fx.ring[0].x, fx.ring[0].y, fx.ring[0].age, FX_POP, FX_POP_R0, FX_POP_R1, "#00FFFF", "#ff00ff");
@@ -2981,7 +3032,8 @@ function fxDrawSparks() { // the sparks a graze vented, printed twice like every
         var dy = p.vy * FX_PART_LEN;
         ctx.globalAlpha = FX_PART_ALPHA * (1 - t) * (1 - t);
         ctx.lineWidth = Math.max(1, p.w * (1 - 0.45 * t));
-        ctx.strokeStyle = "#00FFFF"; // cyan laid down first and offset, so one of the pair reads on black and one on the ground
+        ctx.strokeStyle = p.warm ? "#FFD700" : "#00FFFF"; // laid down first and offset, so one of the pair reads
+        // on black and one on the ground. A coin's sparks keep the coin's own gold in place of the cyan
         ctx.beginPath();
         ctx.moveTo(p.x - dx + 1, p.y - dy + 1);
         ctx.lineTo(p.x + 1, p.y + 1);
@@ -3035,24 +3087,30 @@ function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under th
 
 function fxDrawAfterimages() { // Focus's echoes and Warp's trail: over the obstacles and the level's bars, under the HUD, buttons and square
     var look = fxLook(); // resolved here rather than read from fx.look, as in fxDrawBackdrop
-    if (look == "off" || fxOverdrawn() || !fxAttached()) {
-        return; // (not attached: the square was moved since its last record, so there's nothing to hang them from until the next step)
+    if (look == "off" || fxOverdrawn()) {
+        return;
     }
-    if (!fxShowing() && !fxGrazing() && !fxSparking()) {
+    // the echoes, the trail and the blade all hang off the square, so none of them can be drawn if it was moved since
+    // its last record (a touch resize). A spark is a world object the moment it is thrown, and is drawn either way
+    var attached = fxAttached();
+    var sparks = FX_PART_ON && fxSparking();
+    if (!sparks && (!attached || (!fxShowing() && !fxGrazing()))) {
         return;
     }
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (fx.focus > 0) {
-        fxDrawEchoes(fxEase(fx.focus, FX_FADE.focus));
+    if (attached) {
+        if (fx.focus > 0) {
+            fxDrawEchoes(fxEase(fx.focus, FX_FADE.focus));
+        }
+        if (fx.warp > 0) {
+            fxDrawTrail(fxEase(fx.warp, FX_FADE.warp));
+        }
+        if (fxGrazing()) {
+            fxDrawGrazes(look); // over the obstacles: at the passes that matter the blade lies partly inside their footprint
+        }
     }
-    if (fx.warp > 0) {
-        fxDrawTrail(fxEase(fx.warp, FX_FADE.warp));
-    }
-    if (fxGrazing()) {
-        fxDrawGrazes(look); // over the obstacles: at the passes that matter the blade lies partly inside their footprint
-    }
-    if (FX_PART_ON) {
+    if (sparks) {
         fxDrawSparks(); // over the blade, since they are what the blade threw
     }
     ctx.restore();
