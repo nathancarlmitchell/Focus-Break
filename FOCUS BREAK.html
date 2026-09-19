@@ -79,13 +79,28 @@ const START_BUTTONS = {
         help: "CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.",
         touch: { dx: 60, dy: 110, w: 420, h: 110 }, touchLabel: "Hold to Warp",
         touchHelp: "WARP button (hold) = Speeds up time.  Earn double score, you madman.  Drag anywhere to steer." },
-    // the settings: the buttons here that change something instead of explaining something
-    options: { dx: 0, dy: 272, w: 256, h: 40, setting: true,
+    // the one button here that opens something rather than starting the game or explaining a control
+    options: { dx: 0, dy: 272, w: 256, h: 40, menu: true,
         touch: { dx: 60, dy: 240, w: 420, h: 90 } },
-    // steering is a touch idea, so it only appears in the touch layout; the mouse never reads TOUCH_GAIN
-    steering: { setting: true, touchOnly: true,
-        touch: { dx: -450, dy: 180, w: 400, h: 90 } },
 };
+
+var optionsOpen = false; // the settings screen is up in place of the start screen
+
+// the settings screen's own buttons. One layout for both mouse and touch: it is a menu of its own, with room to be
+// read either way, so there is nothing for the start screen's two layouts to disagree about
+const OPTION_BUTTONS = {
+    options_effects: { dx: -300, dy: -130, w: 600, h: 86, setting: "options" },
+    options_steering: { dx: -300, dy: -24, w: 600, h: 86, setting: "steering" },
+    options_back: { dx: -170, dy: 110, w: 340, h: 76, back: true, label: "BACK" },
+};
+
+function buttonTable() { // whichever screen's buttons are live
+    return optionsOpen ? OPTION_BUTTONS : START_BUTTONS;
+}
+
+function buttonDef(name) { // a live button's definition, for the things that only need its flags
+    return buttonTable()[name];
+}
 
 const FX_MODES = ["auto", "full", "reduced", "off"]; // what the effects button cycles through
 const FX_MODE_LABELS = { auto: "Auto", full: "Full", reduced: "Reduced", off: "Off" };
@@ -144,8 +159,14 @@ function startLayout() { // "classic" (the original mouse layout) or "touch" (bi
     return inputMode == "touch" ? "touch" : "classic";
 }
 
-function geom(name) { // a start-screen button's rectangle in the current layout, or null if it isn't in this one
+function geom(name) { // a live button's rectangle, or null if it isn't on the screen that is up
+    if (optionsOpen) {
+        return OPTION_BUTTONS[name] || null; // the settings screen has one layout, so there is nothing to choose
+    }
     var b = START_BUTTONS[name];
+    if (!b) {
+        return null;
+    }
     var style = startLayout();
     return style == "classic" ? (b.touchOnly ? null : b) : b[style];
 }
@@ -262,7 +283,8 @@ function buttonAt(px, py) { // name of the start-screen button at a window point
     }
     var lx = (px - f.x) / f.scale; // the point in layout coordinates
     var ly = (py - f.y) / f.scale;
-    for (var name in START_BUTTONS) {
+    var table = buttonTable();
+    for (var name in table) {
         var b = geom(name);
         if (!b) {
             continue; // not shown in this layout, so nothing to hit
@@ -337,12 +359,18 @@ function drawTitle(shadowColor, passes) { // FOCUS BREAK title: stacked shadow c
 }
 
 function focus_break_colors(){ // Flashing colors on start screen
+    if (optionsOpen) {
+        return; // the settings screen is up: these run on a timer and would paint the title over it
+    }
     useLayout();
     drawTitle(getRandomColor(), 3);
     useWindow();
 }
 
 function click_to_start_colors(){ // Flashing colors on start screen
+    if (optionsOpen) {
+        return;
+    }
     if (hoveredButton == "start" || (inputMode == "touch" && !hoveredButton)) { // in touch play START always flashes
         var b = geom("start");
         ctx.globalAlpha = 0.35;
@@ -359,8 +387,8 @@ function click_to_start_colors(){ // Flashing colors on start screen
 }
 
 function highlightControl() { // Flashing colors on the hovered control button (start screen)
-    var b = START_BUTTONS[hoveredButton];
-    if (b && b.setting) { // a settings button carries a reading, so flash its edge instead of its label
+    var b = buttonDef(hoveredButton);
+    if (b && (b.setting || b.back)) { // a settings row carries a reading, so flash its edge instead of its label
         var s = geom(hoveredButton);
         var sx = LAYOUT_W / 2 + s.dx, sy = LAYOUT_H / 2 + s.dy;
         useLayout();
@@ -419,6 +447,7 @@ function windowResize() {
     var wasRotated = rotated;
     var moved = false; // the square had to be moved back on screen
     var dying = null;
+    fxNextStop(); // the between-levels animation holds a frame at the old size; restFrame takes over from here
     if (die.on) { // a resize mid-shatter: the held frame is the wrong size now, so cut it short and let the message stand
         dying = die.then;
         fxDieStop();
@@ -474,7 +503,11 @@ function windowResize() {
     }
 }
 
-function drawStartScreen() { // draw the start screen
+function drawStartScreen() { // draw the start screen, or the settings screen standing in for it
+    if (optionsOpen) {
+        drawOptionsScreen();
+        return;
+    }
     var cx = LAYOUT_W / 2;
     var cy = LAYOUT_H / 2;
 
@@ -542,25 +575,87 @@ function drawStartScreen() { // draw the start screen
     useWindow();
 }
 
-function drawSettingButtons() { // the settings switches, in whichever start layout is showing
+function drawSettingButtons() { // the OPTIONS button on the start screen, which opens the settings screen
     var classic = startLayout() == "classic";
+    var g = geom("options");
+    if (!g) {
+        return;
+    }
+    var x = LAYOUT_W / 2 + g.dx, y = LAYOUT_H / 2 + g.dy;
     ctx.globalAlpha = 1.0;
     ctx.textAlign = "center";
-    ctx.font = (classic ? "22px" : "30px") + " Arial";
-    for (var name in SETTINGS) {
-        var g = geom(name);
-        if (!g) {
-            continue;
-        }
-        var x = LAYOUT_W / 2 + g.dx, y = LAYOUT_H / 2 + g.dy;
-        ctx.fillStyle = "#00FFFF";
-        ctx.fillRect(x, y, g.w, g.h);
-        ctx.fillStyle = "black";
-        ctx.fillRect(x + 2, y + 2, g.w - 4, g.h - 4);
-        ctx.fillStyle = "#ff00ff";
-        ctx.fillText(SETTINGS[name].read(), x + g.w / 2, y + g.h / 2 + (classic ? 8 : 10), g.w - 16);
-    }
+    ctx.font = (classic ? "22px" : "34px") + " Arial";
+    ctx.fillStyle = "#00FFFF";
+    ctx.fillRect(x, y, g.w, g.h);
+    ctx.fillStyle = "black";
+    ctx.fillRect(x + 2, y + 2, g.w - 4, g.h - 4);
+    ctx.fillStyle = "#ff00ff";
+    ctx.fillText("OPTIONS 設定", x + g.w / 2, y + g.h / 2 + (classic ? 8 : 12), g.w - 16);
     ctx.textAlign = "start"; // the rest of the screen draws left-aligned
+}
+
+function drawOptionsScreen() { // the settings, on a screen of their own
+    var cx = LAYOUT_W / 2, cy = LAYOUT_H / 2;
+    useWindow();
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, x, y);
+
+    useLayout();
+    ctx.globalAlpha = 1.0;
+    ctx.textAlign = "center";
+    ctx.font = "70px Arial";
+    ctx.fillStyle = "#00FFFF"; // the title printed twice, as everything in this game is
+    ctx.fillText("OPTIONS", cx - 4, cy - 196);
+    ctx.fillStyle = "#ff00ff";
+    ctx.fillText("OPTIONS", cx, cy - 192);
+    ctx.font = "28px Arial";
+    ctx.fillStyle = "black";
+    ctx.fillText("設定", cx, cy - 158);
+
+    for (var name in OPTION_BUTTONS) {
+        var b = OPTION_BUTTONS[name];
+        var bx = cx + b.dx, by = cy + b.dy;
+        ctx.fillStyle = "#00FFFF";
+        ctx.fillRect(bx, by, b.w, b.h);
+        ctx.fillStyle = "black";
+        ctx.fillRect(bx + 2, by + 2, b.w - 4, b.h - 4);
+        ctx.fillStyle = "#ff00ff";
+        ctx.font = (b.back ? "36px" : "30px") + " Arial";
+        ctx.fillText(b.back ? b.label : SETTINGS[b.setting].read(), bx + b.w / 2, by + b.h / 2 + 11, b.w - 20);
+    }
+
+    ctx.font = "20px Arial"; // steering only does anything under a finger, and the menu is where you would look for it
+    ctx.fillStyle = "black";
+    ctx.fillText("Steering is how far the square moves per pixel of finger, on a touch screen", cx, cy + 88);
+    ctx.fillText(inputMode == "touch" ? "Tap BACK to return" : "Click BACK, or press Escape, to return", cx, cy + 222);
+    ctx.textAlign = "start";
+
+    useWindow(); // the same stripes the start screen wears, so this reads as part of it
+    ctx.font = "40px Arial";
+    var k = bannerScale();
+    ctx.fillStyle = "#00FFFF";
+    drawBanners(34, 30, k);
+    ctx.fillStyle = "#ff00ff";
+    drawBanners(40, 20, k);
+}
+
+function openOptions(open) { // show or hide the settings screen
+    optionsOpen = open;
+    setHovered("");
+    playSound(aud_click);
+    drawStartScreen();
+}
+
+function optionsPress(name) { // a press on the settings screen: cycle a row, or go back. Anything else is ignored
+    var b = OPTION_BUTTONS[name];
+    if (!b) {
+        return;
+    }
+    if (b.back) {
+        openOptions(false);
+    } else {
+        cycleSetting(b.setting);
+    }
 }
 
 function drawBigStartButtons() { // the start screen's START and control buttons in the bigger touch layout
@@ -631,7 +726,10 @@ function startTouchGame() { // start from a tap: the square starts at the left m
     gameArea.y = startY;
 }
 
+var nextWait = 0; // how long the screen just put up is going to stay, so the transition can play for exactly that
+
 function wait(time) {
+    nextWait = time;
     setTimeout(startNextLevel, time);
 }
 
@@ -735,6 +833,8 @@ function gameOver() { // the level was cleared or the player died
             centerText("慎重に進んでください!", -300, 25);
             wait(3000);
         }
+        useWindow(); // the message is down: hold it and play the transition under and over it
+        fxNextStart(nextWait);
     } else { // you lose
         deaths += 1;
         playSound(aud_death);
@@ -1291,8 +1391,10 @@ function onTouchEnd(e) { // touchend and touchcancel
             setHovered("");
             if (switched) {
                 // this tap switched the start screen to the touch layout; it only shows it
-            } else if (button && START_BUTTONS[button].setting) {
-                cycleSetting(button);
+            } else if (optionsOpen) {
+                optionsPress(button); // a tap on nothing here does nothing: it must not start a run
+            } else if (button == "options") {
+                openOptions(true);
             } else if (button && button != "start") {
                 alert(START_BUTTONS[button].touchHelp);
             } else {
@@ -1352,10 +1454,12 @@ var gameArea = {
             }
             var p = toGame(e.pageX, e.pageY);
             var button = gameStart ? "" : buttonAt(p.x, p.y);
-            if (button == "start") {
+            if (optionsOpen) {
+                optionsPress(button); // a press on nothing here does nothing: it must not reach the game
+            } else if (button == "start") {
                 startGame({ pageX: p.x, pageY: p.y });
-            } else if (button && START_BUTTONS[button].setting) { // a settings button changes its value
-                cycleSetting(button);
+            } else if (button == "options") {
+                openOptions(true);
             } else if (button) { // a control button: explain it
                 alert(START_BUTTONS[button].help);
             } else if (runFinished && restartArmed) { // play again from the finish screen
@@ -1432,6 +1536,11 @@ var gameArea = {
             if (alive && e.ctrlKey) {
                 e.preventDefault(); // block browser shortcuts while holding CTRL to warp
             }
+            if (key == "Escape" && optionsOpen) { // the settings screen's other way out, for anyone who expects it
+                e.preventDefault();
+                openOptions(false);
+                return;
+            }
             if (key == "r" && runFinished && !e.repeat && !e.ctrlKey && !e.metaKey) { // R = play again (Ctrl+R still reloads)
                 restartRun();
             }
@@ -1464,6 +1573,7 @@ var gameArea = {
     },
     start: function () {
         fxDieStop(); // a shatter still playing would draw its held frame over the level starting underneath it
+        fxNextStop(); // and so would the between-levels screen
         this.canvas.style.cursor = "none"; // hide the original cursor
         this.frameNo = 0;
         this.spawnClock = 0; // game time for spawning, advanced by the game speed each step
@@ -1968,6 +2078,23 @@ var FX_DIE_SPIN = 0.12; // radians a frame, so the pieces tumble rather than sli
 var FX_DIE_RING = 26; // px the ring around the killing obstacle expands by
 var FX_DIE_W = 2; // outline weight: fragments are outlines, never fills, like the Focus echoes
 
+// The screen between levels. The message used to be drawn once onto a blank canvas and sat there for two to five
+// seconds. It now plays over the ground of the level being entered, so the transition previews the palette you are
+// about to be in, with rings going out from the middle and a bar wiping across. Same trick as the death shatter: the
+// message is captured as drawn and redrawn over the animation, so none of gameOver's branches had to be unpicked.
+var FX_NEXT_ON = true;
+var FX_NEXT_TINT = 26; // frames the new ground takes to come up under the message
+var FX_NEXT_TINT_A = 0.55; // ...and how far it comes up. Held short of full because these messages were coloured
+                           // against white: red and black are fine on every ground, but the perfect-clear turquoise
+                           // is only 1.86:1 on white to begin with, and a full-strength ground takes it to 1.61
+var FX_NEXT_RINGS = 3; // rings going out from the middle, one after another
+var FX_NEXT_RING_SPAN = 54; // frames each takes to reach the edge
+var FX_NEXT_RING_GAP = 15; // frames between them
+var FX_NEXT_RING_A = 0.34;
+var FX_NEXT_SWEEP = 64; // frames the wipe takes to cross
+var FX_NEXT_SWEEP_W = 150; // px wide
+var FX_NEXT_SWEEP_A = 0.2;
+
 // Flourishes: one-shot marks on the moments the game currently passes over in silence -- a powerup taken, a Break
 // opened, a hundred points reached, a level named, a screen-high block on its way. Each is small and each is drawn
 // under the obstacles, so none of them can hide the thing that kills you.
@@ -2267,6 +2394,85 @@ function fxDieFrame() { // one frame of the shatter, over the held picture
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     die.age++;
     die.request = requestAnimationFrame(fxDieFrame);
+}
+
+// the between-levels animation. Like `die` it lives outside fx, because it runs after gameOver's fxReset
+var nxt = { on: false, frame: null, age: 0, span: 0, request: 0 };
+
+function fxNextStart(ms) { // hold the message as drawn and play the transition under and over it
+    if (!FX_NEXT_ON || fxLook() == "off" || nxt.on) {
+        return;
+    }
+    var frame = copyCanvas(); // the message, on the transparent canvas gameOver cleared for it
+    if (!frame) {
+        return;
+    }
+    nxt.frame = frame;
+    nxt.age = 0;
+    nxt.span = Math.round(ms * 0.06); // the wait, in frames at 60Hz; it ends when the level does
+    nxt.on = true;
+    nxt.request = requestAnimationFrame(fxNextFrame);
+}
+
+function fxNextStop() { // the level is starting, or the screen is going: let go of the held frame
+    if (nxt.request) {
+        cancelAnimationFrame(nxt.request);
+        nxt.request = 0;
+    }
+    nxt.on = false;
+    nxt.frame = null;
+}
+
+function fxNextFrame() {
+    nxt.request = 0;
+    if (!nxt.on) {
+        return;
+    }
+    var w = gameArea.canvas.width, h = gameArea.canvas.height;
+    var look = fxLook();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    if (FX_TINT_ON) { // the ground of the level being entered, coming up under the message
+        ctx.save();
+        ctx.globalAlpha = FX_NEXT_TINT_A * Math.min(1, nxt.age / FX_NEXT_TINT);
+        fxDrawTint();
+        ctx.restore();
+    }
+    ctx.save();
+    for (var i = 0; i < FX_NEXT_RINGS; i++) { // rings out from the middle, one after another
+        var a = nxt.age - i * FX_NEXT_RING_GAP;
+        if (a < 0 || a >= FX_NEXT_RING_SPAN) {
+            continue;
+        }
+        var t = a / FX_NEXT_RING_SPAN;
+        ctx.globalAlpha = FX_NEXT_RING_A * (1 - t) * (1 - t);
+        ctx.lineWidth = Math.max(1, 5 * (1 - t));
+        ctx.strokeStyle = i % 2 ? "#ff00ff" : "#00FFFF";
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, 20 + (1 - (1 - t) * (1 - t)) * Math.max(w, h) * 0.62, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.beginPath(); // leave no path behind for the fills below
+    if (look == "full" && nxt.age < FX_NEXT_SWEEP) { // a bar wiping across, once, only in the full look
+        var sx = (nxt.age / FX_NEXT_SWEEP) * (w + FX_NEXT_SWEEP_W) - FX_NEXT_SWEEP_W;
+        ctx.globalAlpha = FX_NEXT_SWEEP_A;
+        ctx.fillStyle = "#00FFFF";
+        ctx.fillRect(sx, 0, FX_NEXT_SWEEP_W, h);
+        ctx.fillStyle = "#ff00ff";
+        ctx.fillRect(sx + FX_NEXT_SWEEP_W - 4, 0, 4, h);
+    }
+    ctx.restore();
+
+    ctx.drawImage(nxt.frame, 0, 0); // the message itself, over all of it and unchanged
+    fxDrawScreen(look); // and the CRT over that, as in play
+
+    nxt.age++;
+    if (nxt.age >= nxt.span) {
+        fxNextStop(); // the last frame stays up until the level starts
+        return;
+    }
+    nxt.request = requestAnimationFrame(fxNextFrame);
 }
 
 function fxSparksClear() { // sparks in flight do not cross a level or a death
