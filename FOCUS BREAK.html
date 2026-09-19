@@ -1702,14 +1702,21 @@ function drawLevelName() { // level name in the bottom-left corner (level 13 als
         name = deaths == 0 ? name[0] : name[1];
     }
     name = name || "How did this happen?"; // levels past the end of the list
+    var full = name; // the whole name: the fade is timed from when the last character of it lands, not the shown prefix
     if (FX_NAME_ON && fxLook() != "off") { // the level names itself, a character at a time. Resolved after the fallback
         var shown = Math.floor((gameArea.frameNo - FX_NAME_HOLD) / FX_NAME_STEP); // above, or an empty prefix would be
         if (shown < name.length) { // falsy and show the fallback. frameNo holds while paused, so a redraw holds too
             name = shown <= 0 ? "" : name.slice(0, shown);
         }
     }
+    var alpha = fxNameAlpha(full);
+    if (alpha <= 0) {
+        useWindow(); // gone. The level 13 and 14 bars above are not part of this: they are the level, not a caption
+        return;
+    }
     var s = hudScale(); // shrunk with the HUD, baseline kept just above the bottom banner
     ctx.setTransform(s, 0, 0, s, 0, gameArea.canvas.height - 60);
+    ctx.globalAlpha = alpha;
     if (inputMode == "touch") { // stop short of the power buttons
         var maxWidth = (touchButtons().box.left - 12) / s - 80;
         if (maxWidth > 0) {
@@ -1718,7 +1725,23 @@ function drawLevelName() { // level name in the bottom-left corner (level 13 als
     } else {
         ctx.fillText(name, 80, 0);
     }
+    ctx.globalAlpha = 1;
     useWindow();
+}
+
+function fxNameAlpha(full) { // the name holds while it is worth reading, then drifts out and leaves the corner alone
+    if (!FX_NAME_ON || fxLook() == "off") {
+        return 1;
+    }
+    var typed = FX_NAME_HOLD + full.length * FX_NAME_STEP; // when the last character landed
+    var t = (gameArea.frameNo - typed - FX_NAME_LINGER) / FX_NAME_FADE;
+    if (t <= 0) {
+        return 1;
+    }
+    if (t >= 1) {
+        return 0;
+    }
+    return 1 - t * t * (3 - 2 * t); // the same smoothstep the power fades use, so it eases out at both ends
 }
 
 function drawStats(color, scoreColor) { // deaths, level and score in the top-left corner; the score can have its own color
@@ -1912,6 +1935,8 @@ var FX_MILE_ALPHA = 0.5;
 var FX_NAME_ON = true; // the level name typing itself in
 var FX_NAME_HOLD = 20; // steps before it starts, so it doesn't race the level's opening
 var FX_NAME_STEP = 4; // steps a character
+var FX_NAME_LINGER = 300; // steps the finished name stays up (3s): long enough to read, then it stops taking up room
+var FX_NAME_FADE = 150; // steps it takes to go (1.5s), smoothstepped so it drifts out rather than switching off
 var FX_TELL_ON = true; // the screen-high block telegraph
 var FX_TELL_STEPS = 60; // how far ahead one is announced (600ms at normal speed)
 var FX_TELL_W = 6; // the mark's width at the right edge, px
