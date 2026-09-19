@@ -1780,11 +1780,19 @@ function fxDrawNameGlitch(name, x, y, maxWidth, out) { // the name tearing itsel
     }
 }
 
+// On a phone the stats are the same size as on a desktop but the screen is a third of the height, so the column ran
+// three quarters of the way down it, through the middle of the play area. In touch play the two secondary readouts
+// shrink and close up under the score, which keeps its size: it is the one being raced to the level's limit.
+var TOUCH_STAT_FONT = 26; // px, against the score's 40
+var TOUCH_STAT_DEATHS = 150, TOUCH_STAT_LEVEL = 190; // instead of 200 and 300
+
 function drawStats(color, scoreColor) { // deaths, level and score in the top-left corner; the score can have its own color
-    ctx.font = "40px Arial";
+    var touch = inputMode == "touch";
+    ctx.font = (touch ? TOUCH_STAT_FONT : 40) + "px Arial";
     ctx.fillStyle = color;
-    ctx.fillText(deaths, 50, 200); // show deaths
-    ctx.fillText("Level " + level, 50, 300); // show level
+    ctx.fillText(deaths, 50, touch ? TOUCH_STAT_DEATHS : 200); // show deaths
+    ctx.fillText("Level " + level, 50, touch ? TOUCH_STAT_LEVEL : 300); // show level
+    ctx.font = "40px Arial"; // the score is drawn at full size in both layouts
     fxDrawMilestone(50, 100); // the hundreds, behind the number and in the same place, so nothing moves
     ctx.fillStyle = scoreColor || color;
     ctx.fillText(score, 50, 100); // show score
