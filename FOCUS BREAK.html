@@ -1722,10 +1722,23 @@ var FX_GRAZE_SPLIT = 2; // the cyan band, outward of the magenta: whichever land
 var FX_GRAZE_OVER = 4; // px the blade overhangs each end in the flare, along the edge only: never across it, because
                        // across is the axis the player judges gaps on. With LIFT and BLADE the envelope is always 5px
 var FX_GRAZE_MINLEN = 10; // the shortest blade, px: never near-square, even on an 8px hitbox
-var FX_GRAZE_TICKAT = 0.5; // the closeness that throws the released marks (a gap under 5px): the tier, carried without hue
-var FX_GRAZE_TICKS = 3; // released marks: one at the contact point, two flanking
-var FX_GRAZE_TICK = 8; // their length, px, jittered 0.75 to 1.25: never under three times their thickness
-var FX_GRAZE_SPREAD = 10; // px between them along the edge
+var FX_GRAZE_TICKAT = 0.5; // the closeness that throws sparks (a gap under 5px): the tier, carried without hue
+
+// The sparks a graze throws off, in place of the three fixed dashes this used to drop. A pool, so emitting allocates
+// nothing; fxHash rather than Math.random, so a replay of the same run draws the same sparks; and streaks rather than
+// dots, because a filled square is what a powerup looks like. They carry the same tier signal the dashes did: nothing
+// is thrown until the gap is under FX_GRAZE_TICKAT, so their presence still reads as "that one was close".
+var FX_PART_ON = true;
+var FX_PART_MAX = 64; // the pool. Four sides can strike at once and a strike throws at most FX_PART_EMIT
+var FX_PART_EMIT = 6; // sparks at the closest pass, scaling down to 2 at the tier boundary
+var FX_PART_LIFE = 26; // steps (260ms), a little longer than the blade's flare so they outlive the strike
+var FX_PART_V0 = 2.4; // px a step at normal speed, before the fan and the jitter
+var FX_PART_SPREAD = 1.7; // how much of that goes along the edge, where the gap actually vents
+var FX_PART_OUT = 0.55; // ...and how much away from the obstacle, so they lift off the surface rather than hug it
+var FX_PART_DRAG = 0.9; // a step: they burst, slow, and are left riding the world
+var FX_PART_LEN = 3; // streak length, as a multiple of a step's travel
+var FX_PART_W = 1.6; // streak width at birth
+var FX_PART_ALPHA = 0.8;
 
 // Flourishes: one-shot marks on the moments the game currently passes over in silence -- a powerup taken, a Break
 // opened, a hundred points reached, a level named, a screen-high block on its way. Each is small and each is drawn
@@ -1798,6 +1811,7 @@ var fx = {
     mile: { age: FX_MILE, at: 0 }, // the score flourish, and the hundred it last marked (it follows the score down too)
     roll: 0, // how far the CRT's bar has swept, in px
     scan: null, // the scanline pattern, built once from a tiny offscreen tile
+    part: [], pnext: 0, // the graze sparks: a pool of reused records and the next one to hand out
     grad: null, // gradients, made once in unit space and stretched over the screen or along the trail with setTransform
     rx: [], ry: [], rs: [], rt: [], // scratch for the trail's outline, so drawing allocates nothing
 };
@@ -1810,6 +1824,9 @@ while (fx.graze.length < 4) {
 }
 while (fx.ring.length < 2) {
     fx.ring.push({ age: FX_POP, x: 0, y: 0 });
+}
+while (fx.part.length < FX_PART_MAX) {
+    fx.part.push({ age: FX_PART_LIFE, x: 0, y: 0, vx: 0, vy: 0, lane: 0 }); // spent at the maximum, as everything here is
 }
 
 function fxLook() { // fxMode, or for "auto": "reduced" if the player asked their device for less motion, else "full"
@@ -1825,6 +1842,7 @@ function fxReset() { // a level starts or ends: no fade, trail, echo, spark or g
     fx.snap = FX_SNAP_STEPS;
     fxGrazeClear();
     fxPopClear();
+    fxSparksClear(); // cleared here and not in fxDropHistory: a spark is a world object, not hung off the square
 }
 
 function fxPopClear() { // no ring, shockwave or score flourish carries across a level or a death
@@ -1867,6 +1885,46 @@ function fxGrazeClear() { // no spark carries across a level, a death, or a jump
         var g = fx.graze[i];
         g.lit = g.power = g.struck = 0;
         g.hit = FX_GRAZE_HIT; // finished at the maximum, like fx.kick and fx.snap: a level never opens mid-flare
+    }
+}
+
+function fxSparksClear() { // sparks in flight do not cross a level or a death
+    for (var i = 0; i < FX_PART_MAX; i++) {
+        fx.part[i].age = FX_PART_LIFE;
+    }
+}
+
+function fxSparking() { // is any spark still in flight
+    for (var i = 0; i < FX_PART_MAX; i++) {
+        if (fx.part[i].age < FX_PART_LIFE) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function fxSpark(side, x, y, lane, power, seed) { // a strike vents sparks out of the gap it just went through
+    // the same gate the released marks had: nothing below the tier, nothing in the reduced look (streaming motion),
+    // and nothing on 13 or 14, where a world-anchored mark can drift into a bar and trace a block the level is hiding
+    if (!FX_PART_ON || fx.look != "full" || level == 13 || level == 14 || power < FX_GRAZE_TICKAT) {
+        return;
+    }
+    var nx = side == 1 ? 1 : side == 3 ? -1 : 0; // the outward normal: which way the obstacle lies
+    var ny = side == 2 ? 1 : side == 0 ? -1 : 0;
+    var tx = -ny, ty = nx; // and along the edge, which is where the gap actually vents
+    var n = 2 + Math.round((FX_PART_EMIT - 2) * power); // a closer pass throws more
+    for (var k = 0; k < n; k++) {
+        var p = fx.part[fx.pnext];
+        fx.pnext = (fx.pnext + 1) % FX_PART_MAX; // the oldest in flight is the one overwritten
+        var along = 2 * fxHash(seed * 8 + side, k) - 1;
+        var out = 0.35 + 0.65 * fxHash(seed * 8 + side, k + 32);
+        var spd = FX_PART_V0 * (0.65 + 0.7 * fxHash(seed * 8 + side, k + 64));
+        p.age = 0;
+        p.x = x;
+        p.y = y;
+        p.vx = (tx * along * FX_PART_SPREAD - nx * out * FX_PART_OUT) * spd;
+        p.vy = (ty * along * FX_PART_SPREAD - ny * out * FX_PART_OUT) * spd;
+        p.lane = lane; // the world's own leftward travel, which is never damped: they end up riding it
     }
 }
 
@@ -1965,6 +2023,17 @@ function fxStep() { // each step, before anything is drawn: fade each power's lo
     }
     fx.mile.at = hundred; // follows the score down as well, so a Break penalty re-arms the hundred it dropped below
     fx.roll += FX_ROLL_RATE; // not multiplied by speed: the tube doesn't know the game slowed down
+    for (i = 0; i < FX_PART_MAX; i++) { // sparks: burst, slow, then ride the world out
+        var p = fx.part[i];
+        if (p.age >= FX_PART_LIFE) {
+            continue;
+        }
+        p.age++;
+        p.x += (p.vx - p.lane) * speed; // the spray is damped below; the world's travel never is
+        p.y += p.vy * speed;
+        p.vx *= FX_PART_DRAG;
+        p.vy *= FX_PART_DRAG;
+    }
 }
 
 function fxRecord() { // each step, after the square has moved: remember where it is now
@@ -2062,14 +2131,15 @@ function fxGrazeApply(side) { // light the side, and flare if this is a new pass
         return; // nothing near this side: leave power where it was and let lit cool
     }
     if (g.lit == 0 || c.power >= g.struck + FX_GRAZE_STRIKE) {
-        g.hit = 0; // a strike: flare, and hang new released marks off the contact point
+        g.hit = 0; // a strike: flare, and vent sparks from the contact point
         g.seed++;
         g.struck = c.power;
         g.sx = c.x;
         g.sy = c.y;
         g.vx = c.v;
+        fxSpark(side, c.x, c.y, c.v, c.power, g.seed);
     }
-    g.power = c.power; // closeness now: the brightness and the marks follow the live gap, not the gap at the strike
+    g.power = c.power; // closeness now: the blade's brightness follows the live gap, not the gap back at the strike
     g.lit = fxFade(g.lit, true, fxGrazeFade()); // full life again while anything is near
 }
 
@@ -2492,7 +2562,7 @@ function fxGrazeRect(x, y, w, h, bx, by) { // one band of a spark, unless it wou
     ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); // whole pixels keep a 2px band crisp
 }
 
-function fxDrawGrazes(look) { // a two-band blade on each side the square just passed close on, and the marks it released
+function fxDrawGrazes(look) { // a two-band blade on each side the square just passed close on
     var full = look == "full";
     var left = gamePiece.x, top = gamePiece.y;
     var right = left + gamePiece.width, bottom = top + gamePiece.height;
@@ -2503,9 +2573,6 @@ function fxDrawGrazes(look) { // a two-band blade on each side the square just p
         bx = box.left;
         by = box.top;
     }
-    // released marks are world-anchored and drift for 12 steps, so on 13 and 14 they could ride into a bar and track a
-    // block the level is hiding. The blade is anchored to the square and is fine
-    var marks = full && level != 13 && level != 14;
     var fade = fxGrazeFade();
     for (var side = 0; side < 4; side++) {
         var g = fx.graze[side];
@@ -2534,29 +2601,36 @@ function fxDrawGrazes(look) { // a two-band blade on each side the square just p
                 fxGrazeRect(along, at, len, th, bx, by);
             }
         }
-        if (!marks || g.power < FX_GRAZE_TICKAT) {
-            continue; // the tier, carried by whether the marks are there at all rather than by a color
-        }
-        var anchor = vertical ? g.sx : g.sy; // across the edge, at the contact point, which travels with its obstacle
-        var malong = vertical ? g.sy : g.sx;
-        ctx.globalAlpha = base * flare; // they live the 12 steps of the flare and die while the blade is still cooling
-        for (b = 0; b < 2; b++) {
-            off = b == 0 ? FX_GRAZE_LIFT : FX_GRAZE_LIFT + FX_GRAZE_BLADE;
-            th = b == 0 ? FX_GRAZE_BLADE : FX_GRAZE_SPLIT;
-            at = sign < 0 ? anchor - off - th : anchor + off; // the blade's own bands, so they add no width at all
-            ctx.fillStyle = b == 0 ? "#ff00ff" : "#00FFFF";
-            for (var k = 0; k < FX_GRAZE_TICKS; k++) {
-                var tl = Math.round(FX_GRAZE_TICK * (0.75 + 0.5 * fxHash(g.seed * 4 + side, k))); // never under 3x thick
-                var ta = malong + (k - 1) * FX_GRAZE_SPREAD - tl / 2;
-                if (vertical) {
-                    fxGrazeRect(at, ta, th, tl, bx, by);
-                } else {
-                    fxGrazeRect(ta, at, tl, th, bx, by);
-                }
-            }
-        }
     }
     ctx.globalAlpha = 1;
+}
+
+function fxDrawSparks() { // the sparks a graze vented, printed twice like everything else here
+    var lw = ctx.lineWidth;
+    for (var i = 0; i < FX_PART_MAX; i++) {
+        var p = fx.part[i];
+        if (p.age >= FX_PART_LIFE) {
+            continue;
+        }
+        var t = p.age / FX_PART_LIFE;
+        var dx = (p.vx - p.lane) * FX_PART_LEN; // the streak lies back along the way it just came
+        var dy = p.vy * FX_PART_LEN;
+        ctx.globalAlpha = FX_PART_ALPHA * (1 - t) * (1 - t);
+        ctx.lineWidth = Math.max(1, FX_PART_W * (1 - 0.5 * t));
+        ctx.strokeStyle = "#00FFFF"; // cyan laid down first and offset, so one of the pair reads on black and one on the ground
+        ctx.beginPath();
+        ctx.moveTo(p.x - dx + 1, p.y - dy + 1);
+        ctx.lineTo(p.x + 1, p.y + 1);
+        ctx.stroke();
+        ctx.strokeStyle = "#ff00ff";
+        ctx.beginPath();
+        ctx.moveTo(p.x - dx, p.y - dy);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = lw;
+    ctx.beginPath(); // leave no path behind
 }
 
 function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under the Break bar, the level's bars, the objects and the HUD
@@ -2599,7 +2673,7 @@ function fxDrawAfterimages() { // Focus's echoes and Warp's trail: over the obst
     if (look == "off" || fxOverdrawn() || !fxAttached()) {
         return; // (not attached: the square was moved since its last record, so there's nothing to hang them from until the next step)
     }
-    if (!fxShowing() && !fxGrazing()) {
+    if (!fxShowing() && !fxGrazing() && !fxSparking()) {
         return;
     }
     ctx.save();
@@ -2612,6 +2686,9 @@ function fxDrawAfterimages() { // Focus's echoes and Warp's trail: over the obst
     }
     if (fxGrazing()) {
         fxDrawGrazes(look); // over the obstacles: at the passes that matter the blade lies partly inside their footprint
+    }
+    if (FX_PART_ON) {
+        fxDrawSparks(); // over the blade, since they are what the blade threw
     }
     ctx.restore();
 }
