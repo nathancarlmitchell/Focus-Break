@@ -693,6 +693,7 @@ function setBreak(penalty){
         powerups.score = [];
         invincible = true;
         score += -penalty;
+        fxWave(); // a shockwave off the square, for the one moment nothing can touch you
     }
 }
 
@@ -1416,6 +1417,9 @@ function detectCollision(objects) { // is gamePiece touching anything in this li
 function collectPowerUps() { // apply any powerup gamePiece is touching
     if (detectCollision(powerups.break)) {
         playSound(aud_powerUp);
+        if (invincible) {
+            fxPop(0, powerups.break); // a refill opens no break, so it gets its own ring; setBreak's shockwave covers the rest
+        }
         powerups.break = [];
         if (invincible) {
             invincibleTime = 0; // refill an active break instead of wasting the powerup
@@ -1425,6 +1429,7 @@ function collectPowerUps() { // apply any powerup gamePiece is touching
     }
     if (detectCollision(powerups.score)) {
         playSound(aud_pickupCoin);
+        fxPop(1, powerups.score);
         powerups.score = [];
         score += powerupScoreBonus;
     }
@@ -1538,10 +1543,11 @@ function scatteredBlackBlock() { return edgeBlock(25, 25, "black", getRandomInte
 function blackOblong() { return edgeBlock(10, 50, "black"); }
 
 // what each level spawns, checked in this order every frame (the order also decides which blocks draw on top).
+// `big` marks the screen-high blocks, which fxTelegraph announces before they arrive.
 // A rule applies from level `from` on, up to `to` if given; `every` is its spawnDue period; `lane` is the list it joins.
 const SPAWN_RULES = [
     { from: 1, every: 50, make: spawnBarPair }, // adds itself to the medium lane
-    { from: 2, every: 100, lane: "hyper", make: function () { return heightScaledBlock(1 / 8, "black"); } },
+    { from: 2, every: 100, lane: "hyper", big: true, make: function () { return heightScaledBlock(1 / 8, "black"); } },
     { from: 3, every: 20, lane: "fast", make: blackBlock },
     { from: 4, every: 20, lane: "medium", make: function () { return edgeBlock(10, 10, "red"); } },
     { from: 5, every: 20, lane: "fast", make: scatteredBlackBlock }, // levels 5-8 each add one more
@@ -1550,11 +1556,11 @@ const SPAWN_RULES = [
     { from: 8, every: 20, lane: "fast", make: scatteredBlackBlock },
     { from: 9, every: 8, lane: "fast", make: redBlock },
     { from: 10, to: 10, every: 8, lane: "fast", make: redBlock },
-    { from: 10, to: 10, every: 200, lane: "slow", make: function () { return heightScaledBlock(1 / 4, "red"); } },
+    { from: 10, to: 10, every: 200, lane: "slow", big: true, make: function () { return heightScaledBlock(1 / 4, "red"); } },
     { from: 11, every: 200, lane: "medium", make: blackOblong },
     { from: 12, every: 20, lane: "medium", make: blackOblong },
     { from: 13, every: 20, lane: "fast", make: redBlock },
-    { from: 14, every: 150, lane: "slow", make: function () { return heightScaledBlock(1 / 8, "red"); } },
+    { from: 14, every: 150, lane: "slow", big: true, make: function () { return heightScaledBlock(1 / 8, "red"); } },
     { from: 14, every: 20, lane: "fast", make: blackBlock },
     { from: 15, every: 20, lane: "fast", make: redBlock },
     { from: 15, every: 20, lane: "fast", make: blackBlock },
@@ -1581,15 +1587,22 @@ function drawLevelName() { // level name in the bottom-left corner (level 13 als
     if (Array.isArray(name)) {
         name = deaths == 0 ? name[0] : name[1];
     }
+    name = name || "How did this happen?"; // levels past the end of the list
+    if (FX_NAME_ON && fxLook() != "off") { // the level names itself, a character at a time. Resolved after the fallback
+        var shown = Math.floor((gameArea.frameNo - FX_NAME_HOLD) / FX_NAME_STEP); // above, or an empty prefix would be
+        if (shown < name.length) { // falsy and show the fallback. frameNo holds while paused, so a redraw holds too
+            name = shown <= 0 ? "" : name.slice(0, shown);
+        }
+    }
     var s = hudScale(); // shrunk with the HUD, baseline kept just above the bottom banner
     ctx.setTransform(s, 0, 0, s, 0, gameArea.canvas.height - 60);
     if (inputMode == "touch") { // stop short of the power buttons
         var maxWidth = (touchButtons().box.left - 12) / s - 80;
         if (maxWidth > 0) {
-            ctx.fillText(name || "How did this happen?", 80, 0, maxWidth);
+            ctx.fillText(name, 80, 0, maxWidth);
         }
     } else {
-        ctx.fillText(name || "How did this happen?", 80, 0);
+        ctx.fillText(name, 80, 0);
     }
     useWindow();
 }
@@ -1599,6 +1612,7 @@ function drawStats(color, scoreColor) { // deaths, level and score in the top-le
     ctx.fillStyle = color;
     ctx.fillText(deaths, 50, 200); // show deaths
     ctx.fillText("Level " + level, 50, 300); // show level
+    fxDrawMilestone(50, 100); // the hundreds, behind the number and in the same place, so nothing moves
     ctx.fillStyle = scoreColor || color;
     ctx.fillText(score, 50, 100); // show score
 }
@@ -1713,6 +1727,29 @@ var FX_GRAZE_TICKS = 3; // released marks: one at the contact point, two flankin
 var FX_GRAZE_TICK = 8; // their length, px, jittered 0.75 to 1.25: never under three times their thickness
 var FX_GRAZE_SPREAD = 10; // px between them along the edge
 
+// Flourishes: one-shot marks on the moments the game currently passes over in silence -- a powerup taken, a Break
+// opened, a hundred points reached, a level named, a screen-high block on its way. Each is small and each is drawn
+// under the obstacles, so none of them can hide the thing that kills you.
+var FX_POP_ON = true; // the powerup rings and the Break shockwave
+var FX_POP = 30; // steps a powerup ring lives (300ms)
+var FX_POP_R0 = 10, FX_POP_R1 = 70; // its radius at birth and at death, px
+var FX_POP_DRIFT = 3; // px a step at normal speed: the rate moveObjects carries the powerups at, so it stays put
+var FX_WAVE = 36; // the Break shockwave lives a little longer and goes a lot further
+var FX_WAVE_R0 = 12, FX_WAVE_R1 = 150;
+var FX_POP_W = 3; // ring line width at birth, tapering to 1
+var FX_POP_ALPHA = 0.55;
+var FX_MILE_ON = true; // the score's hundreds
+var FX_MILE = 24; // steps of flourish (240ms)
+var FX_MILE_PASSES = 10; // stacked shadow copies behind the number, as the title prints itself
+var FX_MILE_ALPHA = 0.5;
+var FX_NAME_ON = true; // the level name typing itself in
+var FX_NAME_HOLD = 20; // steps before it starts, so it doesn't race the level's opening
+var FX_NAME_STEP = 4; // steps a character
+var FX_TELL_ON = true; // the screen-high block telegraph
+var FX_TELL_STEPS = 60; // how far ahead one is announced (600ms at normal speed)
+var FX_TELL_W = 6; // the mark's width at the right edge, px
+var FX_TELL_ALPHA = 0.35; // it sits under the obstacles, so an entering block covers it rather than compositing over it
+
 var fx = {
     look: "off", // this step's look: "full", "reduced" or "off" (see fxLook)
     warp: 0, focus: 0, // fade levels: 0 (off) up to FX_FADE's full
@@ -1726,6 +1763,9 @@ var fx = {
     next: 0, count: 0, samples: [], // the square's recent positions: a ring of reused { x, y, size, scroll } records
     graze: [], gz: [], // a spark per side of the square (0 top, 1 right, 2 bottom, 3 left), and this step's best
                        // candidate for each, so the scan over the obstacles allocates nothing
+    ring: [], // a powerup ring per kind (0 break, 1 score): { age, x, y }, spent once age reaches FX_POP
+    wave: { age: FX_WAVE, x: 0, y: 0 }, // the Break shockwave, off the square
+    mile: { age: FX_MILE, at: 0 }, // the score flourish, and the hundred it last marked (it follows the score down too)
     grad: null, // gradients, made once in unit space and stretched over the screen or along the trail with setTransform
     rx: [], ry: [], rs: [], rt: [], // scratch for the trail's outline, so drawing allocates nothing
 };
@@ -1735,6 +1775,9 @@ while (fx.samples.length < FX_HISTORY) {
 while (fx.graze.length < 4) {
     fx.graze.push({ lit: 0, power: 0, struck: 0, hit: FX_GRAZE_HIT, sx: 0, sy: 0, vx: 0, seed: 0 });
     fx.gz.push({ power: 0, x: 0, y: 0, v: 0 });
+}
+while (fx.ring.length < 2) {
+    fx.ring.push({ age: FX_POP, x: 0, y: 0 });
 }
 
 function fxLook() { // fxMode, or for "auto": "reduced" if the player asked their device for less motion, else "full"
@@ -1749,6 +1792,42 @@ function fxReset() { // a level starts or ends: no fade, trail, echo, spark or g
     fx.kick = FX_KICK_STEPS;
     fx.snap = FX_SNAP_STEPS;
     fxGrazeClear();
+    fxPopClear();
+}
+
+function fxPopClear() { // no ring, shockwave or score flourish carries across a level or a death
+    fx.ring[0].age = fx.ring[1].age = FX_POP; // spent at the maximum, like fx.kick and fx.snap
+    fx.wave.age = FX_WAVE;
+    fx.mile.age = FX_MILE;
+    fx.mile.at = 0; // a level opens at zero score, so the first hundred fires again
+}
+
+function fxFlourishing() { // is any one-shot mark still on screen
+    return fx.ring[0].age < FX_POP || fx.ring[1].age < FX_POP || fx.wave.age < FX_WAVE;
+}
+
+function fxPop(kind, objects) { // a powerup was taken: a ring where it was sitting
+    if (!FX_POP_ON || fx.look == "off") {
+        return;
+    }
+    for (var i = 0; i < objects.length; i++) { // the one the square is actually touching, as collectPowerUps found it
+        if (gamePiece.crashWith(objects[i])) {
+            var r = fx.ring[kind];
+            r.age = 0;
+            r.x = objects[i].x + objects[i].width / 2;
+            r.y = objects[i].y + objects[i].height / 2;
+            return;
+        }
+    }
+}
+
+function fxWave() { // a Break opened: a shockwave off the square
+    if (!FX_POP_ON || fx.look == "off" || !gamePiece) {
+        return;
+    }
+    fx.wave.age = 0;
+    fx.wave.x = gamePiece.x + gamePiece.width / 2;
+    fx.wave.y = gamePiece.y + gamePiece.height / 2;
 }
 
 function fxGrazeClear() { // no spark carries across a level, a death, or a jump
@@ -1840,6 +1919,19 @@ function fxStep() { // each step, before anything is drawn: fade each power's lo
         g.hit = Math.min(g.hit + 1, FX_GRAZE_HIT);
         g.sx -= g.vx * speed; // the contact point travels with the obstacle that made it, as moveObjects moves that
     }
+
+    for (i = 0; i < 2; i++) { // powerup rings travel with the world, at the rate their powerup was moving
+        var r = fx.ring[i];
+        r.age = Math.min(r.age + 1, FX_POP);
+        r.x -= FX_POP_DRIFT * speed;
+    }
+    fx.wave.age = Math.min(fx.wave.age + 1, FX_WAVE); // the shockwave came off the square, which doesn't travel
+    fx.mile.age = Math.min(fx.mile.age + 1, FX_MILE);
+    var hundred = Math.floor(score / 100);
+    if (hundred > fx.mile.at) {
+        fx.mile.age = 0; // another hundred
+    }
+    fx.mile.at = hundred; // follows the score down as well, so a Break penalty re-arms the hundred it dropped below
 }
 
 function fxRecord() { // each step, after the square has moved: remember where it is now
@@ -2226,6 +2318,85 @@ function fxDrawEchoes(e) { // Focus: outlines where the square was, drifting off
     }
 }
 
+function fxDrawRing(x, y, age, max, r0, r1, inner, outer) { // an expanding outline, printed twice like everything else
+    var t = age / max;
+    var e = 1 - (1 - t) * (1 - t); // out fast, then coasting: an impact, not a launch
+    var r = r0 + (r1 - r0) * e;
+    ctx.globalAlpha = FX_POP_ALPHA * (1 - t) * (1 - t);
+    ctx.lineWidth = Math.max(1, FX_POP_W * (1 - t));
+    ctx.strokeStyle = outer;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = inner;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath(); // leave no path behind: the next fill would paint it
+}
+
+function fxDrawPops() { // the powerup rings and the Break shockwave
+    if (fx.ring[1].age < FX_POP) { // the score powerup keeps its own gold, with a magenta print off it
+        fxDrawRing(fx.ring[1].x, fx.ring[1].y, fx.ring[1].age, FX_POP, FX_POP_R0, FX_POP_R1, "#FFD700", "#ff00ff");
+    }
+    if (fx.ring[0].age < FX_POP) { // a Break powerup taken while one was already running: it refilled, nothing opened
+        fxDrawRing(fx.ring[0].x, fx.ring[0].y, fx.ring[0].age, FX_POP, FX_POP_R0, FX_POP_R1, "#00FFFF", "#ff00ff");
+    }
+    if (fx.wave.age < FX_WAVE) {
+        fxDrawRing(fx.wave.x, fx.wave.y, fx.wave.age, FX_WAVE, FX_WAVE_R0, FX_WAVE_R1, "#00FFFF", "#ff00ff");
+    }
+    ctx.globalAlpha = 1;
+}
+
+function fxTelegraph() { // steps until the next screen-high block, or -1 if none is on the way
+    var soonest = -1;
+    for (var i = 0; i < SPAWN_RULES.length; i++) {
+        var rule = SPAWN_RULES[i];
+        if (!rule.big || level < rule.from || (rule.to !== undefined && level > rule.to)) {
+            continue;
+        }
+        var period = rule.every * 2; // clockDue's period: the spawn lands when the clock next crosses a multiple
+        var next = (Math.floor(gameArea.spawnClock / period) + 1) * period;
+        var steps = (next - gameArea.spawnClock) / speed; // the clock advances by the game speed, so this is in steps
+        if (soonest < 0 || steps < soonest) {
+            soonest = steps;
+        }
+    }
+    return soonest;
+}
+
+function fxDrawTelegraph() { // a screen-high block is coming: a mark at the edge it will come from
+    var steps = fxTelegraph();
+    if (steps < 0 || steps > FX_TELL_STEPS) {
+        return;
+    }
+    var e = 1 - steps / FX_TELL_STEPS;
+    var w = gameArea.canvas.width, h = gameArea.canvas.height;
+    ctx.globalAlpha = FX_TELL_ALPHA * e * e; // stays quiet until it is nearly here
+    ctx.fillStyle = "#ff00ff";
+    ctx.fillRect(w - FX_TELL_W, 0, FX_TELL_W, h);
+    ctx.fillStyle = "#00FFFF";
+    ctx.fillRect(w - FX_TELL_W - 2, 0, 2, h);
+    ctx.globalAlpha = 1;
+}
+
+function fxDrawMilestone(x, y) { // another hundred: the number printed like the title, behind the number itself
+    if (!FX_MILE_ON || fx.mile.age >= FX_MILE || fxLook() == "off") {
+        return;
+    }
+    var t = fx.mile.age / FX_MILE;
+    ctx.save();
+    ctx.globalAlpha = FX_MILE_ALPHA * (1 - t) * (1 - t);
+    ctx.fillStyle = "#00FFFF";
+    for (var i = FX_MILE_PASSES; i > 0; i--) { // trailing up and left, as drawTitle stacks its shadow
+        if (i * 2 <= FX_MILE_PASSES) {
+            ctx.fillStyle = "#ff00ff";
+        }
+        ctx.fillText(score, x - i, y - i);
+    }
+    ctx.restore();
+}
+
 function fxGrazeRect(x, y, w, h, bx, by) { // one band of a spark, unless it would land on the touch buttons
     if (x + w > bx && y + h > by) {
         return;
@@ -2304,13 +2475,19 @@ function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under th
     // the look is resolved here, not read from fx.look: fxStep doesn't run on the paused redraw, so fx.look can be a
     // level behind (it is still "off" on the first frame of a run, and it never updates if effects are switched while paused)
     var look = fxLook();
-    if (look == "off" || fxOverdrawn() || !(FX_GRID_ON || fxShowing())) {
+    if (look == "off" || fxOverdrawn() || !(FX_GRID_ON || FX_TELL_ON || fxShowing() || fxFlourishing())) {
         return; // nothing to add: the picture is exactly what it was without effects
     }
     ctx.save(); // puts every drawing setting back after (the Break bar is drawn in whatever fill color the last step left)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (FX_GRID_ON) {
         fxDrawGrid(look); // the floor, under the powers' own overlays
+    }
+    if (FX_TELL_ON) {
+        fxDrawTelegraph(); // under the obstacles, so the block it announces covers it on the way in
+    }
+    if (FX_POP_ON) {
+        fxDrawPops();
     }
     if (fx.focus > 0) {
         fxDrawVignette(fxEase(fx.focus, FX_FADE.focus), look);
