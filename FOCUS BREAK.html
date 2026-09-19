@@ -1929,16 +1929,22 @@ var FX_GRAZE_TICKAT = 0.5; // the closeness that throws sparks (a gap under 5px)
 // dots, because a filled square is what a powerup looks like. They carry the same tier signal the dashes did: nothing
 // is thrown until the gap is under FX_GRAZE_TICKAT, so their presence still reads as "that one was close".
 var FX_PART_ON = true;
-var FX_PART_MAX = 64; // the pool. Four sides can strike at once and a strike throws at most FX_PART_EMIT
-var FX_PART_EMIT = 6; // sparks at the closest pass, scaling down to 2 at the tier boundary
-var FX_PART_LIFE = 26; // steps (260ms), a little longer than the blade's flare so they outlive the strike
-var FX_PART_V0 = 2.4; // px a step at normal speed, before the fan and the jitter
+var FX_PART_MAX = 160; // the pool. Four sides can strike at once, and a held line trickles on top of that
+var FX_PART_EMIT = 14; // sparks at the closest pass, scaling down to FX_PART_MIN at the tier boundary
+var FX_PART_MIN = 4;
+var FX_PART_TRICKLE = 4; // while a tight line is held, one more every this many steps: a grind, not just an impact
+var FX_PART_LIFE = 34; // steps (340ms) for an ordinary spark, scaled per particle below
+var FX_PART_EMBER = 0.28; // this fraction come off as embers: slower, heavier, longer lived, and brighter
+var FX_PART_EMBER_LIFE = 1.5; // ...living this much longer than an ordinary one
+var FX_PART_V0 = 3.2; // px a step at normal speed, before the fan and the jitter
 var FX_PART_SPREAD = 1.7; // how much of that goes along the edge, where the gap actually vents
 var FX_PART_OUT = 0.55; // ...and how much away from the obstacle, so they lift off the surface rather than hug it
-var FX_PART_DRAG = 0.9; // a step: they burst, slow, and are left riding the world
-var FX_PART_LEN = 3; // streak length, as a multiple of a step's travel
-var FX_PART_W = 1.6; // streak width at birth
-var FX_PART_ALPHA = 0.8;
+var FX_PART_DRAG = 0.93; // a step: they burst, slow, and are left riding the world
+var FX_PART_CURL = 0.085; // radians a step the spray turns by, so sparks arc away instead of running dead straight
+var FX_PART_LEN = 3.4; // streak length, as a multiple of a step's travel
+var FX_PART_W = 1.5; // an ordinary spark's width at birth
+var FX_PART_W_EMBER = 3; // ...and an ember's
+var FX_PART_ALPHA = 0.85;
 
 // The score walking toward the level's limit, filling the top banner's own stripe from the left. The alpha is what
 // keeps it honest: obstacles pass behind this band, and a solid fill would hide a black block crossing it. At 0.45 a
@@ -2054,7 +2060,7 @@ while (fx.ring.length < 2) {
     fx.ring.push({ age: FX_POP, x: 0, y: 0 });
 }
 while (fx.part.length < FX_PART_MAX) {
-    fx.part.push({ age: FX_PART_LIFE, x: 0, y: 0, vx: 0, vy: 0, lane: 0 }); // spent at the maximum, as everything here is
+    fx.part.push({ age: 1, life: 1, x: 0, y: 0, vx: 0, vy: 0, lane: 0, w: FX_PART_W, curl: 0 }); // born spent
 }
 
 function fxLook() { // fxMode, or for "auto": "reduced" if the player asked their device for less motion, else "full"
@@ -2232,20 +2238,20 @@ function fxDieFrame() { // one frame of the shatter, over the held picture
 
 function fxSparksClear() { // sparks in flight do not cross a level or a death
     for (var i = 0; i < FX_PART_MAX; i++) {
-        fx.part[i].age = FX_PART_LIFE;
+        fx.part[i].age = fx.part[i].life; // each spark carries its own life now, so spend it against that
     }
 }
 
 function fxSparking() { // is any spark still in flight
     for (var i = 0; i < FX_PART_MAX; i++) {
-        if (fx.part[i].age < FX_PART_LIFE) {
+        if (fx.part[i].age < fx.part[i].life) {
             return true;
         }
     }
     return false;
 }
 
-function fxSpark(side, x, y, lane, power, seed) { // a strike vents sparks out of the gap it just went through
+function fxSpark(side, x, y, lane, power, seed, count) { // vent sparks out of the gap the square just went through
     // the same gate the released marks had: nothing below the tier, nothing in the reduced look (streaming motion),
     // and nothing on 13 or 14, where a world-anchored mark can drift into a bar and trace a block the level is hiding
     if (!FX_PART_ON || fx.look != "full" || level == 13 || level == 14 || power < FX_GRAZE_TICKAT) {
@@ -2254,19 +2260,24 @@ function fxSpark(side, x, y, lane, power, seed) { // a strike vents sparks out o
     var nx = side == 1 ? 1 : side == 3 ? -1 : 0; // the outward normal: which way the obstacle lies
     var ny = side == 2 ? 1 : side == 0 ? -1 : 0;
     var tx = -ny, ty = nx; // and along the edge, which is where the gap actually vents
-    var n = 2 + Math.round((FX_PART_EMIT - 2) * power); // a closer pass throws more
+    var n = count !== undefined ? count : FX_PART_MIN + Math.round((FX_PART_EMIT - FX_PART_MIN) * power);
     for (var k = 0; k < n; k++) {
         var p = fx.part[fx.pnext];
         fx.pnext = (fx.pnext + 1) % FX_PART_MAX; // the oldest in flight is the one overwritten
-        var along = 2 * fxHash(seed * 8 + side, k) - 1;
-        var out = 0.35 + 0.65 * fxHash(seed * 8 + side, k + 32);
-        var spd = FX_PART_V0 * (0.65 + 0.7 * fxHash(seed * 8 + side, k + 64));
+        var h = seed * 8 + side;
+        var ember = fxHash(h, k + 96) < FX_PART_EMBER; // a heavier one, thrown slower and burning longer
+        var along = 2 * fxHash(h, k) - 1;
+        var out = 0.35 + 0.65 * fxHash(h, k + 32);
+        var spd = FX_PART_V0 * (ember ? 0.5 + 0.3 * fxHash(h, k + 64) : 0.7 + 0.8 * fxHash(h, k + 64));
         p.age = 0;
         p.x = x;
         p.y = y;
         p.vx = (tx * along * FX_PART_SPREAD - nx * out * FX_PART_OUT) * spd;
         p.vy = (ty * along * FX_PART_SPREAD - ny * out * FX_PART_OUT) * spd;
         p.lane = lane; // the world's own leftward travel, which is never damped: they end up riding it
+        p.life = Math.round(FX_PART_LIFE * (ember ? FX_PART_EMBER_LIFE : 0.7 + 0.6 * fxHash(h, k + 128)));
+        p.w = ember ? FX_PART_W_EMBER : FX_PART_W * (0.7 + 0.6 * fxHash(h, k + 160));
+        p.curl = (fxHash(h, k + 192) - 0.5) * 2 * FX_PART_CURL; // which way this one arcs, and how hard
     }
 }
 
@@ -2365,16 +2376,18 @@ function fxStep() { // each step, before anything is drawn: fade each power's lo
     }
     fx.mile.at = hundred; // follows the score down as well, so a Break penalty re-arms the hundred it dropped below
     fx.roll += FX_ROLL_RATE; // not multiplied by speed: the tube doesn't know the game slowed down
-    for (i = 0; i < FX_PART_MAX; i++) { // sparks: burst, slow, then ride the world out
+    for (i = 0; i < FX_PART_MAX; i++) { // sparks: burst, arc, slow, then ride the world out
         var p = fx.part[i];
-        if (p.age >= FX_PART_LIFE) {
+        if (p.age >= p.life) {
             continue;
         }
         p.age++;
         p.x += (p.vx - p.lane) * speed; // the spray is damped below; the world's travel never is
         p.y += p.vy * speed;
-        p.vx *= FX_PART_DRAG;
-        p.vy *= FX_PART_DRAG;
+        var turn = p.curl * speed; // small-angle rotation: two multiplies instead of a sin and a cos per spark
+        var vx = p.vx - p.vy * turn;
+        p.vy = (p.vy + p.vx * turn) * FX_PART_DRAG;
+        p.vx = vx * FX_PART_DRAG;
     }
 }
 
@@ -2480,6 +2493,10 @@ function fxGrazeApply(side) { // light the side, and flare if this is a new pass
         g.sy = c.y;
         g.vx = c.v;
         fxSpark(side, c.x, c.y, c.v, c.power, g.seed);
+    } else if (gameArea.frameNo % FX_PART_TRICKLE == 0) {
+        // no new strike, but the line is still being held: keep venting, so holding one reads as a grind and not
+        // as a single impact. Seeded off the frame so it stays repeatable
+        fxSpark(side, c.x, c.y, c.v, c.power, g.seed * 97 + gameArea.frameNo, 1);
     }
     g.power = c.power; // closeness now: the blade's brightness follows the live gap, not the gap back at the strike
     g.lit = fxFade(g.lit, true, fxGrazeFade()); // full life again while anything is near
@@ -2948,17 +2965,18 @@ function fxDrawGrazes(look) { // a two-band blade on each side the square just p
 }
 
 function fxDrawSparks() { // the sparks a graze vented, printed twice like everything else here
-    var lw = ctx.lineWidth;
+    var lw = ctx.lineWidth, cap = ctx.lineCap;
+    ctx.lineCap = "round"; // a short streak with square ends reads as a dash; with round ends it reads as a spark
     for (var i = 0; i < FX_PART_MAX; i++) {
         var p = fx.part[i];
-        if (p.age >= FX_PART_LIFE) {
+        if (p.age >= p.life) {
             continue;
         }
-        var t = p.age / FX_PART_LIFE;
+        var t = p.age / p.life;
         var dx = (p.vx - p.lane) * FX_PART_LEN; // the streak lies back along the way it just came
         var dy = p.vy * FX_PART_LEN;
         ctx.globalAlpha = FX_PART_ALPHA * (1 - t) * (1 - t);
-        ctx.lineWidth = Math.max(1, FX_PART_W * (1 - 0.5 * t));
+        ctx.lineWidth = Math.max(1, p.w * (1 - 0.45 * t));
         ctx.strokeStyle = "#00FFFF"; // cyan laid down first and offset, so one of the pair reads on black and one on the ground
         ctx.beginPath();
         ctx.moveTo(p.x - dx + 1, p.y - dy + 1);
@@ -2972,6 +2990,7 @@ function fxDrawSparks() { // the sparks a graze vented, printed twice like every
     }
     ctx.globalAlpha = 1;
     ctx.lineWidth = lw;
+    ctx.lineCap = cap; // the Warp trail and the graze blade both draw after this and expect it as it was
     ctx.beginPath(); // leave no path behind
 }
 
