@@ -20,3 +20,18 @@
 - Options button: open an options page and remember the settings (cookie?)
 - Level 10: add a bonus to the total score; slowly increase spawns as the level goes on
 - Break could destroy all obstacles, or just those near the square
+
+- Visual flare:
+	Graze sparks: flash on the side of the square when it clears an obstacle by a few px, brighter the closer the pass. The whole game is threading gaps and right now 1px and 40px look the same
+	Score progress in the top banner: fill the existing top stripe as the score walks toward 1000 (also covers the scoreboard/header idea above)
+	Death shatter: freeze the frame, ring the obstacle that got you, burst the square into outlined fragments. Right now death cuts straight to red text
+	Vaporwave horizon grid: pale perspective grid scrolling behind everything; tilts and speeds up in WARP, slows and deepens in FOCUS
+	Per level palette drift: background follows the level names, white -> pale cyan -> pale violet (obstacles are black and red, so it cannot go dark without recoloring them)
+	CRT scanlines and an occasional rolling bar
+	Powerup pickup: expanding gold ring instead of a silent vanish
+	Break activation: shockwave ring out from the square
+	Score milestones: print the HUD number with the title's stacked shadow effect every 100
+	Level name: type it in a character at a time, English then Japanese
+	Telegraph the big blocks: a tick at the right edge before a 1/8 or 1/4 screen block enters
+	Effects toggle (full / reduced / off) as the first real thing the Options button does
+	All of these follow the fx house rules: no red or black, no filled squares, no Math.random, reduced motion aware
