@@ -32,6 +32,12 @@
 	Break activation: shockwave ring out from the square
 	Score milestones: print the HUD number with the title's stacked shadow effect every 100
 	Level name: type it in a character at a time, English then Japanese
+	Particle emitters for the graze effect: the spark throws 3 fixed dashes at the contact point right now. Real particles would need their own pool (no per step allocation), fxHash instead of Math.random, and streaks rather than filled squares, since a filled square means powerup
 	Telegraph the big blocks: a tick at the right edge before a 1/8 or 1/4 screen block enters
 	Effects toggle (full / reduced / off) as the first real thing the Options button does
 	All of these follow the fx house rules: no red or black, no filled squares, no Math.random, reduced motion aware
+
+- Mobile and instructions:
+	Touch input control ratio: TOUCH_GAIN is hardcoded at 1.25 (the square moves 1.25px per px of finger). Make it adjustable, and remember it with the rest of the options
+	Level text and death text on mobile: the level name rides hudScale() and stops short of the power buttons, but the death and between levels messages are laid out for a 1280x800 screen and just scaled down, so on a phone they are cramped and off centre. Size and place them for the small screen instead
+	Add instructions: the only explanation today is an alert() when you tap a control button on the start screen, plus the DRAG ANYWHERE TO STEER hint in the first two seconds of a touch run. Wants a real instructions screen, reachable from the start screen and from pause
