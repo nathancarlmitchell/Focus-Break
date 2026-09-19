@@ -1750,6 +1750,36 @@ var FX_TELL_STEPS = 60; // how far ahead one is announced (600ms at normal speed
 var FX_TELL_W = 6; // the mark's width at the right edge, px
 var FX_TELL_ALPHA = 0.35; // it sits under the obstacles, so an entering block covers it rather than compositing over it
 
+// The CRT: scanlines over the finished picture, and a bar rolling slowly down them. Two deliberate exceptions live
+// here. It is the only effect drawn ABOVE the obstacles, and the only one that uses black. Both are safe for the same
+// reason: a scanline darkens the obstacle and its background in the same proportion, so the ratio between them barely
+// moves -- red keeps 3.82:1 against its ground at FX_SCAN_ALPHA, against 4.00:1 with no lines at all. Every other wash
+// in this file sits on the background only, which is why they are all capped so much harder.
+var FX_SCAN_ON = true;
+var FX_SCAN_PERIOD = 3; // px from one line to the next
+var FX_SCAN_LINE = 1; // px of that period which is dark
+var FX_SCAN_ALPHA = 0.12; // measured: red 3.818:1 against its own ground, the whole picture dimmed 8.9%
+var FX_ROLL_ON = true; // the bar sweeping down: the CRT's one moving part, so the reduced look keeps the lines and drops it
+var FX_ROLL_H = 140; // its height, px
+var FX_ROLL_ALPHA = 0.06;
+var FX_ROLL_RATE = 1.1; // px a step, and deliberately NOT scaled by the game speed: this belongs to the tube, not the world
+
+// The ground under each level. The run drifts through hue at a FIXED luminance (L = 0.859 for every tint below), so the
+// picture changes across a run without the obstacles ever getting harder to see. Every entry was solved against a red
+// block through the worst stack this game can put on screen at once -- the tint, plus the grid's brightest cyan at full
+// Warp lift, plus a scanline row, plus the roll bar. The floor is 3:1 and the lowest entry lands at 3.03.
+// Going darker than this needs the obstacles to stop being black and red, which is a separate job.
+var FX_TINT_ON = true;
+var FX_TINT_FADE = 45; // steps to cross from the previous level's ground to this one's
+const T_WHITE = [255, 255, 255], T_CYAN1 = [206, 255, 255], T_CYAN = [157, 255, 255],
+      T_GOLD = [255, 238, 189], T_ROSE = [255, 233, 238], T_VIOLET = [242, 236, 250];
+// indexed by level, and shared by reference so an unchanged ground costs no cross-fade
+const FX_TINTS = [null, T_WHITE, T_WHITE, T_WHITE, T_CYAN1, T_CYAN1, T_CYAN, T_CYAN, T_CYAN,
+                  T_GOLD, T_GOLD, T_ROSE, T_ROSE, T_VIOLET, T_VIOLET, T_VIOLET];
+FX_TINTS.forEach(function (t) { // the solid form, built once: the cross-fade is the only thing that makes a string
+    if (t) { t.css = "rgb(" + t[0] + "," + t[1] + "," + t[2] + ")"; }
+});
+
 var fx = {
     look: "off", // this step's look: "full", "reduced" or "off" (see fxLook)
     warp: 0, focus: 0, // fade levels: 0 (off) up to FX_FADE's full
@@ -1766,6 +1796,8 @@ var fx = {
     ring: [], // a powerup ring per kind (0 break, 1 score): { age, x, y }, spent once age reaches FX_POP
     wave: { age: FX_WAVE, x: 0, y: 0 }, // the Break shockwave, off the square
     mile: { age: FX_MILE, at: 0 }, // the score flourish, and the hundred it last marked (it follows the score down too)
+    roll: 0, // how far the CRT's bar has swept, in px
+    scan: null, // the scanline pattern, built once from a tiny offscreen tile
     grad: null, // gradients, made once in unit space and stretched over the screen or along the trail with setTransform
     rx: [], ry: [], rs: [], rt: [], // scratch for the trail's outline, so drawing allocates nothing
 };
@@ -1788,7 +1820,7 @@ function fxLook() { // fxMode, or for "auto": "reduced" if the player asked thei
 }
 
 function fxReset() { // a level starts or ends: no fade, trail, echo, spark or ground phase carries over
-    fx.warp = fx.focus = fx.run = fx.scroll = fx.count = fx.drift = fx.stall = 0;
+    fx.warp = fx.focus = fx.run = fx.scroll = fx.count = fx.drift = fx.stall = fx.roll = 0;
     fx.kick = FX_KICK_STEPS;
     fx.snap = FX_SNAP_STEPS;
     fxGrazeClear();
@@ -1932,6 +1964,7 @@ function fxStep() { // each step, before anything is drawn: fade each power's lo
         fx.mile.age = 0; // another hundred
     }
     fx.mile.at = hundred; // follows the score down as well, so a Break penalty re-arms the hundred it dropped below
+    fx.roll += FX_ROLL_RATE; // not multiplied by speed: the tube doesn't know the game slowed down
 }
 
 function fxRecord() { // each step, after the square has moved: remember where it is now
@@ -2073,7 +2106,12 @@ function fxGradients() { // made once in unit space (1 is the middle of an edge)
         grid.addColorStop(0, "rgba(255,0,255,0)"); // the horizon's own row: the rungs fade up into it without a fringe
         grid.addColorStop(FX_GRID_HAZE, "rgba(255,0,255,0.1485)"); // the magenta haze where the rungs bunch up
         grid.addColorStop(1, "rgba(0,255,255,0.216)"); // pale cyan nearest the viewer
-        fx.grad = { vignette: vignette, rim: rim, trail: trail, grid: grid };
+        // the CRT's rolling bar, across its own height: nothing at the edges, darkest through the middle
+        var roll = ctx.createLinearGradient(0, 0, 0, 1);
+        roll.addColorStop(0, "rgba(0,0,0,0)");
+        roll.addColorStop(0.5, "rgba(0,0,0,1)"); // globalAlpha scales this down to FX_ROLL_ALPHA at the peak
+        roll.addColorStop(1, "rgba(0,0,0,0)");
+        fx.grad = { vignette: vignette, rim: rim, trail: trail, grid: grid, roll: roll };
     }
     return fx.grad;
 }
@@ -2086,6 +2124,56 @@ function fxFillScreen(gradient, alpha, scaleX, scaleY) { // a unit-space gradien
     ctx.setTransform(w / 2 * scaleX, 0, 0, h / 2 * scaleY, w / 2, h / 2);
     ctx.fillRect(-2, -2, 4, 4); // the whole screen, even squeezed a little past its rest
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function fxTint(lvl) { // the ground for a level, clamped at both ends of the table
+    return FX_TINTS[Math.max(1, Math.min(FX_TINTS.length - 1, lvl))];
+}
+
+function fxDrawTint() { // the level's ground, painted first. This is the game's only background: without effects the
+    // canvas is left transparent by clearRect and the white you see is the page behind it
+    var to = fxTint(level), from = fxTint(level - 1);
+    var k = gameArea.frameNo / FX_TINT_FADE; // frameNo holds while paused, so a paused redraw holds the same ground
+    if (from === to || k >= 1) {
+        ctx.fillStyle = to.css;
+    } else { // crossing from the last level's ground to this one's
+        ctx.fillStyle = "rgb(" + Math.round(from[0] + (to[0] - from[0]) * k) + ","
+                               + Math.round(from[1] + (to[1] - from[1]) * k) + ","
+                               + Math.round(from[2] + (to[2] - from[2]) * k) + ")";
+    }
+    ctx.fillRect(0, 0, gameArea.canvas.width, gameArea.canvas.height);
+}
+
+function fxScanPattern() { // the scanline tile, built once like the gradients, and equally immune to a canvas resize
+    if (!fx.scan) {
+        var tile = document.createElement("canvas");
+        tile.width = 1;
+        tile.height = FX_SCAN_PERIOD;
+        var t = tile.getContext("2d");
+        t.fillStyle = "rgba(0,0,0," + FX_SCAN_ALPHA + ")";
+        t.fillRect(0, 0, 1, FX_SCAN_LINE);
+        fx.scan = ctx.createPattern(tile, "repeat");
+    }
+    return fx.scan;
+}
+
+function fxDrawScreen(look) { // the CRT, over the finished picture: the scanlines, and the bar rolling down them
+    if (!FX_SCAN_ON || look == "off" || fxOverdrawn()) {
+        return;
+    }
+    var w = gameArea.canvas.width, h = gameArea.canvas.height;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fxScanPattern();
+    ctx.fillRect(0, 0, w, h); // ONE fill. A fillRect per line measures 12.8ms at 1920x1080, which is the whole step budget
+    if (FX_ROLL_ON && look == "full") {
+        ctx.globalAlpha = FX_ROLL_ALPHA;
+        ctx.fillStyle = fxGradients().roll;
+        ctx.setTransform(w, 0, 0, FX_ROLL_H, 0, fx.roll % (h + FX_ROLL_H) - FX_ROLL_H); // the unit band, placed
+        ctx.fillRect(0, 0, 1, 1);
+    }
+    ctx.restore();
 }
 
 function fxGridEdge(x, w, edgeL, edgeR) { // 0 anywhere inside the gutters, ramping up over FX_GRID_FADE past them:
@@ -2475,11 +2563,14 @@ function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under th
     // the look is resolved here, not read from fx.look: fxStep doesn't run on the paused redraw, so fx.look can be a
     // level behind (it is still "off" on the first frame of a run, and it never updates if effects are switched while paused)
     var look = fxLook();
-    if (look == "off" || fxOverdrawn() || !(FX_GRID_ON || FX_TELL_ON || fxShowing() || fxFlourishing())) {
+    if (look == "off" || fxOverdrawn() || !(FX_TINT_ON || FX_GRID_ON || FX_TELL_ON || fxShowing() || fxFlourishing())) {
         return; // nothing to add: the picture is exactly what it was without effects
     }
     ctx.save(); // puts every drawing setting back after (the Break bar is drawn in whatever fill color the last step left)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (FX_TINT_ON) {
+        fxDrawTint(); // the ground, under everything including the grid
+    }
     if (FX_GRID_ON) {
         fxDrawGrid(look); // the floor, under the powers' own overlays
     }
@@ -2540,6 +2631,7 @@ function drawLevel() { // draw the level as it stands, without moving anything (
     useHud();
     drawStats("black");
     useWindow();
+    fxDrawScreen(fxLook()); // the CRT last, over the finished picture (the other of its two call sites is updateGameArea)
 }
 
 function updateGameArea() {
@@ -2653,6 +2745,8 @@ function updateGameArea() {
         drawTouchControls(); // over the HUD and the power stripes, under the square
         useWindow();
         gamePiece.update();
+        fxDrawScreen(fx.look); // the CRT last, over everything. Before the level-cleared check below, whose gameOver
+                               // clears the canvas anyway and draws the between-levels message on a clean one
         if (score >= scoreLimit) {
             scoreLimitReached = true; // stays set if a break penalty drops the score back below the limit
         }
