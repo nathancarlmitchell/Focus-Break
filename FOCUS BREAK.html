@@ -79,7 +79,38 @@ const START_BUTTONS = {
         help: "CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.",
         touch: { dx: 60, dy: 110, w: 420, h: 110 }, touchLabel: "Hold to Warp",
         touchHelp: "WARP button (hold) = Speeds up time.  Earn double score, you madman.  Drag anywhere to steer." },
+    // the effects switch: the one button here that does something instead of explaining something
+    options: { dx: 0, dy: 272, w: 256, h: 40, ty: 300, label: "Effects", setting: true,
+        touch: { dx: 60, dy: 240, w: 420, h: 90 } },
 };
+
+const FX_MODES = ["auto", "full", "reduced", "off"]; // what the button cycles through
+const FX_MODE_LABELS = { auto: "Auto", full: "Full", reduced: "Reduced", off: "Off" };
+
+function fxModeLabel() { // what the button reads: for "auto", also what the device is asking for
+    var name = FX_MODE_LABELS[fxMode] || fxMode;
+    return fxMode == "auto" ? name + " (" + FX_MODE_LABELS[fxLook()] + ")" : name;
+}
+
+function loadFxMode() { // the setting from last time, if the browser will tell us
+    try {
+        var saved = window.localStorage.getItem("focusbreak.effects");
+        if (FX_MODES.indexOf(saved) >= 0) {
+            fxMode = saved;
+        }
+    } catch (e) { // private windows and blocked storage throw rather than return null: keep the default
+    }
+}
+
+function cycleFxMode() { // the Options button: step to the next effects setting and remember it
+    fxMode = FX_MODES[(FX_MODES.indexOf(fxMode) + 1) % FX_MODES.length];
+    try {
+        window.localStorage.setItem("focusbreak.effects", fxMode);
+    } catch (e) { // nothing to do: the setting still applies for this run
+    }
+    playSound(aud_click);
+    drawStartScreen();
+}
 var hoveredButton = ""; // start-screen button under the mouse (or finger)
 
 function startLayout() { // "classic" (the original mouse layout) or "touch" (bigger, centered buttons)
@@ -299,6 +330,20 @@ function click_to_start_colors(){ // Flashing colors on start screen
 
 function highlightControl() { // Flashing colors on the hovered control button (start screen)
     var b = START_BUTTONS[hoveredButton];
+    if (b && b.setting) { // the effects button carries a reading, so flash its edge instead of its label
+        var s = geom(hoveredButton);
+        var sx = LAYOUT_W / 2 + s.dx, sy = LAYOUT_H / 2 + s.dy;
+        useLayout();
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = getRandomColor();
+        ctx.fillRect(sx, sy, s.w, 2);
+        ctx.fillRect(sx, sy + s.h - 2, s.w, 2);
+        ctx.fillRect(sx, sy, 2, s.h);
+        ctx.fillRect(sx + s.w - 2, sy, 2, s.h);
+        ctx.globalAlpha = 1.0;
+        useWindow();
+        return;
+    }
     if (!b || !b.help) {
         return;
     }
@@ -314,6 +359,7 @@ function highlightControl() { // Flashing colors on the hovered control button (
 }
 
 function onLoad() {
+    loadFxMode(); // before anything is drawn, so the start screen opens on the setting that is in force
     gameArea.load();
     updateSloganText();
     playSound(aud_startup); // startup sound; browsers usually block it until the first click
@@ -342,13 +388,22 @@ function windowResize() {
     var wasTall = gameArea.tall;
     var wasRotated = rotated;
     var moved = false; // the square had to be moved back on screen
+    var dying = null;
+    if (die.on) { // a resize mid-shatter: the held frame is the wrong size now, so cut it short and let the message stand
+        dying = die.then;
+        fxDieStop();
+        restFrame = null;
+    }
     // resizing clears the canvas; keep what's shown between levels, e.g. a level transition message.
     // copy it once, before the first resize crops it, and reuse that copy for later resizes
-    if (gameStart && !alive && !restFrame) {
+    if (gameStart && !alive && !restFrame && !dying) {
         restFrame = copyCanvas();
     }
     gameArea.load();
-    if (alive) {
+    if (dying) { // draw it onto the newly sized canvas, and keep that as the frame later resizes redraw
+        dying();
+        restFrame = copyCanvas();
+    } else if (alive) {
         if (inputMode == "touch") {
             if (wasTall != gameArea.tall || wasRotated != rotated) {
                 setPause(true); // the device was turned: give the player a moment
@@ -453,22 +508,23 @@ function drawStartScreen() { // draw the start screen
         }
     }
 
-    // Options (not shown in the bigger touch layout)
-    if (startLayout() == "classic") {
-        var boxX = 256;
-        var boxY = 40;
-        var Yoffset = boxX/2;
-        ctx.fillRect(cx, (LAYOUT_H - Yoffset), boxX, boxY);
-        ctx.fillText("Options", cx, (LAYOUT_H - Yoffset));
-
-        ctx.fillStyle = "black";
-        ctx.fillRect((cx + (boxX / 16)), (LAYOUT_H - Yoffset + (boxY / 4)), boxX/3, boxY/2);
-        ctx.fillRect((cx + (boxX / 16)*8), (LAYOUT_H - Yoffset + (boxY / 4)), boxX/3, boxY/2);
-
-        ctx.fillStyle = "pink";
-        ctx.fillText("Options", (cx + (boxX / 16)), (LAYOUT_H - Yoffset + (boxY / 4))+10);
-    }
+    drawOptionsButton();
     useWindow();
+}
+
+function drawOptionsButton() { // the effects switch, in whichever start layout is showing
+    var g = geom("options");
+    var x = LAYOUT_W / 2 + g.dx, y = LAYOUT_H / 2 + g.dy;
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = "#00FFFF";
+    ctx.fillRect(x, y, g.w, g.h);
+    ctx.fillStyle = "black";
+    ctx.fillRect(x + 2, y + 2, g.w - 4, g.h - 4);
+    ctx.fillStyle = "#ff00ff";
+    ctx.textAlign = "center";
+    ctx.font = (startLayout() == "classic" ? "22px" : "34px") + " Arial";
+    ctx.fillText("EFFECTS: " + fxModeLabel().toUpperCase(), x + g.w / 2, y + g.h / 2 + (startLayout() == "classic" ? 8 : 12));
+    ctx.textAlign = "start"; // the rest of the screen draws left-aligned
 }
 
 function drawBigStartButtons() { // the start screen's START and control buttons in the bigger touch layout
@@ -574,15 +630,21 @@ function gameOver() { // the level was cleared or the player died
     resumeSpeed();
     setMusicVolume(musicVolume);
     gameArea.stop();
+    var levelCleared = score >= scoreLimit || scoreLimitReached;
+    scoreLimitReached = false;
+    var shattering = false;
+    if (!levelCleared) { // before the clear and before the obstacles go: the shatter needs the frame and what was hit.
+        // If it starts, it plays over the held frame and draws the message itself when it finishes
+        var died = score;
+        shattering = fxDieStart(function () { drawDeathMessage(died); });
+    }
     gameArea.clear();
     clearObjects();
-    fxReset(); // the screen is cleared for the message: nothing of the effects carries over
+    fxReset(); // the screen is cleared for the message: nothing of the effects carries over (die is deliberately not fx)
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
     useLayout(); // messages are laid out for LAYOUT_W x LAYOUT_H and scaled to the window
     gameArea.canvas.style.cursor = "default";
-    var levelCleared = score >= scoreLimit || scoreLimitReached;
-    scoreLimitReached = false;
     if (levelCleared) { // Next level
         level++;
         if (level == 16){ // true finish
@@ -640,23 +702,34 @@ function gameOver() { // the level was cleared or the player died
     } else { // you lose
         deaths += 1;
         playSound(aud_death);
-        centerText("Score: " + score, -200, -75);
-        var deathSlogan = { 69: "😂", 420: "blaze it", 666: "😈", 911: "TOO SOON", 999: "TOO HARD" }[score]; // special scores
-        if (deathSlogan) {
-            centerText(deathSlogan, -150, 25);
-        }
-        if (score >= 900) {
-            centerText("So Close", -200, -175);
-        } else if (score <= 100) {
-            centerText("...", -100, -175);
-        } else {
-            centerText("Try Again", -200, -175);
-            centerText("再試行する", -200, 25);
+        if (!shattering) { // with the shatter running, this is drawn when it finishes instead
+            drawDeathMessage(score);
         }
         wait(2500);
     }
     useWindow();
     score = 0;
+}
+
+function drawDeathMessage(shown) { // the message after a death. Takes the score because with the shatter running it is
+    // drawn after gameOver has already reset it
+    ctx.font = "60px Arial";
+    ctx.fillStyle = "red";
+    useLayout();
+    centerText("Score: " + shown, -200, -75);
+    var deathSlogan = { 69: "😂", 420: "blaze it", 666: "😈", 911: "TOO SOON", 999: "TOO HARD" }[shown]; // special scores
+    if (deathSlogan) {
+        centerText(deathSlogan, -150, 25);
+    }
+    if (shown >= 900) {
+        centerText("So Close", -200, -175);
+    } else if (shown <= 100) {
+        centerText("...", -100, -175);
+    } else {
+        centerText("Try Again", -200, -175);
+        centerText("再試行する", -200, 25);
+    }
+    useWindow();
 }
 
 function resizeAroundCenter(obj, size) { // make obj a size x size square with the same center
@@ -1182,6 +1255,8 @@ function onTouchEnd(e) { // touchend and touchcancel
             setHovered("");
             if (switched) {
                 // this tap switched the start screen to the touch layout; it only shows it
+            } else if (button == "options") {
+                cycleFxMode();
             } else if (button && button != "start") {
                 alert(START_BUTTONS[button].touchHelp);
             } else {
@@ -1243,6 +1318,8 @@ var gameArea = {
             var button = gameStart ? "" : buttonAt(p.x, p.y);
             if (button == "start") {
                 startGame({ pageX: p.x, pageY: p.y });
+            } else if (button == "options") { // the one button here that changes something rather than explaining it
+                cycleFxMode();
             } else if (button) { // a control button: explain it
                 alert(START_BUTTONS[button].help);
             } else if (runFinished && restartArmed) { // play again from the finish screen
@@ -1350,6 +1427,7 @@ var gameArea = {
         });
     },
     start: function () {
+        fxDieStop(); // a shatter still playing would draw its held frame over the level starting underneath it
         this.canvas.style.cursor = "none"; // hide the original cursor
         this.frameNo = 0;
         this.spawnClock = 0; // game time for spawning, advanced by the game speed each step
@@ -1617,6 +1695,25 @@ function drawStats(color, scoreColor) { // deaths, level and score in the top-le
     ctx.fillText(score, 50, 100); // show score
 }
 
+function fxDrawProgress() { // the top stripe filling as the score walks toward the level's limit
+    if (!FX_BAR_ON || fxLook() == "off") {
+        return;
+    }
+    var k = bannerScale();
+    var w = gameArea.canvas.width;
+    var y = FX_BAR_TOP * k, h = FX_BAR_H * k;
+    var done = Math.max(0, Math.min(1, (scoreLimitReached ? scoreLimit : score) / scoreLimit));
+    ctx.save();
+    useWindow(); // the full window width, like the banners it sits in
+    ctx.globalAlpha = FX_BAR_TRACK;
+    ctx.fillStyle = "#ff00ff";
+    ctx.fillRect(0, y, w, h);
+    ctx.globalAlpha = FX_BAR_ALPHA;
+    ctx.fillStyle = "#00FFFF";
+    ctx.fillRect(0, y, w * done, h);
+    ctx.restore();
+}
+
 function drawBanners(top, thickness, scale) { // matching stripes across the top and bottom of the window, in the current fill style
     var k = scale || 1; // screens pass bannerScale() so the stripes shrink along with their text
     ctx.save();
@@ -1739,6 +1836,27 @@ var FX_PART_DRAG = 0.9; // a step: they burst, slow, and are left riding the wor
 var FX_PART_LEN = 3; // streak length, as a multiple of a step's travel
 var FX_PART_W = 1.6; // streak width at birth
 var FX_PART_ALPHA = 0.8;
+
+// The score walking toward the level's limit, filling the top banner's own stripe from the left. The alpha is what
+// keeps it honest: obstacles pass behind this band, and a solid fill would hide a black block crossing it. At 0.45 a
+// black block under the stripe still reads at better than 3:1 against the stripe over the ground beside it.
+var FX_BAR_ON = true;
+var FX_BAR_TOP = 40, FX_BAR_H = 20; // the magenta banner's own slot, so this reads as that stripe filling up
+var FX_BAR_ALPHA = 0.45;
+var FX_BAR_TRACK = 0.10; // the unfilled remainder, just enough to show how far there is left to go
+
+// Death. The one moment with real stakes used to cut straight from play to red text. Now the last frame the player saw
+// is held, the obstacle that got them is ringed, and the square comes apart. This is the only effect that runs while
+// the game loop is stopped, so it drives its own animation frames and hands back to the message when it is done.
+var FX_DIE_ON = true;
+var FX_DIE_STEPS = 34; // frames of shatter before the message appears (about 560ms of the death pause's 2500)
+var FX_DIE_HOLD = 6; // ...of which the first few are a dead hold on the frozen frame, before anything moves
+var FX_DIE_PARTS = 8; // fragments the square comes apart into
+var FX_DIE_V = 3.4; // px a frame they fly out at, before the jitter
+var FX_DIE_DRAG = 0.94;
+var FX_DIE_SPIN = 0.12; // radians a frame, so the pieces tumble rather than slide
+var FX_DIE_RING = 26; // px the ring around the killing obstacle expands by
+var FX_DIE_W = 2; // outline weight: fragments are outlines, never fills, like the Focus echoes
 
 // Flourishes: one-shot marks on the moments the game currently passes over in silence -- a powerup taken, a Break
 // opened, a hundred points reached, a level named, a screen-high block on its way. Each is small and each is drawn
@@ -1886,6 +2004,120 @@ function fxGrazeClear() { // no spark carries across a level, a death, or a jump
         g.lit = g.power = g.struck = 0;
         g.hit = FX_GRAZE_HIT; // finished at the maximum, like fx.kick and fx.snap: a level never opens mid-flare
     }
+}
+
+// the death shatter's own state. It lives outside fx because it deliberately survives the fxReset that gameOver runs
+var die = { on: false, frame: null, age: 0, request: 0, then: null, parts: [], hit: null };
+while (die.parts.length < FX_DIE_PARTS) {
+    die.parts.push({ x: 0, y: 0, vx: 0, vy: 0, a: 0, va: 0, size: 0 });
+}
+
+function fxDieFatal() { // the obstacle the square is sitting on, so the shatter can point at what got them
+    var lists = obstacleLists();
+    for (var i = 0; i < lists.length; i++) {
+        for (var k = 0; k < lists[i].length; k++) {
+            if (gamePiece.crashWith(lists[i][k])) {
+                var o = lists[i][k];
+                return { x: o.x, y: o.y, w: o.width, h: o.height };
+            }
+        }
+    }
+    return null; // a level can also end with the square clear of everything (a resize moved it), so this is optional
+}
+
+function fxDieStart(then) { // hold the frame, remember what to burst; returns false if it can't, and the caller
+    // falls straight through to the message exactly as before
+    if (!FX_DIE_ON || fxLook() == "off" || !gamePiece || die.on) {
+        return false;
+    }
+    var frame = copyCanvas(); // the last thing the player actually saw
+    if (!frame) {
+        return false;
+    }
+    die.frame = frame;
+    die.hit = fxDieFatal();
+    var cx = gamePiece.x + gamePiece.width / 2, cy = gamePiece.y + gamePiece.height / 2;
+    var size = Math.max(4, gamePiece.width / 2);
+    for (var i = 0; i < FX_DIE_PARTS; i++) {
+        var p = die.parts[i];
+        var ang = 2 * Math.PI * (i + 0.5) / FX_DIE_PARTS + (fxHash(i, 1) - 0.5); // a ring, jittered off the spokes
+        var spd = FX_DIE_V * (0.55 + 0.9 * fxHash(i, 2));
+        p.x = cx;
+        p.y = cy;
+        p.vx = Math.cos(ang) * spd;
+        p.vy = Math.sin(ang) * spd;
+        p.a = fxHash(i, 3) * Math.PI;
+        p.va = (fxHash(i, 4) - 0.5) * 2 * FX_DIE_SPIN;
+        p.size = size * (0.5 + 0.7 * fxHash(i, 5));
+    }
+    die.on = true;
+    die.age = 0;
+    die.then = then;
+    die.request = requestAnimationFrame(fxDieFrame);
+    return true;
+}
+
+function fxDieStop() { // let go of the held frame, whether it finished or was cut short
+    if (die.request) {
+        cancelAnimationFrame(die.request);
+        die.request = 0;
+    }
+    die.on = false;
+    die.frame = null;
+    die.then = null;
+}
+
+function fxDieFrame() { // one frame of the shatter, over the held picture
+    die.request = 0;
+    if (!die.on) {
+        return;
+    }
+    if (die.age >= FX_DIE_STEPS) {
+        var then = die.then;
+        fxDieStop();
+        if (then) {
+            then(); // the message the player was always going to get, just later
+        }
+        return;
+    }
+    var moving = Math.max(0, die.age - FX_DIE_HOLD);
+    var t = die.age / FX_DIE_STEPS;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, gameArea.canvas.width, gameArea.canvas.height);
+    ctx.drawImage(die.frame, 0, 0); // the frozen frame, redrawn each time so the pieces move over a clean copy
+    ctx.save();
+    if (die.hit) { // ring what got them: a hard outline, growing and fading
+        var g = Math.min(1, moving / 10);
+        var pad = 3 + FX_DIE_RING * g;
+        ctx.globalAlpha = 0.9 * (1 - g * g);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#00FFFF";
+        ctx.strokeRect(die.hit.x - pad, die.hit.y - pad, die.hit.w + 2 * pad, die.hit.h + 2 * pad);
+        ctx.strokeStyle = "#ff00ff";
+        ctx.strokeRect(die.hit.x - pad + 2, die.hit.y - pad + 2, die.hit.w + 2 * pad - 4, die.hit.h + 2 * pad - 4);
+    }
+    ctx.globalAlpha = Math.max(0, 1 - t * t);
+    ctx.lineWidth = FX_DIE_W;
+    for (var i = 0; i < FX_DIE_PARTS; i++) {
+        var p = die.parts[i];
+        if (moving > 0) {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= FX_DIE_DRAG;
+            p.vy *= FX_DIE_DRAG;
+            p.a += p.va;
+        }
+        var s = p.size * (1 - 0.45 * t);
+        ctx.setTransform(Math.cos(p.a), Math.sin(p.a), -Math.sin(p.a), Math.cos(p.a), p.x, p.y);
+        ctx.strokeStyle = "#00FFFF"; // outlines, never filled: a filled square is what a powerup looks like
+        ctx.strokeRect(-s / 2 - 1, -s / 2 - 1, s, s);
+        ctx.strokeStyle = "#ff00ff";
+        ctx.strokeRect(-s / 2, -s / 2, s, s);
+    }
+    ctx.restore();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    die.age++;
+    die.request = requestAnimationFrame(fxDieFrame);
 }
 
 function fxSparksClear() { // sparks in flight do not cross a level or a death
@@ -2703,6 +2935,7 @@ function drawLevel() { // draw the level as it stands, without moving anything (
         });
     });
     fxDrawAfterimages();
+    fxDrawProgress();
     drawTouchControls();
     gamePiece.update();
     useHud();
@@ -2771,6 +3004,7 @@ function updateGameArea() {
         }
         fxRecord(); // where the square is now, for the Warp trail and Focus echoes
         fxDrawAfterimages(); // over the obstacles and the level's bars, under the HUD, touch buttons and square
+        fxDrawProgress(); // under the power banners below, which take the same slot and matter more while they're up
         useHud(); // score, deaths, level and the power messages
         if (invincible) { // BREAK
             var flash = getRandomColor();
