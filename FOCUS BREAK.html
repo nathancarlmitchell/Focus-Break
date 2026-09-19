@@ -1618,9 +1618,25 @@ function bannerScale() { // stripe size on laid-out screens: normal, or smaller 
 
 // Power effects: Warp streaks speed lines across the screen and leaves a comet trail behind the square; Focus closes a
 // violet vignette in from the edges and leaves outlined echoes of the square. They only read the game, never change it:
-// no Math.random, clocks, timers or sounds, so every spawn, score and sound is the same with them on or off, and nothing
-// is drawn unless a power is on or fading out. To stay readable they never use red or black (the obstacles' colors)
-// and never draw a filled square (the powerups' shape).
+// no Math.random, clocks, timers or sounds, so every spawn, score and sound is the same with them on or off. To stay
+// readable they never use red or black (the obstacles' colors) and never draw a filled square (the powerups' shape).
+//
+// Two of these are drawn all the time. The horizon grid is the world's floor rather than power feedback, so it is drawn
+// whenever effects are on at all; graze sparks fire during ordinary play whenever the square passes close to something,
+// which also makes fx the first thing here that is O(obstacle count) a step rather than O(1). fxMode == "off" is still
+// the picture exactly as it was, and FX_GRID_ON / FX_GRAZE_ON take back each of the two on its own.
+//
+// The contrast budget, gathered here because every effect needs it and it was being re-derived by hand each time:
+//  - Against white, red (#FF0000) starts at only 3.998:1, so a 3:1 floor needs the local background to keep a relative
+//    luminance of 0.7378. That caps a full-screen wash at: cyan unrestricted (solid cyan still leaves red at 3.19:1),
+//    magenta 0.183, deep violet rgba(40,0,70) 0.13.
+//  - Compose first. The binding number is the composite with the worst wash the new ink can sit on, not the value
+//    against white. The shipped washes leave no headroom along the bottom edge: the Focus vignette reads 3.063:1 and
+//    the reduced-Warp rim 3.032:1 there.
+//  - A wash is not a mark. Those caps are wash caps: a wash darkens the whole of an obstacle's surround, while a hairline
+//    crosses a few percent of a 25x25 silhouette. The game already ships marks well under 3:1 (an opaque speed line puts
+//    red at 1.275:1, the trail at its 0.6 cap at 1.637:1). Marks are held to 2.8:1 locally and 3:1 averaged over any
+//    40x40 window instead.
 var fxMode = "auto"; // "auto" follows the device's reduced-motion setting; "full", "reduced" or "off" (drawn exactly as before) pin it
 var reducedMotion = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null; // .matches follows the setting live
 var FX_HISTORY = 32; // steps of square positions remembered (the oldest echo is 30 steps back)
@@ -1636,18 +1652,89 @@ const FX_LINE_LAYERS = [ // speed lines, far to near: thickness (px), opacity, s
     { h: 2, alpha: 0.6, v: 18 },
     { h: 3, alpha: 0.8, v: 26 },
 ];
+
+// The horizon grid: a perspective ground plane under everything, so the powers change the world and not just the
+// foreground. The game has no other absolute motion cue, so without it Warp and Focus read as "the obstacles changed
+// rate" instead of "the world did".
+var FX_GRID_ON = true; // the grid at all: one switch back to the picture without it
+var FX_GRID_HORIZON = 0.62; // the horizon, as a fraction of the height: the plane is the lower 38%, clear of the HUD
+var FX_GRID_PITCH = 0.03; // Warp drops the horizon (the camera pitching back). A pitch, not a roll: a roll would draw
+                          // arbitrary diagonals, the one shape that competes with the obstacles
+var FX_GRID_DEEPEN = 0.05; // Focus lifts it; more than the pitch because Focus fades over 150ms against Warp's 80ms
+var FX_GRID_KICK = 0.012; // Warp's burst, through a full sine off fx.kick: up, past, settled, with no residual at rest
+var FX_GRID_SNAP = 0.018; // Focus's mirror of it, off fx.snap
+var FX_GRID_LOW = 0.50, FX_GRID_HIGH = 0.72; // the horizon can never cross the HUD or the bottom banner, whatever sums
+var FX_GRID_NEAR = 0.92; // the nearest rung, as a fraction of the plane's height
+var FX_GRID_GAP_FRAC = 0.0146; // stop adding rungs below this fraction of the plane: holds the count flat at any size
+var FX_GRID_GAP_MIN = 4; // px: a moire floor, binding only on a very short plane
+var FX_GRID_GAP_FOCUS = 0.67; // Focus resolves rungs the others hide: "deeper" as detail, so reduced motion keeps it
+var FX_GRID_RUNGS_MAX = 10; // hard bound on the rung loop
+var FX_GRID_HAZE = 0.10; // the depth lines start this far below the horizon, so the vanishing point is never a knot
+var FX_GRID_LANES = 16; // target depth lines across the width; the spacing follows the width, so the count stays flat
+var FX_GRID_LANE_MIN = 70, FX_GRID_LANE_MAX = 260; // px between them at the bottom edge
+var FX_GRID_LANES_MAX = 28; // hard bound on the depth-line loop
+var FX_GRID_STRETCH = 0.5; // Warp widens the lanes, as it lengthens the speed lines
+var FX_GRID_RATE = 2; // px a step at normal speed: OBSTACLE_SPEEDS.medium, the lane the level 1 bar pairs ride, so the
+                      // floor travels with the game's furniture (deliberately not fx.scroll's 5, a mid-lane average)
+var FX_GRID_EDGE_STEPS = 25; // the clear gutter each side as time: 250ms of white before the fastest obstacle reaches ink
+var FX_GRID_EDGE_FRAC = 0.30; // ...capped at this fraction of the width per side
+var FX_GRID_EDGE_PAD = 12; // px of extra clearance past the touch buttons
+var FX_GRID_FADE = 60; // px the depth lines take to reach full width past a gutter, so they fan in instead of starting
+var FX_GRID_SPAN_MIN = 200, FX_GRID_BAND_MIN = 60; // px: below these the grid fades out rather than popping
+var FX_GRID_W_NEAR = 1.6, FX_GRID_W_FAR = 0.3; // depth-line thickness at the bottom edge and at the haze cut
+var FX_GRID_W_RUNG = 1, FX_GRID_W_HORIZON = 2; // the rungs, and the horizon that makes the rest read as a plane
+var FX_GRID_A_MAG = 0.11, FX_GRID_A_CYAN = 0.16; // resting ink: magenta at the horizon, cyan nearest the viewer
+var FX_GRID_HORIZON_INK = "rgba(255,0,255,0.1485)"; // A_MAG * LIFT_MAX, painted under the plane's own globalAlpha
+var FX_GRID_WARP_LIFT = 0.35; // Warp brightens it (full look only: that look draws marks, not a wash)
+var FX_GRID_WASH_DIM = 0.60; // ...and either full-screen wash dims it to 40%, which is what keeps red legible under both
+var FX_GRID_LIFT_MAX = 1.35; // the largest lift reachable; the divisor that keeps globalAlpha inside [0, 1]
+var FX_GRID_STALL = 40; // steps behind before the grid's ink is fully shed: scenery goes, the simulation never does
+
+// Graze sparks: the square is lit on whichever side just passed close to an obstacle, so threading a gap by 1px looks
+// different from clearing it by 40. The threshold is absolute, so each level the flawless streak shrinks the hitbox
+// (20px down to 8), every line already flown measures further out and goes quiet.
+var FX_GRAZE_ON = true; // graze sparks at all: one switch back to the picture without them
+var FX_GRAZE_PX = 10; // how close, per axis, counts as a graze; also the farthest the world moves in a step (hyper in Warp)
+const FX_GRAZE = { full: 100, up: 100, down: 5 }; // a spark's life: filled in one step, out over 20 (200ms), landing on 0
+const FX_GRAZE_CALM = { full: 100, up: 100, down: 2 }; // reduced motion: out over 50 steps, so sparks breathe, not blink
+const FX_GRAZE_RAMP = { full: FX_GRAZE_PX }; // reads a gap as 0..1 through fxEase, so closeness eases like every fade
+var FX_GRAZE_STRIKE = 0.1; // the rise in closeness that counts as a new pass (about 0.67px at the ramp's middle)
+var FX_GRAZE_HIT = 12; // steps of flare after a strike, finished at the maximum: the same 12 as Warp's kick
+var FX_GRAZE_DIM = 0.45; // the faintest spark: a magenta hairline at 2:1 on white, still legible
+var FX_GRAZE_ALPHA = 0.9; // the brightest: magenta at 3.07:1 on white, cyan at 2.56:1 over a red block
+var FX_GRAZE_BLADE = 2; // band thickness, px: the echoes' outline weight
+var FX_GRAZE_LIFT = 1; // px clear of the hitbox, so the square (drawn last) can't cover the blade
+var FX_GRAZE_SPLIT = 2; // the cyan band, outward of the magenta: whichever lands on the block is the one that reads there
+var FX_GRAZE_OVER = 4; // px the blade overhangs each end in the flare, along the edge only: never across it, because
+                       // across is the axis the player judges gaps on. With LIFT and BLADE the envelope is always 5px
+var FX_GRAZE_MINLEN = 10; // the shortest blade, px: never near-square, even on an 8px hitbox
+var FX_GRAZE_TICKAT = 0.5; // the closeness that throws the released marks (a gap under 5px): the tier, carried without hue
+var FX_GRAZE_TICKS = 3; // released marks: one at the contact point, two flanking
+var FX_GRAZE_TICK = 8; // their length, px, jittered 0.75 to 1.25: never under three times their thickness
+var FX_GRAZE_SPREAD = 10; // px between them along the edge
+
 var fx = {
     look: "off", // this step's look: "full", "reduced" or "off" (see fxLook)
     warp: 0, focus: 0, // fade levels: 0 (off) up to FX_FADE's full
     kick: FX_KICK_STEPS, snap: FX_SNAP_STEPS, // steps into Warp's burst and Focus's snap (finished at the maximum)
     run: 0, // how far the speed lines have traveled, in steps at full Warp
     scroll: 0, // how far the world has moved left; recorded positions drift with it
+    drift: 0, // how far the ground has scrolled, in px: the grid's phase. Three odometers now run at three rates and
+              // none of them is the others: fx.scroll is the trail's mid-lane 5px, fx.drift the grid's medium-lane 2px,
+              // and a spark's own vx the lane of the block that made it. Don't unify them
+    stall: 0, // steps the machine has been behind: sheds the grid's ink rather than stuttering. Ink only, never geometry
     next: 0, count: 0, samples: [], // the square's recent positions: a ring of reused { x, y, size, scroll } records
+    graze: [], gz: [], // a spark per side of the square (0 top, 1 right, 2 bottom, 3 left), and this step's best
+                       // candidate for each, so the scan over the obstacles allocates nothing
     grad: null, // gradients, made once in unit space and stretched over the screen or along the trail with setTransform
     rx: [], ry: [], rs: [], rt: [], // scratch for the trail's outline, so drawing allocates nothing
 };
 while (fx.samples.length < FX_HISTORY) {
     fx.samples.push({ x: 0, y: 0, size: 0, scroll: 0 });
+}
+while (fx.graze.length < 4) {
+    fx.graze.push({ lit: 0, power: 0, struck: 0, hit: FX_GRAZE_HIT, sx: 0, sy: 0, vx: 0, seed: 0 });
+    fx.gz.push({ power: 0, x: 0, y: 0, v: 0 });
 }
 
 function fxLook() { // fxMode, or for "auto": "reduced" if the player asked their device for less motion, else "full"
@@ -1657,13 +1744,35 @@ function fxLook() { // fxMode, or for "auto": "reduced" if the player asked thei
     return reducedMotion && reducedMotion.matches ? "reduced" : "full";
 }
 
-function fxReset() { // a level starts or ends: no fade, trail or echo carries over
-    fx.warp = fx.focus = fx.run = fx.scroll = fx.count = 0;
+function fxReset() { // a level starts or ends: no fade, trail, echo, spark or ground phase carries over
+    fx.warp = fx.focus = fx.run = fx.scroll = fx.count = fx.drift = fx.stall = 0;
     fx.kick = FX_KICK_STEPS;
     fx.snap = FX_SNAP_STEPS;
+    fxGrazeClear();
 }
 
-function fxShowing() { // is a power effect on screen (with effects on, only then can the picture differ from before)
+function fxGrazeClear() { // no spark carries across a level, a death, or a jump
+    for (var i = 0; i < 4; i++) {
+        var g = fx.graze[i];
+        g.lit = g.power = g.struck = 0;
+        g.hit = FX_GRAZE_HIT; // finished at the maximum, like fx.kick and fx.snap: a level never opens mid-flare
+    }
+}
+
+function fxDropHistory() { // the square isn't where it was recorded: nothing hung off its past positions survives
+    fx.count = 0;
+    fxGrazeClear();
+}
+
+function fxGrazing() { // is any side of the square lit or still cooling
+    return fx.graze[0].lit > 0 || fx.graze[1].lit > 0 || fx.graze[2].lit > 0 || fx.graze[3].lit > 0;
+}
+
+function fxGrazeFade() { // how fast a spark cools: 200ms, or 500ms with reduced motion, so sparks breathe, not blink
+    return fx.look == "full" ? FX_GRAZE : FX_GRAZE_CALM;
+}
+
+function fxShowing() { // is a power's own overlay on screen (the grid and the sparks are drawn outside it)
     return fx.warp > 0 || fx.focus > 0;
 }
 
@@ -1705,7 +1814,7 @@ function fxStep() { // each step, before anything is drawn: fade each power's lo
         return;
     }
     if (!fxAttached()) {
-        fx.count = 0; // the square was moved between steps (a touch resize): no trail or echoes back to where it was
+        fxDropHistory(); // the square was moved between steps (a touch resize): no trail, echoes or sparks back there
     }
     var warpOn = speed == speed_fast;
     var focusOn = speed == speed_slow;
@@ -1720,6 +1829,17 @@ function fxStep() { // each step, before anything is drawn: fade each power's lo
     fx.kick = Math.min(fx.kick + 1, FX_KICK_STEPS);
     fx.snap = Math.min(fx.snap + 1, FX_SNAP_STEPS);
     fx.run += fxEase(fx.warp, FX_FADE.warp); // the lines speed up as Warp comes in and coast to a stop as it fades
+
+    fx.drift += FX_GRID_RATE * speed; // the ground scrolled: the grid's phase, in px
+    fx.stall = fxOverdrawn() ? Math.min(fx.stall + 1, FX_GRID_STALL) // the machine is behind: shed scenery, not simulation
+                             : Math.max(0, fx.stall - 1);
+    var gf = fxGrazeFade();
+    for (var i = 0; i < 4; i++) { // sparks always cool; fxGraze refills them later this step if anything is near
+        var g = fx.graze[i];
+        g.lit = fxFade(g.lit, false, gf);
+        g.hit = Math.min(g.hit + 1, FX_GRAZE_HIT);
+        g.sx -= g.vx * speed; // the contact point travels with the obstacle that made it, as moveObjects moves that
+    }
 }
 
 function fxRecord() { // each step, after the square has moved: remember where it is now
@@ -1731,7 +1851,7 @@ function fxRecord() { // each step, after the square has moved: remember where i
     if (fx.count > 0) {
         var last = fxSample(0);
         if (Math.abs(cx - last.x) + Math.abs(cy - last.y) > 250) {
-            fx.count = 0; // a jump, not a move (the cursor came back into the window somewhere else): no streak across the screen
+            fxDropHistory(); // a jump, not a move (the cursor came back into the window somewhere else): no streak across the screen
         }
     }
     fx.scroll += FX_TRAIL_PX * speed; // the world moved left this step; everything recorded before drifts with it
@@ -1742,6 +1862,101 @@ function fxRecord() { // each step, after the square has moved: remember where i
     s.scroll = fx.scroll;
     fx.next = (fx.next + 1) % FX_HISTORY;
     fx.count = Math.min(fx.count + 1, FX_HISTORY + 8); // past the ring's size it only times the echoes' fade-in
+    fxGraze(); // everything has moved now, so this is the one moment the gaps are the ones the player actually flew
+}
+
+function fxGraze() { // each step, after everything has moved: how close did the square just come to anything
+    if (!FX_GRAZE_ON || invincible) { // Break: movePiece skips collisions, so obstacles sit on the square all through it
+        return;
+    }
+    var i;
+    for (i = 0; i < 4; i++) {
+        fx.gz[i].power = 0;
+    }
+    var left = gamePiece.x, top = gamePiece.y;
+    var right = left + gamePiece.width, bottom = top + gamePiece.height;
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    for (var lane in OBSTACLE_SPEEDS) {
+        var objects = obstacles[lane], v = OBSTACLE_SPEEDS[lane];
+        for (var k = 0; k < objects.length; k++) {
+            var o = objects[k];
+            if (o.width <= 0 || o.height <= 0) {
+                continue; // nothing drawn, so nothing to pass close to (as crashWith's own guard has it)
+            }
+            if (o.x >= W || o.x + o.width <= 0 || o.y >= H || o.y + o.height <= 0) {
+                continue; // off screen: if the player can't see it, they didn't dodge it
+            }
+            var gx = Math.max(o.x - right, left - (o.x + o.width)); // the gap per axis, the quantity crashWith splits on
+            if (gx >= FX_GRAZE_PX) {
+                continue; // one subtract and a compare turn away almost everything
+            }
+            var gy = Math.max(o.y - bottom, top - (o.y + o.height));
+            if (gy >= FX_GRAZE_PX) {
+                continue;
+            }
+            var sep = Math.max(gx, gy);
+            if (sep <= 0) {
+                continue; // touching is a hit, not a graze
+            }
+            if (fxHidden(o.x, o.x + o.width)) {
+                continue; // levels 13 and 14: don't outline a block the level is hiding
+            }
+            var p = fxEase(FX_GRAZE_PX - sep, FX_GRAZE_RAMP);
+            var px = Math.max(gx, 0), py = Math.max(gy, 0);
+            var share = px / (px + py); // at a corner the pass belongs to both sides, in proportion
+            if (share > 0) { // a vertical side: the shared extent runs along y
+                var lo = Math.max(top, o.y), hi = Math.min(bottom, o.y + o.height);
+                var my = hi >= lo ? (lo + hi) / 2 : (o.y > bottom ? bottom : top);
+                fxGrazeConsider(o.x > left ? 1 : 3, p * share, o.x > left ? right : left, my, v);
+            }
+            if (share < 1) { // a horizontal side: the shared extent runs along x
+                var lx = Math.max(left, o.x), hx = Math.min(right, o.x + o.width);
+                var mx = hx >= lx ? (lx + hx) / 2 : (o.x > right ? right : left);
+                fxGrazeConsider(o.y > top ? 2 : 0, p * (1 - share), mx, o.y > top ? bottom : top, v);
+            }
+        }
+    }
+    for (i = 0; i < 4; i++) {
+        fxGrazeApply(i);
+    }
+}
+
+function fxGrazeConsider(side, power, x, y, v) { // this step's closest pass on each side wins the slot
+    var c = fx.gz[side];
+    if (power > c.power) {
+        c.power = power;
+        c.x = x;
+        c.y = y;
+        c.v = v;
+    }
+}
+
+function fxGrazeApply(side) { // light the side, and flare if this is a new pass or a real tightening of an old one
+    var g = fx.graze[side], c = fx.gz[side];
+    if (c.power <= 0) {
+        return; // nothing near this side: leave power where it was and let lit cool
+    }
+    if (g.lit == 0 || c.power >= g.struck + FX_GRAZE_STRIKE) {
+        g.hit = 0; // a strike: flare, and hang new released marks off the contact point
+        g.seed++;
+        g.struck = c.power;
+        g.sx = c.x;
+        g.sy = c.y;
+        g.vx = c.v;
+    }
+    g.power = c.power; // closeness now: the brightness and the marks follow the live gap, not the gap at the strike
+    g.lit = fxFade(g.lit, true, fxGrazeFade()); // full life again while anything is near
+}
+
+function fxHidden(x1, x2) { // does this span sit inside a level 13/14 bar, where a block of the bar's color is camouflaged
+    if (level != 13 && level != 14) {
+        return false;
+    }
+    var w = gameArea.canvas.width / 1920; // the bars' own units, from drawLevelName
+    if (x1 >= 900 * w && x2 <= 1000 * w) {
+        return true;
+    }
+    return level == 14 && x1 >= 1100 * w;
 }
 
 function fxGradients() { // made once in unit space (1 is the middle of an edge); setTransform fits them to any screen
@@ -1759,7 +1974,14 @@ function fxGradients() { // made once in unit space (1 is the middle of an edge)
         trail.addColorStop(0, "#ff00ff");
         trail.addColorStop(0.45, "rgba(0,255,255,0.6)");
         trail.addColorStop(1, "rgba(0,255,255,0)");
-        fx.grad = { vignette: vignette, rim: rim, trail: trail };
+        // the horizon grid's plane, by depth: 0 at the horizon, 1 at the bottom edge. Linear, not radial like the other
+        // three, because its transform scales x by 1 and y by the plane's height, which would stretch a radial one into
+        // a several-hundred-to-one ellipse. The stops carry the design's most ink; globalAlpha scales them back down
+        var grid = ctx.createLinearGradient(0, 0, 0, 1);
+        grid.addColorStop(0, "rgba(255,0,255,0)"); // the horizon's own row: the rungs fade up into it without a fringe
+        grid.addColorStop(FX_GRID_HAZE, "rgba(255,0,255,0.1485)"); // the magenta haze where the rungs bunch up
+        grid.addColorStop(1, "rgba(0,255,255,0.216)"); // pale cyan nearest the viewer
+        fx.grad = { vignette: vignette, rim: rim, trail: trail, grid: grid };
     }
     return fx.grad;
 }
@@ -1774,9 +1996,112 @@ function fxFillScreen(gradient, alpha, scaleX, scaleY) { // a unit-space gradien
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
-function fxDrawVignette(e) { // Focus: slides in from past the corners as it comes in (a touch too far, then back) and out as it fades
+function fxGridEdge(x, w, edgeL, edgeR) { // 0 anywhere inside the gutters, ramping up over FX_GRID_FADE past them:
+    // the gutters have to be empty, not merely faint, or the quarter second of clean white isn't clean
+    return Math.max(0, Math.min(1, (x - edgeL) / FX_GRID_FADE, (w - edgeR - x) / FX_GRID_FADE));
+}
+
+function fxGridSpan(x0, x1, y, t) { // a horizontal line as a clockwise hexagon, tapering to a point at both ends
+    ctx.moveTo(x0, y);
+    ctx.lineTo(x0 + t * 8, y - t);
+    ctx.lineTo(x1 - t * 8, y - t);
+    ctx.lineTo(x1, y);
+    ctx.lineTo(x1 - t * 8, y + t);
+    ctx.lineTo(x0 + t * 8, y + t);
+    ctx.closePath();
+}
+
+function fxDrawGrid(look) { // the world's floor: a perspective plane under everything, drawn whether or not a power is on
+    var w = gameArea.canvas.width, h = gameArea.canvas.height;
+    var full = look == "full";
+    var ew = fxEase(fx.warp, FX_FADE.warp), ef = fxEase(fx.focus, FX_FADE.focus);
+
+    var horizon = FX_GRID_HORIZON;
+    if (full) { // every bit of horizon movement is motion, so reduced motion keeps none of it
+        horizon += FX_GRID_PITCH * ew - FX_GRID_DEEPEN * ef;
+        horizon -= FX_GRID_KICK * Math.sin(2 * Math.PI * fx.kick / FX_KICK_STEPS); // Warp: up a touch, down past, settled
+        horizon += FX_GRID_SNAP * Math.sin(2 * Math.PI * fx.snap / FX_SNAP_STEPS); // Focus: the mirror of it
+    }
+    horizon = Math.max(FX_GRID_LOW, Math.min(FX_GRID_HIGH, horizon)); // clamped on every path, moving or still
+    var top = Math.round(horizon * h), band = h - top;
+
+    // the gutters: the fastest obstacle the game can make gets a quarter second of clean white before it reaches any ink
+    var edge = Math.min(FX_GRID_EDGE_FRAC * w, FX_GRID_EDGE_STEPS * OBSTACLE_SPEEDS.hyper * speed_fast);
+    var edgeL = edge, edgeR = edge;
+    if (inputMode == "touch") { // and nothing under the power buttons, where a cyan line would read as button feedback
+        edgeR = Math.max(edge, w - touchButtons().box.left + FX_GRID_EDGE_PAD);
+    }
+    var span = w - edgeL - edgeR;
+
+    var fit = Math.max(0, Math.min(1, (band - FX_GRID_BAND_MIN) / FX_GRID_BAND_MIN,
+                                      (span - FX_GRID_SPAN_MIN) / FX_GRID_SPAN_MIN));
+    if (fit <= 0) {
+        return; // too short or too narrow to read as a plane at all
+    }
+    var lift = fit * (1 - fx.stall / FX_GRID_STALL)
+                   * (1 - FX_GRID_WASH_DIM * ef) // Focus's vignette owns this budget
+                   * (full ? 1 + FX_GRID_WARP_LIFT * ew * (1 - ef) // full Warp draws marks, so the grid can come up
+                           : 1 - FX_GRID_WASH_DIM * ew); // reduced Warp draws the rim wash, so it gets out of the way
+    if (lift <= 0.01) {
+        return;
+    }
+    var lane = Math.max(FX_GRID_LANE_MIN, Math.min(FX_GRID_LANE_MAX, w / FX_GRID_LANES))
+             * (full ? 1 + FX_GRID_STRETCH * ew : 1);
+    var off = full ? fx.drift % lane : 0;
+    var cx = w / 2, yt = top + FX_GRID_HAZE * band, K = FX_GRID_NEAR * band;
+    var gap = Math.max(FX_GRID_GAP_MIN, FX_GRID_GAP_FRAC * band) * (1 - (1 - FX_GRID_GAP_FOCUS) * ef);
+    var real = (Math.sqrt(1 + 4 * K / gap) - 1) / 2; // the largest m whose rung still clears the one before it by gap
+    var M = Math.min(FX_GRID_RUNGS_MAX, Math.floor(real));
+
+    // the gutters are a guarantee, not a tendency: tapering a depth line's width to nothing at its end still drags a
+    // wedge of it across the gutter on the way, so cut the whole plane to the clean span. Full height, because the
+    // horizon's own line straddles top and clipping at top would shave it
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(edgeL, 0, span, h);
+    ctx.clip();
+
+    // not hygiene: drawTouchControls leaves a live arc behind, and save/restore doesn't reset the path. Without this
+    // the first fill paints that arc with the plane's gradient, as a violet disc under the whole world
+    ctx.beginPath();
+    for (var m = 1; m <= M; m++) { // rungs on a K/m series: the perspective spacing of a plane seen edge on
+        fxGridSpan(edgeL, w - edgeR, top + Math.round(K / m), FX_GRID_W_RUNG * Math.min(1, real - m) / 2);
+    }
+    var count = Math.min(FX_GRID_LANES_MAX, Math.ceil((w + edgeL + lane) / lane) + 1);
+    for (var j = 0; j < count; j++) { // depth lines, fanning from the vanishing point and sliding left
+        var xb = w + lane - off - j * lane;
+        if (xb < -edgeL) {
+            break;
+        }
+        var xt = cx + FX_GRID_HAZE * (xb - cx);
+        var wt = FX_GRID_W_FAR * fxGridEdge(xt, w, edgeL, edgeR) / 2;
+        var wb = FX_GRID_W_NEAR * fxGridEdge(xb, w, edgeL, edgeR) / 2;
+        if (wt <= 0 && wb <= 0) {
+            continue;
+        }
+        ctx.moveTo(xt - wt, yt);
+        ctx.lineTo(xt + wt, yt);
+        ctx.lineTo(xb + wb, h);
+        ctx.lineTo(xb - wb, h);
+        ctx.closePath();
+    }
+    ctx.globalAlpha = lift / FX_GRID_LIFT_MAX; // at most 1: the gradient's stops already carry the maximum
+    ctx.fillStyle = fxGradients().grid;
+    ctx.setTransform(1, 0, 0, band, 0, top); // unit depth: 0 at the horizon, 1 at the bottom edge
+    ctx.fill(); // one fill, every subpath wound the same way, so the crossings composite once instead of twice
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    ctx.beginPath();
+    fxGridSpan(edgeL, w - edgeR, top, FX_GRID_W_HORIZON / 2);
+    ctx.fillStyle = FX_GRID_HORIZON_INK; // under the same globalAlpha as the plane, not budgeted on its own
+    ctx.fill();
+    ctx.restore(); // drops the clip, the alpha and the fill color together
+    ctx.beginPath(); // leave no path behind
+}
+
+function fxDrawVignette(e, look) { // Focus: slides in from past the corners as it comes in (a touch too far, then back) and out as it fades
     var squeeze = 1;
-    if (fx.look == "full") {
+    if (look == "full") {
         var snap = Math.sin(Math.PI * fx.snap / FX_SNAP_STEPS);
         squeeze = 1 + 0.35 * (1 - e) - 0.05 * snap * snap;
     }
@@ -1901,18 +2226,98 @@ function fxDrawEchoes(e) { // Focus: outlines where the square was, drifting off
     }
 }
 
+function fxGrazeRect(x, y, w, h, bx, by) { // one band of a spark, unless it would land on the touch buttons
+    if (x + w > bx && y + h > by) {
+        return;
+    }
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); // whole pixels keep a 2px band crisp
+}
+
+function fxDrawGrazes(look) { // a two-band blade on each side the square just passed close on, and the marks it released
+    var full = look == "full";
+    var left = gamePiece.x, top = gamePiece.y;
+    var right = left + gamePiece.width, bottom = top + gamePiece.height;
+    var midX = (left + right) / 2, midY = (top + bottom) / 2;
+    var bx = Infinity, by = Infinity;
+    if (inputMode == "touch") { // a cyan band a few px from the cyan FOCUS button reads as button feedback, not proximity
+        var box = touchButtons().box;
+        bx = box.left;
+        by = box.top;
+    }
+    // released marks are world-anchored and drift for 12 steps, so on 13 and 14 they could ride into a bar and track a
+    // block the level is hiding. The blade is anchored to the square and is fine
+    var marks = full && level != 13 && level != 14;
+    var fade = fxGrazeFade();
+    for (var side = 0; side < 4; side++) {
+        var g = fx.graze[side];
+        if (g.lit <= 0) {
+            continue;
+        }
+        var base = FX_GRAZE_DIM + (FX_GRAZE_ALPHA - FX_GRAZE_DIM) * g.power; // brightness is closeness, and only closeness
+        var flare = Math.cos(Math.PI * g.hit / (2 * FX_GRAZE_HIT)); // 1 on the strike step: an impact has no anticipation
+        var over = full ? Math.round(FX_GRAZE_OVER * flare) : 0;
+        var len = Math.max(FX_GRAZE_MINLEN, gamePiece.width + 2 * over);
+        var vertical = side == 1 || side == 3;
+        var sign = (side == 0 || side == 3) ? -1 : 1; // which way is out of the square
+        var edge = side == 0 ? top : side == 1 ? right : side == 2 ? bottom : left;
+        var along = (vertical ? midY : midX) - len / 2;
+        var b, off, th, at;
+
+        ctx.globalAlpha = base * fxEase(g.lit, fade);
+        for (b = 0; b < 2; b++) { // magenta inboard, cyan outward: whichever lands on the block is the one that reads there
+            off = b == 0 ? FX_GRAZE_LIFT : FX_GRAZE_LIFT + FX_GRAZE_BLADE;
+            th = b == 0 ? FX_GRAZE_BLADE : FX_GRAZE_SPLIT;
+            at = sign < 0 ? edge - off - th : edge + off;
+            ctx.fillStyle = b == 0 ? "#ff00ff" : "#00FFFF";
+            if (vertical) {
+                fxGrazeRect(at, along, th, len, bx, by);
+            } else {
+                fxGrazeRect(along, at, len, th, bx, by);
+            }
+        }
+        if (!marks || g.power < FX_GRAZE_TICKAT) {
+            continue; // the tier, carried by whether the marks are there at all rather than by a color
+        }
+        var anchor = vertical ? g.sx : g.sy; // across the edge, at the contact point, which travels with its obstacle
+        var malong = vertical ? g.sy : g.sx;
+        ctx.globalAlpha = base * flare; // they live the 12 steps of the flare and die while the blade is still cooling
+        for (b = 0; b < 2; b++) {
+            off = b == 0 ? FX_GRAZE_LIFT : FX_GRAZE_LIFT + FX_GRAZE_BLADE;
+            th = b == 0 ? FX_GRAZE_BLADE : FX_GRAZE_SPLIT;
+            at = sign < 0 ? anchor - off - th : anchor + off; // the blade's own bands, so they add no width at all
+            ctx.fillStyle = b == 0 ? "#ff00ff" : "#00FFFF";
+            for (var k = 0; k < FX_GRAZE_TICKS; k++) {
+                var tl = Math.round(FX_GRAZE_TICK * (0.75 + 0.5 * fxHash(g.seed * 4 + side, k))); // never under 3x thick
+                var ta = malong + (k - 1) * FX_GRAZE_SPREAD - tl / 2;
+                if (vertical) {
+                    fxGrazeRect(at, ta, th, tl, bx, by);
+                } else {
+                    fxGrazeRect(ta, at, tl, th, bx, by);
+                }
+            }
+        }
+    }
+    ctx.globalAlpha = 1;
+}
+
 function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under the Break bar, the level's bars, the objects and the HUD
-    if (!fxShowing() || fxOverdrawn()) {
+    // the look is resolved here, not read from fx.look: fxStep doesn't run on the paused redraw, so fx.look can be a
+    // level behind (it is still "off" on the first frame of a run, and it never updates if effects are switched while paused)
+    var look = fxLook();
+    if (look == "off" || fxOverdrawn() || !(FX_GRID_ON || fxShowing())) {
         return; // nothing to add: the picture is exactly what it was without effects
     }
     ctx.save(); // puts every drawing setting back after (the Break bar is drawn in whatever fill color the last step left)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (FX_GRID_ON) {
+        fxDrawGrid(look); // the floor, under the powers' own overlays
+    }
     if (fx.focus > 0) {
-        fxDrawVignette(fxEase(fx.focus, FX_FADE.focus));
+        fxDrawVignette(fxEase(fx.focus, FX_FADE.focus), look);
     }
     if (fx.warp > 0) {
         var e = fxEase(fx.warp, FX_FADE.warp);
-        if (fx.look == "full") {
+        if (look == "full") {
             fxDrawSpeedLines(e);
         } else {
             fxFillScreen(fxGradients().rim, 0.8 * e, 1, 1); // reduced motion: a still magenta glow at the edges instead of streaks
@@ -1922,8 +2327,12 @@ function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under th
 }
 
 function fxDrawAfterimages() { // Focus's echoes and Warp's trail: over the obstacles and the level's bars, under the HUD, buttons and square
-    if (!fxShowing() || fxOverdrawn() || !fxAttached()) {
+    var look = fxLook(); // resolved here rather than read from fx.look, as in fxDrawBackdrop
+    if (look == "off" || fxOverdrawn() || !fxAttached()) {
         return; // (not attached: the square was moved since its last record, so there's nothing to hang them from until the next step)
+    }
+    if (!fxShowing() && !fxGrazing()) {
+        return;
     }
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1932,6 +2341,9 @@ function fxDrawAfterimages() { // Focus's echoes and Warp's trail: over the obst
     }
     if (fx.warp > 0) {
         fxDrawTrail(fxEase(fx.warp, FX_FADE.warp));
+    }
+    if (fxGrazing()) {
+        fxDrawGrazes(look); // over the obstacles: at the passes that matter the blade lies partly inside their footprint
     }
     ctx.restore();
 }
