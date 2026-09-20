@@ -80,7 +80,10 @@ const START_BUTTONS = {
         help: "CTRL or RIGHT MOUSE BUTTON: WARP - Speeds up time.  Earn double score, you madman.",
         touch: { dx: 60, dy: 110, w: 420, h: 110 }, touchLabel: "Hold to Warp",
         touchHelp: "WARP button (hold) = Speeds up time.  Earn double score, you madman.  Drag anywhere to steer." },
-    // the one button here that opens something rather than starting the game or explaining a control
+    // the two that aren't the game or a control: the run's difficulty, under START because it decides the run,
+    // and the settings, which open a screen of their own
+    difficulty: { dx: -410, dy: 85, w: 220, h: 40, setting: "difficulty",
+        touch: { dx: -450, dy: 110, w: 400, h: 90 } },
     options: { dx: 0, dy: 272, w: 256, h: 40, menu: true,
         touch: { dx: 60, dy: 240, w: 420, h: 90 } },
 };
@@ -131,6 +134,21 @@ const SETTINGS = {
         },
         pick: function (v) { return TOUCH_GAINS.indexOf(parseFloat(v)) >= 0 ? parseFloat(v) : undefined; },
         apply: function (v) { TOUCH_GAIN = v; } },
+    difficulty: { store: "focusbreak.difficulty", // its button is on the start screen, but it is stored like the rest
+        read: function () { return mode().label; },
+        next: function () {
+            var i = 0;
+            while (i < DIFFICULTIES.length && DIFFICULTIES[i].name != difficulty) { i++; }
+            difficulty = DIFFICULTIES[(i + 1) % DIFFICULTIES.length].name;
+            return difficulty;
+        },
+        pick: function (v) {
+            for (var i = 0; i < DIFFICULTIES.length; i++) {
+                if (DIFFICULTIES[i].name === v) { return v; }
+            }
+            return undefined;
+        },
+        apply: function (v) { difficulty = v; } },
     buttons: { store: "focusbreak.buttons",
         read: function () { return "BUTTONS: " + TOUCH_SIDE.toUpperCase(); },
         next: function () {
@@ -164,6 +182,67 @@ function cycleSetting(name) { // a settings button: step to its next value and r
     playSound(aud_click);
     drawStartScreen();
 }
+// The four difficulties, picked on the start screen because they define a run rather than configure one. Two levers
+// between them: lives, which make a death keep the level's score instead of wiping it, and a per-level ration of power
+// activations. Normal is the game as it always was, and is what a save with nothing in it opens on.
+const DIFFICULTIES = [
+    { name: "easy", label: "EASY 簡単", lives: 3, powers: null }, // powers: null is no ration at all
+    { name: "normal", label: "NORMAL 普通", lives: 0, powers: null },
+    { name: "hard", label: "HARD 難しい", lives: 0, powers: 3 },
+    { name: "true", label: "TRUE 真", lives: 0, powers: 0 },
+];
+var difficulty = "normal";
+var runLives = 0; // lives left this run, and power activations left this level
+var runPowers = null;
+var lifeSpent = false; // the death being shown was paid for with a life
+
+function mode() { // the difficulty in force
+    for (var i = 0; i < DIFFICULTIES.length; i++) {
+        if (DIFFICULTIES[i].name == difficulty) {
+            return DIFFICULTIES[i];
+        }
+    }
+    return DIFFICULTIES[1]; // normal, if a stored name ever gets past the check that should have caught it
+}
+
+function startRunRations() { // a run begins: the lives are its own, the powers are the first level's
+    runLives = mode().lives;
+    startLevelRations();
+}
+
+function startLevelRations() { // and every level after that gets its powers back
+    runPowers = mode().powers;
+}
+
+function powerRunning() { // which power the game is in the middle of, so holding one isn't charged for twice
+    return speed == speed_slow ? "focus" : speed == speed_fast ? "warp" : "";
+}
+
+function powerAllowed(name) { // hard and true ration activations: holding one is free, starting one is not
+    if (runPowers === null || name == powerRunning()) {
+        return true;
+    }
+    if (runPowers <= 0) {
+        return false; // out: the button does nothing at all, which is the whole of TRUE mode
+    }
+    runPowers--;
+    return true;
+}
+
+function runStatusText() { // what this difficulty is rationing, for the HUD, or "" when it is rationing nothing
+    var d = mode();
+    if (d.lives > 0) {
+        return "LIVES " + runLives;
+    }
+    if (d.powers === 0) {
+        return "NO POWERS";
+    }
+    if (d.powers !== null) {
+        return "POWERS " + runPowers;
+    }
+    return "";
+}
+
 // Records. The game timed a run to the second, printed it on the finish screen and then threw it away: nothing about
 // a run survived it, so a flawless fifteen levels and a scrappy one left the same trace, which was none. Kept as one
 // JSON blob beside the settings and read the same defensive way -- a private window throws rather than returning null,
@@ -171,12 +250,20 @@ function cycleSetting(name) { // a settings button: step to its next value and r
 var RECORDS_STORE = "focusbreak.records";
 var RUN_LEVELS = 15; // levels in a full run; level 16 is the finish screen, not a level
 
-var records = {
-    run: null, // fastest completed run, in ms
-    runDeaths: 0, // and what it cost
-    level: {}, // fastest clear of each level, in ms: the split
-    reached: 0, // furthest level started, so a run that never finishes still leaves a mark
-};
+var records = { modes: {} }; // a set per difficulty: a best on EASY is not a best on TRUE, and mixing them
+                             // would let the easiest mode set a time the hardest could never beat
+
+function rec() { // the record set for the difficulty now selected
+    if (!records.modes[difficulty]) {
+        records.modes[difficulty] = {
+            run: null, // fastest completed run, in ms
+            runDeaths: 0, // and what it cost
+            level: {}, // fastest clear of each level, in ms: the split
+            reached: 0, // furthest level started, so a run that never finishes still leaves a mark
+        };
+    }
+    return records.modes[difficulty];
+}
 var levelStart = 0; // when the level being played began (ms), moved forward by time spent paused, as startTime is
 var levelBeat = 0; // how long the level just cleared took, and whether that is the best it has been
 var levelRecord = false;
@@ -190,20 +277,27 @@ function storedTime(v) { // a stored number we are willing to believe
 function loadRecords() { // whatever previous runs left, if the browser will tell us
     try {
         var got = JSON.parse(window.localStorage.getItem(RECORDS_STORE));
-        if (!got || typeof got != "object") {
+        if (!got || typeof got != "object" || !got.modes || typeof got.modes != "object") {
             return;
         }
-        records.run = storedTime(got.run);
-        records.runDeaths = storedTime(got.runDeaths) || 0;
-        records.reached = Math.min(RUN_LEVELS, storedTime(got.reached) || 0);
-        records.level = {}; // what was stored replaces what is held, rather than merging into it
-        if (got.level && typeof got.level == "object") {
-            for (var n = 1; n <= RUN_LEVELS; n++) {
-                var split = storedTime(got.level[n]);
-                if (split) {
-                    records.level[n] = split;
+        records.modes = {}; // what was stored replaces what is held, rather than merging into it
+        for (var i = 0; i < DIFFICULTIES.length; i++) {
+            var name = DIFFICULTIES[i].name;
+            var from = got.modes[name];
+            if (!from || typeof from != "object") {
+                continue; // a mode never played, or something that isn't a record set
+            }
+            var to = { run: storedTime(from.run), runDeaths: storedTime(from.runDeaths) || 0,
+                reached: Math.min(RUN_LEVELS, storedTime(from.reached) || 0), level: {} };
+            if (from.level && typeof from.level == "object") {
+                for (var n = 1; n <= RUN_LEVELS; n++) {
+                    var split = storedTime(from.level[n]);
+                    if (split) {
+                        to.level[n] = split;
+                    }
                 }
             }
+            records.modes[name] = to;
         }
     } catch (e) { // blocked storage, a private window, or something that isn't JSON: play without them
     }
@@ -217,26 +311,26 @@ function saveRecords() {
 }
 
 function reachedLevel(n) { // a level began: the furthest one reached is a record of its own for a run that never ends
-    if (n > records.reached && n <= RUN_LEVELS) {
-        records.reached = n;
+    if (n > rec().reached && n <= RUN_LEVELS) {
+        rec().reached = n;
         saveRecords();
     }
 }
 
 function recordLevel(n) { // a level was cleared: its split, and whether that is the fastest it has been flown
     levelBeat = Date.now() - levelStart;
-    levelRecord = !records.level[n] || levelBeat < records.level[n];
+    levelRecord = !rec().level[n] || levelBeat < rec().level[n];
     if (levelRecord) {
-        records.level[n] = levelBeat;
+        rec().level[n] = levelBeat;
         saveRecords();
     }
 }
 
 function recordRun(ms, cost) { // all fifteen cleared: the run's time, against the best there has been
-    var beat = !records.run || ms < records.run;
+    var beat = !rec().run || ms < rec().run;
     if (beat) {
-        records.run = ms;
-        records.runDeaths = cost;
+        rec().run = ms;
+        rec().runDeaths = cost;
         saveRecords();
     }
     return beat;
@@ -251,11 +345,11 @@ function mistakes(n) {
 }
 
 function recordsLine() { // what the start screen has to say about how this has gone before, or "" the first time
-    if (records.run) {
-        return "BEST " + millisToMinutesAndSeconds(records.run) + "   " + mistakes(records.runDeaths);
+    if (rec().run) {
+        return "BEST " + millisToMinutesAndSeconds(rec().run) + "   " + mistakes(rec().runDeaths);
     }
-    if (records.reached > 1) {
-        return "FURTHEST   Level " + records.reached;
+    if (rec().reached > 1) {
+        return "FURTHEST   Level " + rec().reached;
     }
     return "";
 }
@@ -284,6 +378,7 @@ const startScreenIntervals = [
     setInterval(focus_break_colors, 100),
     setInterval(click_to_start_colors, 50),
     setInterval(highlightControl, 100),
+    setInterval(menuGlitch, GLITCH_EVERY), // and one that breaks a piece of it now and then
 ];
 
 // obstacles by lane (the lane sets how fast they move) and powerups; clearObjects replaces the lists
@@ -539,7 +634,11 @@ function highlightControl() { // Flashing colors on the hovered control button (
     if (b && (b.setting || b.back)) { // a settings row carries a reading, so flash its edge instead of its label
         var s = geom(hoveredButton);
         var sx = LAYOUT_W / 2 + s.dx, sy = LAYOUT_H / 2 + s.dy;
-        useBand(OPTIONS_BAND); // the row is on the settings screen, which is fitted to its own band
+        if (optionsOpen) { // a settings row is fitted to that screen's band; the difficulty button is not
+            useBand(OPTIONS_BAND);
+        } else {
+            useLayout();
+        }
         ctx.globalAlpha = 0.9;
         ctx.fillStyle = getRandomColor();
         ctx.fillRect(sx, sy, s.w, 2);
@@ -562,6 +661,135 @@ function highlightControl() { // Flashing colors on the hovered control button (
     drawControlLabel(hoveredButton);
     ctx.globalAlpha = 1.0;
     useWindow();
+}
+
+// The menu glitches. Every so often a piece of the start screen tears, ghosts or gets crushed for a moment, and then
+// the screen is drawn clean again. All three kinds are self-copies of what is already on the canvas -- nothing is
+// redrawn from the model, so whatever a piece looked like is what tears.
+// Its randomness is fxHash off a counter, not Math.random, for the reason the effects have that rule: Math.random
+// is the stream the spawns come out of, and this runs on a timer, so how many draws it takes before a run starts
+// depends on how long the start screen sat there. The flashers already burned a few dozen that way; this would have
+// burned a thousand, which is enough to make a seeded run unreproducible.
+var GLITCH_EVERY = 220; // ms between rolls
+var GLITCH_CHANCE = 0.45; // and how many of those rolls actually break something
+var GLITCH_HOLD = 90; // ms the damage stays up before a clean redraw takes it away
+var GLITCH_SHOVE = 26; // px a torn band can slide, in layout units
+var GLITCH_BAND = 26; // and how thick a torn or tinted band is. Absolute, not a fraction of what it is breaking:
+                      // sized by the victim, a glitch on a button tears and the same one on the whole screen
+                      // came out as three giant slabs instead
+var glitchClear = null; // the timer that will draw it clean
+var glitchNo = 0; // which glitch this is; everything about it is hashed off this and a slot number
+
+function glitchRand(slot) { // repeatable, and out of the spawns' way
+    return fxHash(glitchNo, slot);
+}
+
+function glitchTargets() { // the pieces it can pick on, in layout coordinates
+    var out = [
+        { x: 110, y: 135, w: 620, h: 200 }, // the title, and the Japanese line under it
+        { x: 90, y: 85, w: 420, h: 50 }, // the slogan
+        { x: 0, y: 70, w: LAYOUT_W, h: LAYOUT_H - 140 }, // and sometimes the lot, inside the banners
+    ];
+    ["start", "break", "focus", "warp", "difficulty", "options"].forEach(function (name) {
+        var g = geom(name);
+        if (g) {
+            out.push({ x: LAYOUT_W / 2 + g.dx - 6, y: LAYOUT_H / 2 + g.dy - 6, w: g.w + 12, h: g.h + 12 });
+        }
+    });
+    if (recordsLine()) {
+        out.push(startLayout() == "classic" ? { x: 230, y: 552, w: 400, h: 34 } : { x: 180, y: 660, w: 440, h: 44 });
+    }
+    return out;
+}
+
+function glitchShove(x, y, w, h, dx) { // slide a band sideways, and leave white where it was
+    x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h); dx = Math.round(dx);
+    if (w <= 0 || h <= 0 || dx == 0) {
+        return;
+    }
+    ctx.drawImage(gameArea.canvas, x, y, w, h, x + dx, y, w, h);
+    ctx.fillStyle = "#ffffff"; // the strip the band left behind, in the screen's own white
+    ctx.fillRect(dx > 0 ? x : x + w + dx, y, Math.abs(dx), h);
+}
+
+function glitchTear(r, s) { // the piece comes apart in bands, each sliding its own way
+    var bands = Math.max(2, Math.min(14, Math.round(r.h / Math.max(3, GLITCH_BAND * s))));
+    var bh = r.h / bands;
+    for (var i = 0; i < bands; i++) {
+        if (glitchRand(10 + i * 2) < 0.3) {
+            continue; // not every band moves, or it reads as a wobble rather than a break
+        }
+        glitchShove(r.x, r.y + i * bh, r.w, bh, (glitchRand(11 + i * 2) - 0.5) * 2 * GLITCH_SHOVE * s);
+    }
+}
+
+function glitchGhost(r, s) { // a second copy pulls out sideways, tinted: the two colours the screen already wears
+    var dx = Math.round((glitchRand(40) < 0.5 ? -1 : 1) * (3 + glitchRand(41) * 7) * s);
+    var x = Math.round(r.x), y = Math.round(r.y), w = Math.round(r.w), h = Math.round(r.h);
+    if (w <= 0 || h <= 0 || dx == 0) {
+        return;
+    }
+    ctx.globalAlpha = 0.45;
+    ctx.drawImage(gameArea.canvas, x, y, w, h, x + dx, y, w, h);
+    ctx.globalAlpha = 0.22; // tinted in bands rather than as one flat box, so it reads as colour noise
+    ctx.fillStyle = dx < 0 ? "#00FFFF" : "#ff00ff";
+    for (var i = 0; i < 4; i++) {
+        var bh = Math.min(h, Math.round(GLITCH_BAND * s * (0.3 + glitchRand(42 + i * 2) * 0.7)));
+        ctx.fillRect(x + dx, Math.round(y + glitchRand(43 + i * 2) * Math.max(0, h - bh)), w, bh);
+    }
+    ctx.globalAlpha = 1;
+}
+
+function glitchCrush(r, s) { // one band squashed into a shorter one, with white under it: a dropped scanline run
+    var bh = Math.max(6, Math.min(r.h, GLITCH_BAND * s * (1.5 + glitchRand(50) * 1.5)));
+    var by = Math.round(r.y + glitchRand(51) * Math.max(0, r.h - bh));
+    var x = Math.round(r.x), w = Math.round(r.w);
+    bh = Math.round(bh);
+    var nh = Math.max(2, Math.round(bh * (0.35 + glitchRand(52) * 0.4)));
+    if (w <= 0 || bh <= 0) {
+        return;
+    }
+    ctx.drawImage(gameArea.canvas, x, by, w, bh, x, by, w, nh);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x, by + nh, w, bh - nh);
+}
+
+function menuGlitch(force) { // break a piece of the start screen for a moment
+    if (gameStart || optionsOpen || fxLook() != "full") {
+        return; // not the start screen, or the player asked for less motion: this is the noisiest thing on it
+    }
+    glitchNo++; // every roll, fired or not, so two in a row are never the same damage
+    if (force === undefined && glitchRand(1) > GLITCH_CHANCE) { // kind 0 is a kind, not an absence of one
+        return;
+    }
+    var f = layoutFrame();
+    if (!(f.scale > 0)) {
+        return; // a window with no size to speak of: nothing to copy from
+    }
+    drawStartScreen(); // clean first, so a clear that ran late can never let two of them pile up
+    var targets = glitchTargets();
+    var t = targets[Math.floor(glitchRand(2) * targets.length)];
+    var r = { x: f.x + f.scale * t.x, y: f.y + f.scale * t.y, w: f.scale * t.w, h: f.scale * t.h };
+    ctx.save();
+    useWindow(); // a self-copy is in canvas pixels, whatever the layout was drawn at
+    var kind = force === undefined ? Math.floor(glitchRand(3) * 3) : force;
+    if (kind == 0) {
+        glitchTear(r, f.scale);
+    } else if (kind == 1) {
+        glitchGhost(r, f.scale);
+    } else {
+        glitchCrush(r, f.scale);
+    }
+    ctx.restore();
+    if (glitchClear) {
+        clearTimeout(glitchClear);
+    }
+    glitchClear = setTimeout(function () { // whatever it broke, the next clean draw puts back
+        glitchClear = null;
+        if (!gameStart) {
+            drawStartScreen();
+        }
+    }, GLITCH_HOLD);
 }
 
 function onLoad() {
@@ -735,25 +963,27 @@ function drawRecords() { // low on the start screen, under the start button; not
     ctx.globalAlpha = 1.0;
     ctx.font = (classic ? "24px" : "30px") + " Arial";
     ctx.fillStyle = "#ff00ff"; // 3.14:1 on the screen's white, and the colour the title and slogan already use
-    ctx.fillText(line, classic ? 240 : 190, classic ? 545 : 600);
+    ctx.fillText(line, classic ? 240 : 190, classic ? 575 : 690); // under the difficulty button, whose best it is
 }
 
-function drawSettingButtons() { // the OPTIONS button on the start screen, which opens the settings screen
+function drawSettingButtons() { // the start screen's two menu buttons: the run's difficulty, and the settings
     var classic = startLayout() == "classic";
-    var g = geom("options");
-    if (!g) {
-        return;
-    }
-    var x = LAYOUT_W / 2 + g.dx, y = LAYOUT_H / 2 + g.dy;
     ctx.globalAlpha = 1.0;
     ctx.textAlign = "center";
-    ctx.font = (classic ? "22px" : "34px") + " Arial";
-    ctx.fillStyle = "#00FFFF";
-    ctx.fillRect(x, y, g.w, g.h);
-    ctx.fillStyle = "black";
-    ctx.fillRect(x + 2, y + 2, g.w - 4, g.h - 4);
-    ctx.fillStyle = "#ff00ff";
-    ctx.fillText("OPTIONS 設定", x + g.w / 2, y + g.h / 2 + (classic ? 8 : 12), g.w - 16);
+    [["difficulty", mode().label], ["options", "OPTIONS 設定"]].forEach(function (b) {
+        var g = geom(b[0]);
+        if (!g) {
+            return;
+        }
+        var x = LAYOUT_W / 2 + g.dx, y = LAYOUT_H / 2 + g.dy;
+        ctx.font = (classic ? "22px" : "34px") + " Arial";
+        ctx.fillStyle = "#00FFFF";
+        ctx.fillRect(x, y, g.w, g.h);
+        ctx.fillStyle = "black";
+        ctx.fillRect(x + 2, y + 2, g.w - 4, g.h - 4);
+        ctx.fillStyle = "#ff00ff";
+        ctx.fillText(b[1], x + g.w / 2, y + g.h / 2 + (classic ? 8 : 12), g.w - 16);
+    });
     ctx.textAlign = "start"; // the rest of the screen draws left-aligned
 }
 
@@ -841,7 +1071,7 @@ function drawBigStartButtons() { // the start screen's START and control buttons
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = "black";
     ctx.font = "28px Arial";
-    ctx.fillText("Drag anywhere to steer", 190, 540);
+    ctx.fillText("Drag anywhere to steer", 190, 640);
 }
 
 function startGame(e) {
@@ -850,12 +1080,14 @@ function startGame(e) {
         loadAudio();
         playSound(aud_click);
         startTime = Date.now();
+        startRunRations(); // the difficulty is locked in from here: its button only lives on the start screen
         var size = pieceSize();
         gamePiece = new component(size, size, gamePieceColor, e.pageX - size / 2, e.pageY - size / 2); // centered on the cursor
     }
     gameArea.start();
     gameStart = true;
     alive = true;
+    startLevelRations(); // a level gets its powers back, whether it was cleared or died on
     levelStart = Date.now(); // the split clock; startTime keeps running across the whole run
     levelBeat = 0;
     reachedLevel(level);
@@ -912,6 +1144,7 @@ function restartRun() { // after the finish screen, start a fresh run from level
     perfectClear = 0; // the hitbox shrink is earned again each run
     score = 0;
     grazeClear();
+    startRunRations();
     scoreLimitReached = false;
     startTime = Date.now();
     setPieceSize(pieceSize());
@@ -950,7 +1183,7 @@ function showSplit() { // the level's time under the message, and what it was be
     if (levelBeat <= 0) {
         return; // nothing timed: a level that was never played can't have a split
     }
-    var best = records.level[level - 1]; // recordLevel has already taken it, and level has already moved on
+    var best = rec().level[level - 1]; // recordLevel has already taken it, and level has already moved on
     ctx.font = "30px Arial";
     ctx.fillStyle = levelRecord ? "#48D1CC" : "black";
     centerText(splitText(levelBeat) + (levelRecord ? "   NEW BEST" : "   best " + splitText(best)),
@@ -998,6 +1231,7 @@ function gameOver() { // the level was cleared or the player died
     var levelCleared = score >= scoreLimit || scoreLimitReached;
     scoreLimitReached = false;
     var shattering = false;
+    lifeSpent = false;
     if (!levelCleared) { // before the clear and before the obstacles go: the shatter needs the frame and what was hit.
         // If it starts, it plays over the held frame and draws the message itself when it finishes
         var died = score;
@@ -1024,8 +1258,8 @@ function gameOver() { // the level was cleared or the player died
             }
             ctx.font = "30px Arial";
             ctx.fillStyle = runBest ? "#48D1CC" : "black";
-            centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(records.run)
-                + "   " + mistakes(records.runDeaths), 45);
+            centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(rec().run)
+                + "   " + mistakes(rec().runDeaths), 45);
             ctx.fillStyle = "black";
             if (inputMode == "touch") {
                 ctx.font = "40px Arial";
@@ -1083,7 +1317,13 @@ function gameOver() { // the level was cleared or the player died
         fxNextStart(nextWait);
     } else { // you lose
         deaths += 1;
-        grazeClear(); // the level starts again from nothing, the graze bank with it
+        lifeSpent = runLives > 0;
+        if (lifeSpent) { // a life buys the level's progress back: the death reads as a transition, not a reset
+            runLives--;
+            grazeLevel(); // and the graze bank comes with it, as it does between levels
+        } else {
+            grazeClear(); // the level starts again from nothing, the graze bank with it
+        }
         playSound(aud_death);
         if (!shattering) { // with the shatter running, this is drawn when it finishes instead
             drawDeathMessage(score);
@@ -1091,7 +1331,9 @@ function gameOver() { // the level was cleared or the player died
         wait(2500);
     }
     useWindow();
-    score = 0;
+    if (!lifeSpent) {
+        score = 0; // a cleared level starts the next one at nothing; a life is what keeps a death from doing it
+    }
 }
 
 function drawDeathMessage(shown) { // the message after a death. Takes the score because with the shatter running it is
@@ -1112,6 +1354,11 @@ function drawDeathMessage(shown) { // the message after a death. Takes the score
     }
     if (deathSlogan) {
         centerText(deathSlogan, sloganRow);
+    }
+    if (lifeSpent) {
+        ctx.font = "30px Arial";
+        ctx.fillStyle = "#48D1CC";
+        centerText("LIFE SPENT   score kept   " + runLives + " left", msgBottom() + 80);
     }
     showMessage();
     useWindow();
@@ -1516,19 +1763,26 @@ function applyHeldSpeed() { // set speed from whatever power is still held
     if (!canAct()) {
         return;
     }
-    if (held.shift || held.lmb || held.tfocus) {
+    var want = (held.shift || held.lmb || held.tfocus) ? "focus"
+        : (held.ctrl || held.rmb || held.twarp) ? "warp" : "";
+    if (want && !powerAllowed(want)) {
+        want = ""; // rationed out: falling back to a held power still counts as starting one
+    }
+    if (want == "focus") {
         setSlowSpeed();
-    } else if (held.ctrl || held.rmb || held.twarp) {
+    } else if (want == "warp") {
         setFastSpeed();
     } else {
         resumeSpeed();
     }
 }
 
+const POWER_OF = { shift: "focus", lmb: "focus", tfocus: "focus", ctrl: "warp", rmb: "warp", twarp: "warp" };
+
 function pressPower(input, activate) { // a power key or button went down: remember it, and use it now if playing
     held[input] = true;
-    if (canAct()) {
-        activate();
+    if (canAct() && powerAllowed(POWER_OF[input])) {
+        activate(); // the pressed one wins over one already held, which is how it has always behaved
     }
 }
 
@@ -1546,7 +1800,7 @@ function keyName(e) { // the game key pressed: "p", "r", " " (space), "Shift", "
 }
 
 function tryBreak() { // Space or middle click
-    if (canAct()) {
+    if (canAct() && !invincible && powerAllowed("break")) { // a Break while one is running was never a second one
         setBreak(scorePenalty);
     }
 }
@@ -1861,6 +2115,8 @@ function onTouchEnd(e) { // touchend and touchcancel
                 optionsPress(button); // a tap on nothing here does nothing: it must not start a run
             } else if (button == "options") {
                 openOptions(true);
+            } else if (button && START_BUTTONS[button].setting) {
+                cycleSetting(START_BUTTONS[button].setting);
             } else if (button && button != "start") {
                 alert(START_BUTTONS[button].touchHelp);
             } else {
@@ -1927,6 +2183,8 @@ var gameArea = {
                 startGame({ pageX: p.x, pageY: p.y });
             } else if (button == "options") {
                 openOptions(true);
+            } else if (button && START_BUTTONS[button].setting) {
+                cycleSetting(START_BUTTONS[button].setting);
             } else if (button) { // a control button: explain it
                 alert(START_BUTTONS[button].help);
             } else if (runFinished && restartArmed) { // play again from the finish screen
@@ -2378,6 +2636,10 @@ function drawStats(color, scoreColor) { // deaths, level and score in the top-le
     ctx.fillStyle = color;
     ctx.fillText(deaths, 50, touch ? TOUCH_STAT_DEATHS : 200); // show deaths
     ctx.fillText("Level " + level, 50, touch ? TOUCH_STAT_LEVEL : 300); // show level
+    var rationed = runStatusText(); // beside the level, and only when the difficulty is rationing something
+    if (rationed) {
+        ctx.fillText(rationed, 250, touch ? TOUCH_STAT_LEVEL : 300);
+    }
     ctx.font = "40px Arial"; // the score is drawn at full size in both layouts
     fxDrawMilestone(50, 100); // the hundreds, behind the number and in the same place, so nothing moves
     ctx.fillStyle = scoreColor || color;

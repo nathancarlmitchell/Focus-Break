@@ -22,20 +22,25 @@ DONE
 		fitted to the band they actually fill instead of to the 1280x800 frame, so a phone stops
 		showing them at half the size it has room for. Every line is centred for real
 	Mobile frame rate: draw once a frame rather than once a step, and bake the reduced-motion glow
+	Difficulty, picked on the start screen because it defines a run rather than configures one. Four,
+		on two levers: EASY has three lives, NORMAL is the game as it was, HARD rations power
+		activations to three a level, TRUE gives none at all. Holding a power is free; starting one
+		costs, including a fallback onto one still held. The HUD says what is being rationed
+	Lives: a death spends one and keeps the level's score and the graze bank, so it reads as a level
+		transition rather than a reset. Out of lives, a death wipes the score as it always did
+	Menu glitches: a piece of the start screen tears, ghosts or gets crushed for a moment, then is
+		drawn clean. Picks its victim from the title, the slogan, any button, the records line or the
+		whole screen. Full effects only - a glitching menu is what reduced motion is asking you not
+		to do, so the Effects setting turns it off
 	Records: best run time and what it cost, a best split for each level, and the furthest level
-		reached for a run that never finishes. On the start screen, on every cleared-level screen,
+		reached for a run that never finishes. Kept per difficulty, or EASY would set times TRUE
+		could never beat. On the start screen, on every cleared-level screen,
 		and on the finish screen. Kept beside the settings in localStorage, and nothing is drawn
 		until there is something to draw
 
 GAMEPLAY STILL TO DO
 	Level 10: add a bonus to the total score; slowly increase spawns as the level goes on
 	Break could destroy all obstacles, or just those near the square
-	Lives
-	Difficulty modes. Nothing in the code knows about difficulty yet
-		easy - 3 lives, default
-		normal - default
-		hard - 3 powers per level
-		true - no powers
 	Other difficulty elements: forced hyperspeed, limited ability uses, some hard-mode only
 	Increase difficulty on later levels, specifically 14 and 15. 9 and 13 were both harder
 		(but maybe that was just me improving)
@@ -54,7 +59,10 @@ IDEAS, NOT YET PICKED UP
 	Seeded runs. The simulation is deterministic: the test harness replaces Math.random with a seeded
 		one and gets the same spawns, the same score and the same obstacle positions every time. So a
 		run can be named by a seed - a daily one, or a code handed to someone else so they fly the
-		same fifteen levels. With the records above that is a leaderboard shape and no server
+		same fifteen levels. With the records above that is a leaderboard shape and no server.
+		One thing it has to do: seed at the start of the RUN, not at page load. The start screen's
+		flashers pull from Math.random on a timer, so a menu that sat for a second has burned about
+		55 draws more than one that did not, and the level spawns come out different. Measured
 	Endless past 15. SPAWN_RULES is a data table and its `from: 15` rules already have no `to`, so
 		they would keep applying. A mode that runs past 15 with `every` tightening as the level
 		climbs is a small change to something already table-driven, and gives the records somewhere
@@ -98,5 +106,10 @@ NOTES ON WHAT IS BUILT
 		Holding and Breaking came out level, which is why neither felt like a decision: spending was
 		never worse, so the only strategy was hold until forced. The burn is deliberately the worst
 		of the three in raw progress. You are buying safety and paying a premium for it
+	Anything on the start screen that runs on a timer must not touch Math.random - it is the stream
+		the spawns come from, and how many draws it takes before a run starts then depends on how
+		long the menu sat there. The title flasher already does this and burns a few dozen; the menu
+		glitches nearly burned a thousand a second before they were moved onto fxHash. The test
+		harnesses re-seed at the start of the run for the same reason
 	Effects off is the big performance lever on a phone: 60fps at 4x CPU throttle and 45 at 8x,
 		against 41 and 19 on full
