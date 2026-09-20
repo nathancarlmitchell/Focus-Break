@@ -90,9 +90,10 @@ var optionsOpen = false; // the settings screen is up in place of the start scre
 // the settings screen's own buttons. One layout for both mouse and touch: it is a menu of its own, with room to be
 // read either way, so there is nothing for the start screen's two layouts to disagree about
 const OPTION_BUTTONS = {
-    options_effects: { dx: -300, dy: -130, w: 600, h: 86, setting: "options" },
-    options_steering: { dx: -300, dy: -24, w: 600, h: 86, setting: "steering" },
-    options_back: { dx: -170, dy: 110, w: 340, h: 76, back: true, label: "BACK" },
+    options_effects: { dx: -300, dy: -136, w: 600, h: 78, setting: "options" },
+    options_steering: { dx: -300, dy: -48, w: 600, h: 78, setting: "steering" },
+    options_buttons: { dx: -300, dy: 40, w: 600, h: 78, setting: "buttons" },
+    options_back: { dx: -170, dy: 190, w: 340, h: 70, back: true, label: "BACK" },
 };
 
 function buttonTable() { // whichever screen's buttons are live
@@ -106,6 +107,7 @@ function buttonDef(name) { // a live button's definition, for the things that on
 const FX_MODES = ["auto", "full", "reduced", "off"]; // what the effects button cycles through
 const FX_MODE_LABELS = { auto: "Auto", full: "Full", reduced: "Reduced", off: "Off" };
 const TOUCH_GAINS = [0.75, 1, 1.25, 1.5, 2]; // px the square moves per px of finger; 1.25 is what it always was
+const TOUCH_SIDES = ["right", "left"]; // the edge the power buttons sit against, for the hand that holds the phone
 
 function fxModeLabel() { // what the effects button reads: for "auto", also what the device is asking for
     var name = FX_MODE_LABELS[fxMode] || fxMode;
@@ -129,6 +131,14 @@ const SETTINGS = {
         },
         pick: function (v) { return TOUCH_GAINS.indexOf(parseFloat(v)) >= 0 ? parseFloat(v) : undefined; },
         apply: function (v) { TOUCH_GAIN = v; } },
+    buttons: { store: "focusbreak.buttons",
+        read: function () { return "BUTTONS: " + TOUCH_SIDE.toUpperCase(); },
+        next: function () {
+            TOUCH_SIDE = TOUCH_SIDES[(TOUCH_SIDES.indexOf(TOUCH_SIDE) + 1) % TOUCH_SIDES.length];
+            return TOUCH_SIDE;
+        },
+        pick: function (v) { return TOUCH_SIDES.indexOf(v) >= 0 ? v : undefined; },
+        apply: function (v) { TOUCH_SIDE = v; } },
 };
 
 function loadSettings() { // whatever was chosen last time, if the browser will tell us
@@ -273,7 +283,8 @@ function useWindow() { // draw in window pixels (gameplay, banners)
 // nearly full size. A screen that only fills a band says how big that band is and gets that fitted instead. The cap is
 // what fitting the whole frame would have given, so a window with room to spare is left exactly as it was.
 var SCREEN_MARGIN = 0.075; // of the window kept clear around a band, so it never runs into the edges
-var BANNER_REACH = 66; // how far in from each edge the stripes on a laid-out screen come, in layout pixels
+var BANNER_REACH = 72; // how far in from each edge the stripes on a laid-out screen come (66), plus a little air:
+                       // the fit always fills the room it is given, so a band that just cleared them looked stuck to them
 
 function bandRoom() { // the width and height a band has, once the margins and the banner stripes are kept clear
     return { w: gameArea.canvas.width * (1 - 2 * SCREEN_MARGIN),
@@ -298,7 +309,7 @@ function useBand(band) { // layout coordinates again, with that band fitted in p
 }
 
 // the bands each of them fills, measured rather than guessed: the settings screen and the two pause panels
-const OPTIONS_BAND = { w: 656, h: 472, dy: -10 };
+const OPTIONS_BAND = { w: 600, h: 540, dy: 24 };
 const PAUSE_BAND = { w: 440, h: 160, dy: 10 };
 const TOUCH_PAUSE_BAND = { w: 560, h: 240, dy: 0 };
 
@@ -663,13 +674,14 @@ function drawOptionsScreen() { // the settings, on a screen of their own
         ctx.fillRect(bx + 2, by + 2, b.w - 4, b.h - 4);
         ctx.fillStyle = "#ff00ff";
         ctx.font = (b.back ? "36px" : "30px") + " Arial";
-        ctx.fillText(b.back ? b.label : SETTINGS[b.setting].read(), bx + b.w / 2, by + b.h / 2 + 11, b.w - 20);
+        ctx.fillText(b.back ? b.label : SETTINGS[b.setting].read(), bx + b.w / 2, by + b.h / 2 + 10, b.w - 20);
     }
 
-    ctx.font = "20px Arial"; // steering only does anything under a finger, and the menu is where you would look for it
+    ctx.font = "20px Arial"; // neither touch setting does anything under a mouse, and the menu is where you look
     ctx.fillStyle = "black";
-    ctx.fillText("Steering is how far the square moves per pixel of finger, on a touch screen", cx, cy + 88);
-    ctx.fillText(inputMode == "touch" ? "Tap BACK to return" : "Click BACK, or press Escape, to return", cx, cy + 222);
+    ctx.fillText("Steering: how far the square moves per pixel of finger", cx, cy + 142);
+    ctx.fillText("Buttons: which side they sit on. Both are touch only", cx, cy + 166);
+    ctx.fillText(inputMode == "touch" ? "Tap BACK to return" : "Click BACK, or press Escape, to return", cx, cy + 290);
     ctx.textAlign = "start";
 
     useWindow(); // the same stripes the start screen wears, so this reads as part of it
@@ -762,6 +774,10 @@ function startTouchGame() { // start from a tap: the square starts at the left m
         }
     });
     var startX = gameArea.canvas.width * 0.25;
+    var tb = touchButtons();
+    if (tb.side == "left") { // that quarter is where the buttons are now: start clear of them, no further
+        startX = Math.max(startX, tb.box.right + 40);
+    }
     var startY = gameArea.canvas.height * 0.5;
     startGame({ pageX: startX, pageY: startY });
     gameArea.x = startX; // the steering target starts on the square
@@ -782,6 +798,7 @@ function restartRun() { // after the finish screen, start a fresh run from level
     deaths = 0;
     perfectClear = 0; // the hitbox shrink is earned again each run
     score = 0;
+    grazeClear();
     scoreLimitReached = false;
     startTime = Date.now();
     setPieceSize(pieceSize());
@@ -923,6 +940,7 @@ function gameOver() { // the level was cleared or the player died
         fxNextStart(nextWait);
     } else { // you lose
         deaths += 1;
+        grazeClear(); // the level starts again from nothing, the graze bank with it
         playSound(aud_death);
         if (!shattering) { // with the shatter running, this is drawn when it finishes instead
             drawDeathMessage(score);
@@ -1028,13 +1046,18 @@ function grazeDrop() { // no pass in progress: the next thing along a side start
     }
 }
 
-function grazeClear() { // a level, a death or a restart: nothing banked carries over, as nothing else does
-    graze.charges = 0;
-    graze.fill = 0;
-    graze.lit = GRAZE_LIT;
+function grazeLevel() { // a level begins: no pass is in progress and the fraction of a point doesn't carry, but
+    // the charges do. They were earned by flying tight and the next level is where they are worth spending
     graze.free = false;
     scoreBank = 0;
     grazeDrop();
+}
+
+function grazeClear() { // a death or a fresh run: the bank goes the same way the score does
+    graze.charges = 0;
+    graze.fill = 0;
+    graze.lit = GRAZE_LIT;
+    grazeLevel();
 }
 
 function grazeRate() { // what the banked charges are worth: the multiplier on the score for staying alive
@@ -1178,6 +1201,7 @@ var inputMode = (window.matchMedia && window.matchMedia("(pointer: coarse)").mat
 var lastTouchTime = 0; // when the last touch event arrived; mouse events a browser makes up after a touch are ignored
 var activeTouches = 0; // fingers down
 var TOUCH_GAIN = 1.25; // touch steering: the square moves 1.25px for each px the steering finger moves
+var TOUCH_SIDE = "right"; // which edge the power buttons and the pause icon sit against: where they always were
 var touch = { steerId: null, lastX: 0, lastY: 0, roles: {}, order: 0 }; // what each finger is doing, and which one steers
 var resumeTimer = null; // the 3-2-1 countdown after a touch resume
 var pauseNo = 0; // counts pauses (and cut-short countdowns): a finger lifted during the pause it came down in resumes
@@ -1411,12 +1435,21 @@ function touchButtons() { // the on-screen power buttons for touch play, in wind
         brk = { x: focus.x, y: focus.y - big - gap - small, r: small };
         warp = { x: focus.x, y: brk.y - small - gap - small, r: small };
     }
+    var tb = { tfocus: focus, twarp: warp, "break": brk, side: TOUCH_SIDE,
+        pause: { x: W - 12 - 48, y: 12, w: 48, h: 48 } };
+    if (TOUCH_SIDE == "left") { // laid out against the right edge as it always was, then mirrored whole, so the
+        [focus, warp, brk].forEach(function (c) { c.x = W - c.x; }); // two hands get the same reach and spacing
+        tb.pause.x = W - tb.pause.x - tb.pause.w;
+    }
     var pad = 14;
-    return {
-        tfocus: focus, twarp: warp, "break": brk,
-        pause: { x: W - 12 - 48, y: 12, w: 48, h: 48 },
-        box: { left: Math.min(focus.x - focus.r, brk.x - brk.r, warp.x - warp.r) - pad, top: Math.min(warp.y - warp.r, brk.y - brk.r) - pad },
+    // the cluster's footprint, which everything else keeps out of: the level name, the grid's gutter, a graze
+    // blade, and the quick reject in touchButtonAt. It runs to the bottom of the window on whichever side it is
+    tb.box = {
+        left: TOUCH_SIDE == "left" ? 0 : Math.min(focus.x - focus.r, brk.x - brk.r, warp.x - warp.r) - pad,
+        right: TOUCH_SIDE == "left" ? Math.max(focus.x + focus.r, brk.x + brk.r, warp.x + warp.r) + pad : W,
+        top: Math.min(warp.y - warp.r, brk.y - brk.r, focus.y - focus.r) - pad,
     };
+    return tb;
 }
 
 function touchButtonAt(px, py) { // "tfocus", "twarp", "break", "pause" or "" for a touch at a window point
@@ -1425,7 +1458,7 @@ function touchButtonAt(px, py) { // "tfocus", "twarp", "break", "pause" or "" fo
     if (px >= p.x && px <= p.x + p.w && py >= p.y && py <= p.y + p.h) {
         return "pause";
     }
-    if (px < tb.box.left || py < tb.box.top) {
+    if (px < tb.box.left || px > tb.box.right || py < tb.box.top) {
         return "";
     }
     var best = "";
@@ -1843,7 +1876,7 @@ var gameArea = {
         this.canvas.style.cursor = "none"; // hide the original cursor
         this.frameNo = 0;
         this.spawnClock = 0; // game time for spawning, advanced by the game speed each step
-        grazeClear(); // charges are earned inside a level and don't carry, the same as the score
+        grazeLevel(); // the charges carry into it; the pass in progress and the part point don't
         fxReset(); // no fade, trail or echo carried into the level
         this.stop(); // never run two loops
         this.running = true;
@@ -2095,21 +2128,27 @@ function drawLevelName() { // level name in the bottom-left corner (level 13 als
     }
     var s = hudScale(); // shrunk with the HUD, baseline kept just above the bottom banner
     ctx.setTransform(s, 0, 0, s, 0, gameArea.canvas.height - 60);
-    var maxWidth;
-    if (inputMode == "touch") { // stop short of the power buttons
-        maxWidth = (touchButtons().box.left - 12) / s - 80;
+    var nameX = 80, maxWidth;
+    if (inputMode == "touch") { // the name shares the bottom of the screen with the power buttons
+        var tb = touchButtons();
+        if (tb.side == "left") { // they are in its corner: start clear of them and run to the far edge instead
+            nameX = (tb.box.right + 12) / s;
+            maxWidth = (gameArea.canvas.width - 12) / s - nameX;
+        } else {
+            maxWidth = (tb.box.left - 12) / s - nameX; // stop short of them
+        }
         if (maxWidth <= 0) {
             useWindow(); // no room for it beside the buttons at all
             return;
         }
     }
     if (out > 0 && fxLook() == "full") {
-        fxDrawNameGlitch(name, 80, 0, maxWidth, out);
+        fxDrawNameGlitch(name, nameX, 0, maxWidth, out);
     } else {
         if (out > 0) { // reduced motion keeps the old smooth fade instead of tearing the name apart
             ctx.globalAlpha = 1 - out * out * (3 - 2 * out);
         }
-        fxNameText(name, 80, 0, maxWidth);
+        fxNameText(name, nameX, 0, maxWidth);
         ctx.globalAlpha = 1;
     }
     useWindow();
@@ -3142,7 +3181,12 @@ function fxDrawGrid(look) { // the world's floor: a perspective plane under ever
     var edge = Math.min(FX_GRID_EDGE_FRAC * w, FX_GRID_EDGE_STEPS * OBSTACLE_SPEEDS.hyper * speed_fast);
     var edgeL = edge, edgeR = edge;
     if (inputMode == "touch") { // and nothing under the power buttons, where a cyan line would read as button feedback
-        edgeR = Math.max(edge, w - touchButtons().box.left + FX_GRID_EDGE_PAD);
+        var tbg = touchButtons();
+        if (tbg.side == "left") {
+            edgeL = Math.max(edge, tbg.box.right + FX_GRID_EDGE_PAD);
+        } else {
+            edgeR = Math.max(edge, w - tbg.box.left + FX_GRID_EDGE_PAD);
+        }
     }
     var span = w - edgeL - edgeR;
 
@@ -3436,8 +3480,8 @@ function fxDrawMilestone(x, y) { // another hundred: the number printed like the
     ctx.restore();
 }
 
-function fxGrazeRect(x, y, w, h, bx, by) { // one band of a spark, unless it would land on the touch buttons
-    if (x + w > bx && y + h > by) {
+function fxGrazeRect(x, y, w, h, keep) { // one band of a spark, unless it would land on the touch buttons
+    if (keep && x + w > keep.left && x < keep.right && y + h > keep.top) {
         return;
     }
     ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); // whole pixels keep a 2px band crisp
@@ -3448,12 +3492,8 @@ function fxDrawGrazes(look) { // a two-band blade on each side the square just p
     var left = gamePiece.x, top = gamePiece.y;
     var right = left + gamePiece.width, bottom = top + gamePiece.height;
     var midX = (left + right) / 2, midY = (top + bottom) / 2;
-    var bx = Infinity, by = Infinity;
-    if (inputMode == "touch") { // a cyan band a few px from the cyan FOCUS button reads as button feedback, not proximity
-        var box = touchButtons().box;
-        bx = box.left;
-        by = box.top;
-    }
+    // a cyan band a few px from the cyan FOCUS button reads as button feedback, not proximity
+    var keep = inputMode == "touch" ? touchButtons().box : null;
     var fade = fxGrazeFade();
     for (var side = 0; side < 4; side++) {
         var g = fx.graze[side];
@@ -3477,9 +3517,9 @@ function fxDrawGrazes(look) { // a two-band blade on each side the square just p
             at = sign < 0 ? edge - off - th : edge + off;
             ctx.fillStyle = b == 0 ? "#ff00ff" : "#00FFFF";
             if (vertical) {
-                fxGrazeRect(at, along, th, len, bx, by);
+                fxGrazeRect(at, along, th, len, keep);
             } else {
-                fxGrazeRect(along, at, len, th, bx, by);
+                fxGrazeRect(along, at, len, th, keep);
             }
         }
     }

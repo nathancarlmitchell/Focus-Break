@@ -1,44 +1,57 @@
--sprites
--circle?
--lives
--audio [] ? set playback for all 		songs at once
--focus decreases size xx center 			over cursor
--pause 
--touch control
--indepent sizing
--difficulty:
-	easy - 3 lives, defualt
-	normal - defualt
-	hard - 3 powers per level
-	true - no powers
-- Horizontal black bars blocking visibility of vertical black bars 
-- Add a scoreboard or header at the top or to the left t move score, level, deaths, etc. to a less involved area. 
-- Increase difficulty on later levels, specifically 14 and 15. I thought 9 and 13 were both harder. (But maybe that was just me improving) 
-- Add other elements to difficulty. Forced hyperspeed, limit ability uses, etc. Possibly restricted for "hard mode"  
-- Resize screen on mouse move
+Focus Break - what's left, and what's in.
 
-- Options button: open an options page and remember the settings (cookie?)
-- Level 10: add a bonus to the total score; slowly increase spawns as the level goes on
-- Break could destroy all obstacles, or just those near the square
-- Graze system: grazes build charges (the spark already measures how close each pass was, so the number is there). Spend them on a free break, or on a score multiplier, so flying tight pays instead of only looking good. Right now a graze is purely visual and warp's double rate is the only scoring lever in the game
+DONE
+	Pause; touch play; Focus shrinks the hitbox and centres it on the cursor; one volume and one
+		playback rate drive all eleven tracks at once
+	Options: a settings screen of its own, off the start screen, remembered in localStorage.
+		Effects (auto/full/reduced/off), Steering, Buttons
+	Touch steering ratio: TOUCH_GAIN was hardcoded at 1.25; it is a setting now, 0.75x to 2x
+	Touch button side: the power buttons and the pause icon sit against the left or right edge.
+		The level name, the grid's gutter and the graze blade all follow them across
+	Scoreboard: the top stripe fills as the score walks toward the level's limit
+	Graze system: a pass banks charge for how close it was. Held charges add 25% each to the score
+		rate, a Break spends one instead of costing 250, and charges carry into the next level but
+		not past a death. Measured in the game, not the effects, because it pays
+	Visual flare: graze sparks and their particle emitters, the vaporwave horizon grid, per-level
+		palette drift, CRT scanlines and a rolling bar, powerup pickup rings, the Break shockwave,
+		the score-hundreds flourish, the level-name typewriter and its glitch-out, the big-block
+		telegraph, the death shatter, the between-levels transition
+	Mobile text: the death and between-levels messages, the settings screen and the pause panels are
+		fitted to the band they actually fill instead of to the 1280x800 frame, so a phone stops
+		showing them at half the size it has room for. Every line is centred for real
+	Mobile frame rate: draw once a frame rather than once a step, and bake the reduced-motion glow
 
-- Visual flare:
-	Graze sparks: flash on the side of the square when it clears an obstacle by a few px, brighter the closer the pass. The whole game is threading gaps and right now 1px and 40px look the same
-	Score progress in the top banner: fill the existing top stripe as the score walks toward 1000 (also covers the scoreboard/header idea above)
-	Death shatter: freeze the frame, ring the obstacle that got you, burst the square into outlined fragments. Right now death cuts straight to red text
-	Vaporwave horizon grid: pale perspective grid scrolling behind everything; tilts and speeds up in WARP, slows and deepens in FOCUS
-	Per level palette drift: background follows the level names, white -> pale cyan -> pale violet (obstacles are black and red, so it cannot go dark without recoloring them)
-	CRT scanlines and an occasional rolling bar
-	Powerup pickup: expanding gold ring instead of a silent vanish
-	Break activation: shockwave ring out from the square
-	Score milestones: print the HUD number with the title's stacked shadow effect every 100
-	Level name: type it in a character at a time, English then Japanese
-	Particle emitters for the graze effect: the spark throws 3 fixed dashes at the contact point right now. Real particles would need their own pool (no per step allocation), fxHash instead of Math.random, and streaks rather than filled squares, since a filled square means powerup
-	Telegraph the big blocks: a tick at the right edge before a 1/8 or 1/4 screen block enters
-	Effects toggle (full / reduced / off) as the first real thing the Options button does
-	All of these follow the fx house rules: no red or black, no filled squares, no Math.random, reduced motion aware
+GAMEPLAY STILL TO DO
+	Level 10: add a bonus to the total score; slowly increase spawns as the level goes on
+	Break could destroy all obstacles, or just those near the square
+	Lives
+	Difficulty modes. Nothing in the code knows about difficulty yet
+		easy - 3 lives, default
+		normal - default
+		hard - 3 powers per level
+		true - no powers
+	Other difficulty elements: forced hyperspeed, limited ability uses, some hard-mode only
+	Increase difficulty on later levels, specifically 14 and 15. 9 and 13 were both harder
+		(but maybe that was just me improving)
+	Horizontal black bars blocking visibility of vertical black bars
 
-- Mobile and instructions:
-	Touch input control ratio: TOUCH_GAIN is hardcoded at 1.25 (the square moves 1.25px per px of finger). Make it adjustable, and remember it with the rest of the options
-	Level text and death text on mobile: the level name rides hudScale() and stops short of the power buttons, but the death and between levels messages are laid out for a 1280x800 screen and just scaled down, so on a phone they are cramped and off centre. Size and place them for the small screen instead
-	Add instructions: the only explanation today is an alert() when you tap a control button on the start screen, plus the DRAG ANYWHERE TO STEER hint in the first two seconds of a touch run. Wants a real instructions screen, reachable from the start screen and from pause
+PRESENTATION STILL TO DO
+	Instructions: the only explanation today is an alert() when you tap a control button on the start
+		screen, plus the DRAG ANYWHERE TO STEER hint in the first two seconds of a touch run. Wants a
+		real instructions screen, reachable from the start screen and from pause
+	Sprites
+	Circle?
+	Independent sizing - what did this mean?
+	Resize screen on mouse move - what did this mean?
+
+NOTES ON WHAT IS BUILT
+	The effects follow house rules: no red or black, no filled squares, no Math.random (fxHash
+		instead), reduced-motion aware, and they read the game without ever changing it. The CRT is
+		the deliberate exception: it is a tube over the whole picture, so it uses black and draws
+		above the obstacles. The numbers that make that safe are in the file
+	Palette drift can move sideways but not down. Red on white is only 3.998:1 and the floor is 3:1,
+		so going dark for Afterlife needs the obstacles recoloured first - its own job, not a tuning
+		pass. SPAWN_RULES hardcodes black and red in nine places
+	The level-name typewriter is English only. The Japanese second line was specced and not built
+	Effects off is the big performance lever on a phone: 60fps at 4x CPU throttle and 45 at 8x,
+		against 41 and 19 on full
