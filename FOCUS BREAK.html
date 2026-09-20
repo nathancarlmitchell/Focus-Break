@@ -86,10 +86,14 @@ const START_BUTTONS = {
     // and the settings, which open a screen of their own
     difficulty: { dx: -410, dy: 85, w: 220, h: 40, setting: "difficulty",
         touch: { dx: -450, dy: 110, w: 400, h: 90 } },
-    options: { dx: 0, dy: 272, w: 256, h: 40, menu: "options",
+    options: { dx: -128, dy: 272, w: 256, h: 40, menu: "options",
         touch: { dx: 60, dy: 240, w: 200, h: 90 } },
-    help: { dx: 276, dy: 272, w: 256, h: 40, menu: "help",
+    help: { dx: 148, dy: 272, w: 256, h: 40, menu: "help",
         touch: { dx: 280, dy: 240, w: 200, h: 90 } },
+    // the 2019 build, still in the repo under CLASSIC EDITION. It leaves this page rather than running inside
+    // it, so it gets a corner of its own on touch, where the row of three below has no room for a fourth
+    classic: { dx: -404, dy: 272, w: 256, h: 40, launch: true,
+        touch: { dx: 60, dy: -318, w: 420, h: 84 } },
 };
 
 var menuScreen = ""; // which menu screen is up: "" for none, "options" for the settings, "help" for the
@@ -419,7 +423,7 @@ function glitchTargets() { // the pieces it can pick on, in layout coordinates
         { x: 90, y: 85, w: 420, h: 50 }, // the slogan
         { x: 0, y: 70, w: LAYOUT_W, h: LAYOUT_H - 140 }, // and sometimes the lot, inside the banners
     ];
-    ["start", "break", "focus", "warp", "difficulty", "options"].forEach(function (name) {
+    ["start", "break", "focus", "warp", "difficulty", "options", "help", "classic"].forEach(function (name) {
         var g = geom(name);
         if (g) {
             out.push({ x: LAYOUT_W / 2 + g.dx - 6, y: LAYOUT_H / 2 + g.dy - 6, w: g.w + 12, h: g.h + 12 });
@@ -1010,7 +1014,8 @@ function drawSettingButtons() { // the start screen's two menu buttons: the run'
     var classic = startLayout() == "classic";
     ctx.globalAlpha = 1.0;
     ctx.textAlign = "center";
-    [["difficulty", mode().label], ["options", "OPTIONS 設定"], ["help", "HELP 説明"]].forEach(function (b) {
+    [["difficulty", mode().label], ["options", "OPTIONS 設定"], ["help", "HELP 説明"],
+        ["classic", "CLASSIC 旧版"]].forEach(function (b) {
         var g = geom(b[0]);
         if (!g) {
             return;
@@ -1175,6 +1180,21 @@ function helpPress(name) { // a press on the instructions: turn the page, or lea
         helpPage = (helpPage + 1) % 2;
         drawHelpScreen();
     }
+}
+
+// The 2019 build lives beside this file, in the repo and in anything this is published to. A space and a bang
+// both need escaping in a URL; the rest of the path is literal.
+var CLASSIC_URL = "CLASSIC%20EDITION/Focus%20Break!.html";
+
+function launchClassic() { // a new tab if the browser will give us one, so this game is still here to come back
+    playSound(aud_click); // to. Embedded in a frame that refuses, there is nowhere to put it but here
+    try {
+        if (window.open(CLASSIC_URL, "_blank")) {
+            return;
+        }
+    } catch (e) { // a sandboxed frame can throw rather than hand back null
+    }
+    window.location.href = CLASSIC_URL;
 }
 
 function openMenu(name) { // put a menu screen up, over the start screen or over a level that is paused
@@ -2285,6 +2305,8 @@ function onTouchEnd(e) { // touchend and touchcancel
                 // this tap switched the start screen to the touch layout; it only shows it
             } else if (START_BUTTONS[button] && START_BUTTONS[button].menu) {
                 openMenu(START_BUTTONS[button].menu);
+            } else if (button && START_BUTTONS[button].launch) {
+                launchClassic();
             } else if (button && START_BUTTONS[button].setting) {
                 cycleSetting(START_BUTTONS[button].setting);
             } else if (button && button != "start") {
@@ -2353,6 +2375,8 @@ var gameArea = {
                 startGame({ pageX: p.x, pageY: p.y });
             } else if (button && START_BUTTONS[button].menu) {
                 openMenu(START_BUTTONS[button].menu);
+            } else if (button && START_BUTTONS[button].launch) {
+                launchClassic();
             } else if (button && START_BUTTONS[button].setting) {
                 cycleSetting(START_BUTTONS[button].setting);
             } else if (button) { // a control button: explain it

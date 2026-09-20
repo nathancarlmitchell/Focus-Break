@@ -34,6 +34,11 @@ DONE
 		siren's 0.3 rather than muting it, back up when the level starts. The only thing a pause
 		still does to the audio is put the playback rate back to 1, since a track left pitched down
 		by Focus or up by Warp would drone at that speed for the whole pause
+	CLASSIC button on the start screen, launching the 2019 build that has been sitting in the repo
+		under CLASSIC EDITION all along. A new tab where the browser allows one, this tab where it
+		does not, which is what an embedded frame usually means. It leaves this page rather than
+		running inside it, so on touch it gets the free top right corner rather than a fourth seat in
+		the menu row
 	Instructions: two pages, CONTROLS and SCORING, off a HELP button on the start screen and out of a
 		pause - H on a keyboard, a button on the touch pause panel. The wording follows the input
 		mode and the button-side setting, so it says what this player actually has. One page would
