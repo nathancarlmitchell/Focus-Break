@@ -753,10 +753,53 @@ function startNextLevel() {
     setMusicVolume(musicVolume);
 }
 
-function centerText(text, dx, dy, passes) { // a message at an offset from the layout center; passes > 1 repeats it 1px apart for a bold look
-    for (let i = 0; i < (passes || 1); i++) {
-        ctx.fillText(text, LAYOUT_W / 2 + dx + i, LAYOUT_H / 2 + dy + i);
+// The death and between-levels messages used to be laid out inside the same 1280x800 frame as the start screen and
+// scaled with it. A phone therefore had to fit 800px of height the messages never use -- they only ever fill a band
+// about 865 by 337 in the middle of that frame -- and showed them at 0.487 when there was room for nearly full size.
+// The lines were centred by eye too, which left the finish screen sitting 134px to the left of the middle.
+// A message is now collected line by line, measured, and drawn as one block: every line truly centred, the block
+// centred on the screen, and the whole thing scaled to fill it -- but never past the scale the whole-layout fit would
+// have given it, so a window with room to spare shows the messages at exactly the size they have always been.
+var MSG_FILL = 0.85; // how much of the screen a block may cover; the rest is margin, and the room the banners sit in
+var msgBlock = []; // the lines queued so far, measured and drawn by showMessage
+
+function centerText(text, dy, passes) { // queue a line dy from the block's baseline, in the font and fill set now;
+    // passes > 1 repeats it 1px down and right for a bold look
+    msgBlock.push({ text: text, dy: dy, passes: passes || 1, font: ctx.font, fill: ctx.fillStyle });
+}
+
+function showMessage() { // draw the queued lines centred and as large as this screen allows, and return that scale
+    if (!msgBlock.length) {
+        return 1;
     }
+    var left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+    for (let i = 0; i < msgBlock.length; i++) {
+        var line = msgBlock[i];
+        ctx.font = line.font;
+        var m = ctx.measureText(line.text);
+        left = Math.min(left, -m.width / 2);
+        right = Math.max(right, m.width / 2 + line.passes - 1); // the bold passes reach 1px further for each repeat
+        top = Math.min(top, line.dy - m.actualBoundingBoxAscent);
+        bottom = Math.max(bottom, line.dy + m.actualBoundingBoxDescent + line.passes - 1);
+    }
+    var grown = Math.max(1, layoutFrame().scale); // a monitor bigger than the layout used to scale the messages up
+    var s = Math.min(grown, MSG_FILL * gameArea.canvas.width / (right - left), // with it, so it still does: only the
+                            MSG_FILL * gameArea.canvas.height / (bottom - top)); // screens too small for the frame move
+    var dx = -(left + right) / 2;
+    var dy = -(top + bottom) / 2; // the lines sit mostly above their baseline, so the block has to come down to the middle
+    ctx.setTransform(s, 0, 0, s, gameArea.canvas.width / 2, gameArea.canvas.height / 2);
+    ctx.textAlign = "center";
+    for (let i = 0; i < msgBlock.length; i++) {
+        var l = msgBlock[i];
+        ctx.font = l.font;
+        ctx.fillStyle = l.fill;
+        for (let p = 0; p < l.passes; p++) {
+            ctx.fillText(l.text, dx + p, l.dy + dy + p);
+        }
+    }
+    ctx.textAlign = "start"; // the rest of the game draws left-aligned text
+    msgBlock.length = 0;
+    return s;
 }
 
 function gameOver() { // the level was cleared or the player died
@@ -778,26 +821,26 @@ function gameOver() { // the level was cleared or the player died
     fxReset(); // the screen is cleared for the message: nothing of the effects carries over (die is deliberately not fx)
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
-    useLayout(); // messages are laid out for LAYOUT_W x LAYOUT_H and scaled to the window
     gameArea.canvas.style.cursor = "default";
     if (levelCleared) { // Next level
         level++;
         if (level == 16){ // true finish
-            centerText("Time: " + millisToMinutesAndSeconds(Date.now() - startTime), -350, 0);
+            centerText("Time: " + millisToMinutesAndSeconds(Date.now() - startTime), 0);
             if (deaths == 0){
-                centerText("Flawless Victory", -350, -175);
+                centerText("Flawless Victory", -175);
             } else {
-                centerText("Can you continue?", -350, -175);
-                centerText(deaths + " mistakes", -350, -87);
+                centerText("Can you continue?", -175);
+                centerText(deaths + " mistakes", -87);
             }
             ctx.fillStyle = "black";
             if (inputMode == "touch") {
                 ctx.font = "40px Arial";
-                centerText("Tap to play again", -350, 87);
+                centerText("Tap to play again", 87);
             } else {
                 ctx.font = "30px Arial";
-                centerText("Click or press R to play again", -350, 87);
+                centerText("Click or press R to play again", 87);
             }
+            showMessage();
             runFinished = true;
             finishTime = Date.now();
             restartArmed = false; // a click already in progress (e.g. held for Focus) shouldn't restart
@@ -805,16 +848,18 @@ function gameOver() { // the level was cleared or the player died
             return;
         } else if (level == 10){ // you win
             ctx.fillStyle = "Black";
-            centerText("Victory is a state of mind", -350, -175);
-            centerText("勝利は心の状態です", -275, -75);
+            centerText("Victory is a state of mind", -175);
+            centerText("勝利は心の状態です", -75);
+            showMessage();
             drawBanners(40, 20, bannerScale());
             wait(5000);
         } else if (level == 9){
             setMusicVolume(0.0);
             playSound(aud_bomb);
             ctx.font = "80px Arial";
-            centerText("WARNING 警告", -300, -175, 3);
-            centerText("多数の敵が接近する", -400, -75, 3);
+            centerText("WARNING 警告", -175, 3);
+            centerText("多数の敵が接近する", -75, 3);
+            showMessage();
             drawBanners(40, 30, bannerScale());
             wait(3500);
         } else if (deaths == 0) { // perfect clear
@@ -822,16 +867,18 @@ function gameOver() { // the level was cleared or the player died
             ctx.fillStyle = "#48D1CC";
             if (perfectClear < 7){ // decrease hitbox size
                 perfectClear++;
-                centerText("Hitbox size decreased!", -325, -75);
-                centerText("ヒットボックスを減らす!", -325, 50);
+                centerText("Hitbox size decreased!", -75);
+                centerText("ヒットボックスを減らす!", 50);
             }
-            centerText("+ Perfect 完全 +", -200, -175, 3);
+            centerText("+ Perfect 完全 +", -175, 3);
+            showMessage();
             drawBanners(40, 20, bannerScale());
             wait(3000);
         } else { // normal clear
-            centerText("Enemies Approaching", -300, -175);
-            centerText("非常に大きな敵に接近する危険!", -425, -50);
-            centerText("慎重に進んでください!", -300, 25);
+            centerText("Enemies Approaching", -175);
+            centerText("非常に大きな敵に接近する危険!", -50);
+            centerText("慎重に進んでください!", 25);
+            showMessage();
             wait(3000);
         }
         useWindow(); // the message is down: hold it and play the transition under and over it
@@ -852,20 +899,22 @@ function drawDeathMessage(shown) { // the message after a death. Takes the score
     // drawn after gameOver has already reset it
     ctx.font = "60px Arial";
     ctx.fillStyle = "red";
-    useLayout();
-    centerText("Score: " + shown, -200, -75);
+    centerText("Score: " + shown, -75);
     var deathSlogan = { 69: "😂", 420: "blaze it", 666: "😈", 911: "TOO SOON", 999: "TOO HARD" }[shown]; // special scores
-    if (deathSlogan) {
-        centerText(deathSlogan, -150, 25);
-    }
+    var sloganRow = 25; // the row under the score, which only the ordinary scores have anything in
     if (shown >= 900) {
-        centerText("So Close", -200, -175);
+        centerText("So Close", -175);
     } else if (shown <= 100) {
-        centerText("...", -100, -175);
+        centerText("...", -175);
     } else {
-        centerText("Try Again", -200, -175);
-        centerText("再試行する", -200, 25);
+        centerText("Try Again", -175);
+        centerText("再試行する", 25);
+        sloganRow = 125; // taken: centred, the slogan would land straight on top of it instead of beside it
     }
+    if (deathSlogan) {
+        centerText(deathSlogan, sloganRow);
+    }
+    showMessage();
     useWindow();
 }
 
