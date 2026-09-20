@@ -28,6 +28,10 @@ DONE
 		costs, including a fallback onto one still held. The HUD says what is being rationed
 	Lives: a death spends one and keeps the level's score and the graze bank, so it reads as a level
 		transition rather than a reset. Out of lives, a death wipes the score as it always did
+	Instructions: two pages, CONTROLS and SCORING, off a HELP button on the start screen and out of a
+		pause - H on a keyboard, a button on the touch pause panel. The wording follows the input
+		mode and the button-side setting, so it says what this player actually has. One page would
+		have had to shrink to fit a phone, which is the opposite of the point
 	Menu glitches: a piece of the start screen tears, ghosts or gets crushed for a moment, then is
 		drawn clean. Picks its victim from the title, the slogan, any button, the records line or the
 		whole screen. The menu arrives broken and settles - about five of them in the first two
@@ -48,9 +52,6 @@ GAMEPLAY STILL TO DO
 	Horizontal black bars blocking visibility of vertical black bars
 
 PRESENTATION STILL TO DO
-	Instructions: the only explanation today is an alert() when you tap a control button on the start
-		screen, plus the DRAG ANYWHERE TO STEER hint in the first two seconds of a touch run. Wants a
-		real instructions screen, reachable from the start screen and from pause
 	Sprites
 	Circle?
 	Independent sizing - what did this mean?
@@ -107,6 +108,11 @@ NOTES ON WHAT IS BUILT
 		Holding and Breaking came out level, which is why neither felt like a decision: spending was
 		never worse, so the only strategy was hold until forced. The burn is deliberately the worst
 		of the three in raw progress. You are buying safety and paying a premium for it
+	There is one menu screen variable, not a flag per screen: menuScreen is "", "options" or "help",
+		and buttonTable, geom, screenFrame and drawStartScreen all key off it. A new menu screen is a
+		band, a button table and a draw function. The instructions are the only one that can come up
+		over a paused level rather than over the start screen, which is why closeMenu has to put back
+		either one
 	setInterval delays in the startScreenIntervals array are read while the script runs, so every one
 		of them has to be a value that already exists. GLITCH_EVERY was declared below the array,
 		which made it undefined there, which setInterval reads as 0: the glitches rolled about 250

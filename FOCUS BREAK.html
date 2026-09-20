@@ -84,11 +84,18 @@ const START_BUTTONS = {
     // and the settings, which open a screen of their own
     difficulty: { dx: -410, dy: 85, w: 220, h: 40, setting: "difficulty",
         touch: { dx: -450, dy: 110, w: 400, h: 90 } },
-    options: { dx: 0, dy: 272, w: 256, h: 40, menu: true,
-        touch: { dx: 60, dy: 240, w: 420, h: 90 } },
+    options: { dx: 0, dy: 272, w: 256, h: 40, menu: "options",
+        touch: { dx: 60, dy: 240, w: 200, h: 90 } },
+    help: { dx: 276, dy: 272, w: 256, h: 40, menu: "help",
+        touch: { dx: 280, dy: 240, w: 200, h: 90 } },
 };
 
-var optionsOpen = false; // the settings screen is up in place of the start screen
+var menuScreen = ""; // which menu screen is up: "" for none, "options" for the settings, "help" for the
+                     // instructions. The instructions are the one that can also come up over a paused level
+
+function menuUp() {
+    return menuScreen != "";
+}
 
 // the settings screen's own buttons. One layout for both mouse and touch: it is a menu of its own, with room to be
 // read either way, so there is nothing for the start screen's two layouts to disagree about
@@ -100,7 +107,7 @@ const OPTION_BUTTONS = {
 };
 
 function buttonTable() { // whichever screen's buttons are live
-    return optionsOpen ? OPTION_BUTTONS : START_BUTTONS;
+    return menuScreen == "options" ? OPTION_BUTTONS : menuScreen == "help" ? HELP_BUTTONS : START_BUTTONS;
 }
 
 function buttonDef(name) { // a live button's definition, for the things that only need its flags
@@ -361,8 +368,8 @@ function startLayout() { // "classic" (the original mouse layout) or "touch" (bi
 }
 
 function geom(name) { // a live button's rectangle, or null if it isn't on the screen that is up
-    if (optionsOpen) {
-        return OPTION_BUTTONS[name] || null; // the settings screen has one layout, so there is nothing to choose
+    if (menuUp()) {
+        return buttonTable()[name] || null; // a menu screen has one layout, so there is nothing to choose
     }
     var b = START_BUTTONS[name];
     if (!b) {
@@ -475,7 +482,7 @@ function glitchCrush(r, s) { // one band squashed into a shorter one, with white
 }
 
 function menuGlitch(force) { // break a piece of the start screen for a moment
-    if (gameStart || optionsOpen || fxLook() != "full") {
+    if (gameStart || menuUp() || fxLook() != "full") {
         return; // not the start screen, or the player asked for less motion: this is the noisiest thing on it
     }
     glitchNo++; // every roll, fired or not, so two in a row are never the same damage
@@ -646,9 +653,27 @@ function useBand(band) { // layout coordinates again, with that band fitted in p
 const OPTIONS_BAND = { w: 600, h: 540, dy: 24 };
 const PAUSE_BAND = { w: 440, h: 160, dy: 10 };
 const TOUCH_PAUSE_BAND = { w: 560, h: 240, dy: 0 };
+const HELP_BAND = { w: 670, h: 500, dy: 34 }; // the larger of its two pages, measured; re-measure if they change
+const PAUSE_HELP = { dx: -75, dy: 66, w: 150, h: 40 }; // the touch pause panel's way into the instructions
+
+function pauseHelpAt(px, py) { // is this window point on that button? Only while the panel is actually up
+    if (!pause || !alive || inputMode != "touch" || menuUp() || resumeTimer) {
+        return false;
+    }
+    var f = bandFrame(TOUCH_PAUSE_BAND); // the frame the panel was drawn in, so the button is where it looks
+    var bx = f.x + f.scale * (LAYOUT_W / 2 + PAUSE_HELP.dx);
+    var by = f.y + f.scale * (LAYOUT_H / 2 + PAUSE_HELP.dy);
+    return px >= bx && px <= bx + f.scale * PAUSE_HELP.w && py >= by && py <= by + f.scale * PAUSE_HELP.h;
+}
 
 function screenFrame() { // the frame the screen that is up was drawn in, so a click lands where its buttons are
-    return optionsOpen ? bandFrame(OPTIONS_BAND) : layoutFrame();
+    return menuScreen == "options" ? bandFrame(OPTIONS_BAND)
+        : menuScreen == "help" ? bandFrame(HELP_BAND) : layoutFrame();
+}
+
+function useScreenFrame() { // draw in that same frame, so what is drawn and what is clicked agree
+    var f = screenFrame();
+    ctx.setTransform(f.scale, 0, 0, f.scale, f.x, f.y);
 }
 
 function hudScale() { // the in-game HUD keeps its size unless the window is too short or narrow for it
@@ -745,8 +770,8 @@ function drawTitle(shadowColor, passes) { // FOCUS BREAK title: stacked shadow c
 }
 
 function focus_break_colors(){ // Flashing colors on start screen
-    if (optionsOpen) {
-        return; // the settings screen is up: these run on a timer and would paint the title over it
+    if (menuUp()) {
+        return; // a menu screen is up: these run on a timer and would paint the title over it
     }
     useLayout();
     drawTitle(getRandomColor(), 3);
@@ -754,7 +779,7 @@ function focus_break_colors(){ // Flashing colors on start screen
 }
 
 function click_to_start_colors(){ // Flashing colors on start screen
-    if (optionsOpen) {
+    if (menuUp()) {
         return;
     }
     if (hoveredButton == "start" || (inputMode == "touch" && !hoveredButton)) { // in touch play START always flashes
@@ -777,11 +802,7 @@ function highlightControl() { // Flashing colors on the hovered control button (
     if (b && (b.setting || b.back)) { // a settings row carries a reading, so flash its edge instead of its label
         var s = geom(hoveredButton);
         var sx = LAYOUT_W / 2 + s.dx, sy = LAYOUT_H / 2 + s.dy;
-        if (optionsOpen) { // a settings row is fitted to that screen's band; the difficulty button is not
-            useBand(OPTIONS_BAND);
-        } else {
-            useLayout();
-        }
+        useScreenFrame(); // a menu row is fitted to its screen's band; the start screen's buttons are not
         ctx.globalAlpha = 0.9;
         ctx.fillStyle = getRandomColor();
         ctx.fillRect(sx, sy, s.w, 2);
@@ -890,14 +911,18 @@ function windowResize() {
     } else if (restFrame) {
         gameArea.context.drawImage(restFrame, 0, 0);
     }
-    if (!gameStart) {
-        drawStartScreen();
+    if (menuUp() || !gameStart) {
+        drawStartScreen(); // which is whichever menu screen is up, if one is
     }
 }
 
-function drawStartScreen() { // draw the start screen, or the settings screen standing in for it
-    if (optionsOpen) {
+function drawStartScreen() { // draw the start screen, or whichever menu screen is standing in for it
+    if (menuScreen == "options") {
         drawOptionsScreen();
+        return;
+    }
+    if (menuScreen == "help") {
+        drawHelpScreen();
         return;
     }
     var cx = LAYOUT_W / 2;
@@ -984,7 +1009,7 @@ function drawSettingButtons() { // the start screen's two menu buttons: the run'
     var classic = startLayout() == "classic";
     ctx.globalAlpha = 1.0;
     ctx.textAlign = "center";
-    [["difficulty", mode().label], ["options", "OPTIONS 設定"]].forEach(function (b) {
+    [["difficulty", mode().label], ["options", "OPTIONS 設定"], ["help", "HELP 説明"]].forEach(function (b) {
         var g = geom(b[0]);
         if (!g) {
             return;
@@ -1007,7 +1032,7 @@ function drawOptionsScreen() { // the settings, on a screen of their own
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, x, y);
 
-    useBand(OPTIONS_BAND); // a menu of rows to read and tap, so it is sized for the screen rather than for the frame
+    useScreenFrame(); // a menu of rows to read and tap, so it is sized for the screen rather than for the frame
     ctx.globalAlpha = 1.0;
     ctx.textAlign = "center";
     ctx.font = "70px Arial";
@@ -1047,11 +1072,128 @@ function drawOptionsScreen() { // the settings, on a screen of their own
     drawBanners(40, 20, k);
 }
 
-function openOptions(open) { // show or hide the settings screen
-    optionsOpen = open;
-    setHovered("");
+// The instructions. Two pages, because one screen holding all of it would have to shrink to fit a phone and the whole
+// point is that it can be read. Reachable from the start screen and from pause, and it paints its own background, so
+// it works over the menu and over a frozen level alike.
+var helpPage = 0;
+
+const HELP_BUTTONS = {
+    help_next: { dx: -310, dy: 186, w: 280, h: 66, page: true, label: "NEXT 次へ" },
+    help_back: { dx: 30, dy: 186, w: 280, h: 66, back: true, label: "BACK" },
+};
+
+function helpLines() { // the page now showing: a heading is a line of its own, and the line under it says what it does
+    var touch = inputMode == "touch";
+    if (helpPage === 0) {
+        return [
+            { t: "CONTROLS 操作", title: true },
+            { t: touch ? "Drag anywhere to steer" : "The square follows your cursor" },
+            { t: touch ? "HOLD FOCUS" : "SHIFT or LEFT CLICK  -  FOCUS", head: true },
+            { t: "time slows, your hitbox shrinks, and the score stops" },
+            { t: touch ? "HOLD WARP" : "CTRL or RIGHT CLICK  -  WARP", head: true },
+            { t: "time speeds up and the score doubles" },
+            { t: touch ? "TAP BREAK" : "SPACE or MIDDLE CLICK  -  BREAK", head: true },
+            { t: "two seconds where nothing can touch you, for 250 score" },
+            { t: touch ? "The pause icon is in the top " + (TOUCH_SIDE == "left" ? "left" : "right") + " corner"
+                : "P pauses.  R plays again from the finish screen." },
+        ];
+    }
+    return [
+        { t: "SCORING 得点", title: true },
+        { t: "Reach 1000 to clear a level. There are fifteen of them." },
+        { t: "GRAZE", head: true },
+        { t: "pass close to an obstacle without touching it, and the" },
+        { t: "closer the pass, the more charge it banks" },
+        { t: "CHARGES", head: true },
+        { t: "each one you hold adds 25% to your score rate" },
+        { t: "a Break spends one instead of costing 250 score" },
+        { t: "Focus burns one to keep scoring while it is slowed" },
+        { t: "Gold pickups are worth 50. The other kind is a free Break." },
+    ];
+}
+
+function drawHelpScreen() { // over the start screen, or over a level that is paused: either way it paints its own white
+    useWindow();
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, x, y);
+
+    useScreenFrame();
+    ctx.globalAlpha = 1.0;
+    ctx.textAlign = "center";
+    var cx = LAYOUT_W / 2, cy = LAYOUT_H / 2;
+    var dy = -176;
+    helpLines().forEach(function (line) {
+        if (line.title) {
+            ctx.font = "46px Arial";
+            ctx.fillStyle = "#00FFFF"; // the title printed twice, as everything in this game is
+            ctx.fillText(line.t, cx - 3, cy + dy + 3);
+            ctx.fillStyle = "#ff00ff";
+            ctx.fillText(line.t, cx, cy + dy);
+            dy += 62;
+            return;
+        }
+        ctx.font = (line.head ? "bold 28px" : "26px") + " Arial";
+        ctx.fillStyle = line.head ? "#ff00ff" : "black";
+        ctx.fillText(line.t, cx, cy + dy);
+        dy += line.head ? 40 : 36;
+    });
+
+    for (var name in HELP_BUTTONS) {
+        var b = HELP_BUTTONS[name];
+        var bx = cx + b.dx, by = cy + b.dy;
+        ctx.fillStyle = "#00FFFF";
+        ctx.fillRect(bx, by, b.w, b.h);
+        ctx.fillStyle = "black";
+        ctx.fillRect(bx + 2, by + 2, b.w - 4, b.h - 4);
+        ctx.fillStyle = "#ff00ff";
+        ctx.font = "32px Arial";
+        ctx.fillText(b.label, bx + b.w / 2, by + b.h / 2 + 11, b.w - 20);
+    }
+    ctx.font = "20px Arial";
+    ctx.fillStyle = "black";
+    ctx.fillText((helpPage + 1) + " / 2", cx, cy + 282);
+    ctx.textAlign = "start";
+
+    useWindow(); // the same stripes the start and settings screens wear, so the three read as one set
+    var k = bannerScale();
+    ctx.fillStyle = "#00FFFF";
+    drawBanners(34, 30, k);
+    ctx.fillStyle = "#ff00ff";
+    drawBanners(40, 20, k);
+}
+
+function helpPress(name) { // a press on the instructions: turn the page, or leave
+    var b = HELP_BUTTONS[name];
+    if (!b) {
+        return;
+    }
+    playSound(aud_click);
+    if (b.back) {
+        closeMenu();
+    } else {
+        helpPage = (helpPage + 1) % 2;
+        drawHelpScreen();
+    }
+}
+
+function openMenu(name) { // put a menu screen up, over the start screen or over a level that is paused
+    hoveredButton = ""; // set directly: setHovered would redraw the screen being left or entered, twice
+    menuScreen = name;
     playSound(aud_click);
     drawStartScreen();
+}
+
+function closeMenu() { // and put back whatever it was covering
+    hoveredButton = "";
+    menuScreen = "";
+    playSound(aud_click);
+    if (gameStart) {
+        stopResume(); // a countdown can't have been running under it, but a tap may have started one since
+        drawLevel();
+        drawPauseScreen();
+    } else {
+        drawStartScreen();
+    }
 }
 
 function optionsPress(name) { // a press on the settings screen: cycle a row, or go back. Anything else is ignored
@@ -1060,9 +1202,17 @@ function optionsPress(name) { // a press on the settings screen: cycle a row, or
         return;
     }
     if (b.back) {
-        openOptions(false);
+        closeMenu();
     } else {
         cycleSetting(b.setting);
+    }
+}
+
+function menuPress(name) { // a press while a menu screen is up, whichever one it is
+    if (menuScreen == "options") {
+        optionsPress(name);
+    } else if (menuScreen == "help") {
+        helpPress(name);
     }
 }
 
@@ -1739,7 +1889,7 @@ function drawPauseScreen(countdown) { // drawn once over the frozen frame; count
     ctx.fillText("PAUSED", centerX, centerY);
     ctx.fillStyle = "black";
     ctx.font = "25px Arial";
-    ctx.fillText("Press P to resume", centerX, centerY + 40);
+    ctx.fillText("P to resume,  H for instructions", centerX, centerY + 40);
     ctx.font = "18px Arial";
     ctx.fillText("Move the cursor onto your square first", centerX, centerY + 72);
     ctx.textAlign = "start"; // the rest of the game draws left-aligned text
@@ -1762,12 +1912,20 @@ function drawTouchPauseScreen(countdown) { // touch play: tap anywhere to resume
         ctx.fillText(countdown, centerX, centerY + 50);
     } else {
         ctx.font = "72px Arial";
-        ctx.fillText("PAUSED", centerX, centerY - 20);
+        ctx.fillText("PAUSED", centerX, centerY - 40);
         ctx.fillStyle = "black";
         ctx.font = "40px Arial";
-        ctx.fillText("TAP TO RESUME", centerX, centerY + 40);
+        ctx.fillText("TAP TO RESUME", centerX, centerY + 18);
         ctx.font = "24px Arial";
-        ctx.fillText("Your square stays put. Drag to steer.", centerX, centerY + 85);
+        ctx.fillText("Your square stays put. Drag to steer.", centerX, centerY + 56);
+        var h = PAUSE_HELP; // the one tap here that does something other than resume
+        ctx.fillStyle = "#00FFFF";
+        ctx.fillRect(centerX + h.dx, centerY + h.dy, h.w, h.h);
+        ctx.fillStyle = "black";
+        ctx.fillRect(centerX + h.dx + 2, centerY + h.dy + 2, h.w - 4, h.h - 4);
+        ctx.fillStyle = "#ff00ff";
+        ctx.font = "26px Arial";
+        ctx.fillText("HELP 説明", centerX + h.dx + h.w / 2, centerY + h.dy + h.h / 2 + 9, h.w - 12);
     }
     ctx.textAlign = "start";
     useWindow();
@@ -2031,8 +2189,12 @@ function onTouchStart(e) {
         var t = e.changedTouches[i];
         var p = toGame(t.clientX, t.clientY);
         var info = { id: t.identifier, x: p.x, y: p.y, order: ++touch.order, role: "none", pausedAt: pause ? pauseNo : -1, switched: !wasTouch };
-        if (!gameStart) {
-            setHovered(buttonAt(p.x, p.y)); // press feedback
+        if (menuUp()) {
+            setHovered(buttonAt(p.x, p.y)); // press feedback, on whichever menu screen is up
+        } else if (!gameStart) {
+            setHovered(buttonAt(p.x, p.y));
+        } else if (pause && alive && pauseHelpAt(p.x, p.y)) {
+            info.role = "phelp"; // not a power button and not a resume: it keeps the role until it lifts
         } else if (runFinished) {
             if (Date.now() - finishTime >= 1000) {
                 restartArmed = true; // same rule as a mouse click: only a touch that starts on the finish screen, after 1s
@@ -2073,7 +2235,7 @@ function onTouchMove(e) {
         }
         info.x = p.x;
         info.y = p.y;
-        if (!gameStart) {
+        if (menuUp() || !gameStart) {
             setHovered(buttonAt(p.x, p.y));
         } else if (t.identifier === touch.steerId) {
             var dx = p.x - touch.lastX;
@@ -2105,6 +2267,8 @@ function onTouchEnd(e) { // touchend and touchcancel
         }
         if (info.role == "pause" && (!pause || resumeTimer) && touchButtonAt(p.x, p.y) == "pause") { // also stops a countdown
             setPause(true);
+        } else if (info.role == "phelp" && pauseHelpAt(p.x, p.y)) {
+            openMenu("help"); // over the frozen level; closing it puts the panel back
         } else if (pause && info.pausedAt == pauseNo && Date.now() - pauseStart > 300) { // began during this pause
             startResumeCountdown(); // a tap anywhere resumes (after the pause has been up for a moment)
         }
@@ -2120,15 +2284,16 @@ function onTouchEnd(e) { // touchend and touchcancel
         return;
     }
     if (e.touches.length === 0 && last) {
-        if (!gameStart) {
+        if (menuUp()) { // up over the start screen or over a paused level: either way it owns the tap
+            setHovered("");
+            menuPress(buttonAt(last.x, last.y)); // a tap on nothing does nothing: it must not start or resume
+        } else if (!gameStart) {
             var button = buttonAt(last.x, last.y);
             setHovered("");
             if (switched) {
                 // this tap switched the start screen to the touch layout; it only shows it
-            } else if (optionsOpen) {
-                optionsPress(button); // a tap on nothing here does nothing: it must not start a run
-            } else if (button == "options") {
-                openOptions(true);
+            } else if (START_BUTTONS[button] && START_BUTTONS[button].menu) {
+                openMenu(START_BUTTONS[button].menu);
             } else if (button && START_BUTTONS[button].setting) {
                 cycleSetting(START_BUTTONS[button].setting);
             } else if (button && button != "start") {
@@ -2190,13 +2355,13 @@ var gameArea = {
                 return;
             }
             var p = toGame(e.pageX, e.pageY);
-            var button = gameStart ? "" : buttonAt(p.x, p.y);
-            if (optionsOpen) {
-                optionsPress(button); // a press on nothing here does nothing: it must not reach the game
+            var button = (gameStart && !menuUp()) ? "" : buttonAt(p.x, p.y);
+            if (menuUp()) {
+                menuPress(button); // a press on nothing here does nothing: it must not reach the game
             } else if (button == "start") {
                 startGame({ pageX: p.x, pageY: p.y });
-            } else if (button == "options") {
-                openOptions(true);
+            } else if (button && START_BUTTONS[button].menu) {
+                openMenu(START_BUTTONS[button].menu);
             } else if (button && START_BUTTONS[button].setting) {
                 cycleSetting(START_BUTTONS[button].setting);
             } else if (button) { // a control button: explain it
@@ -2275,9 +2440,15 @@ var gameArea = {
             if (alive && e.ctrlKey) {
                 e.preventDefault(); // block browser shortcuts while holding CTRL to warp
             }
-            if (key == "Escape" && optionsOpen) { // the settings screen's other way out, for anyone who expects it
+            if (key == "Escape" && menuUp()) { // a menu screen's other way out, for anyone who expects it
                 e.preventDefault();
-                openOptions(false);
+                closeMenu();
+                return;
+            }
+            if (key == "h" && !e.repeat && !menuUp() && (!gameStart || (alive && pause))) {
+                e.preventDefault(); // the instructions, from the start screen or from a pause
+                stopResume(); // a resume already counting down would come back under them
+                openMenu("help");
                 return;
             }
             if (key == "r" && runFinished && !e.repeat && !e.ctrlKey && !e.metaKey) { // R = play again (Ctrl+R still reloads)
