@@ -1168,13 +1168,22 @@ var GRAZE_GAIN = 0.4; // charge for a pass with no gap left at all; a pass pays 
 var GRAZE_MAX = 3; // charges held at once: past this a pass still lights the square, it just has nowhere to bank
 var GRAZE_CLEAR = 10; // steps a side must be clear before the next thing along it counts as a new pass and pays again
 var GRAZE_BOOST = 0.25; // score rate added per charge held: three charges is +75%, and a Break is what spends them
-var GRAZE_LIT = 30; // steps a charge landing keeps the meter marked, so it isn't missed mid-dodge
+var GRAZE_LIT = 30; // steps a charge landing or leaving keeps the meter marked, so it isn't missed mid-dodge
+// Focus slows time, shrinks the hitbox and scores nothing: it stops the clock on the level's progress, and that
+// is its price. A banked charge pays that price instead, and the level keeps moving while the world crawls --
+// which is the one thing the charges can be spent on deliberately, rather than by pressing Break in a panic.
+// The premium is the rate: holding a charge for a whole level saves about four seconds, burning one buys about
+// two, and the two seconds it buys are flown at a quarter of the danger. Safety costs progress.
+var GRAZE_BURN = 300; // steps of scoring Focus one charge buys: three seconds
+var GRAZE_BURN_EVERY = 4; // and it scores every fourth step: half what the same time at normal speed pays
 
 var graze = {
     charges: 0, // whole charges banked
     fill: 0, // progress toward the next one, 0..1
     lit: GRAZE_LIT, // steps since one landed, for the meter's mark
     free: false, // a charge paid for the Break that is running
+    burn: 0, // how much of the top charge Focus has eaten, 0..1
+    burning: false, // and whether it is eating it this step, so the meter and the score can say so
     side: [], // this step's closest pass per side (0 top, 1 right, 2 bottom, 3 left), so the scan allocates nothing
 };
 while (graze.side.length < 4) {
@@ -1199,12 +1208,26 @@ function grazeLevel() { // a level begins: no pass is in progress and the fracti
 function grazeClear() { // a death or a fresh run: the bank goes the same way the score does
     graze.charges = 0;
     graze.fill = 0;
+    graze.burn = 0;
     graze.lit = GRAZE_LIT;
     grazeLevel();
 }
 
 function grazeRate() { // what the banked charges are worth: the multiplier on the score for staying alive
     return 1 + GRAZE_BOOST * graze.charges;
+}
+
+function grazeBurn() { // Focus with something banked: the charge pays for the slowed time, and drains for it
+    if (invincible || speed != speed_slow || graze.charges <= 0) {
+        return false; // nothing to spend, nothing slowed to spend it on, or a Break is already paying
+    }
+    graze.burn += 1 / GRAZE_BURN;
+    if (graze.burn >= 1) { // that one is gone; the next Focus starts on the one under it
+        graze.burn = 0;
+        graze.charges--;
+        graze.lit = 0;
+    }
+    return true;
 }
 
 function grazeEarn(amount) { // bank a pass, carrying whole charges out of the meter
@@ -1266,6 +1289,7 @@ function grazeStep() { // each step, after everything has moved: how close did t
     // what has that earned. This is the one moment the gaps are the ones the player actually flew
     var i;
     graze.lit = Math.min(graze.lit + 1, GRAZE_LIT);
+    graze.burning = grazeBurn(); // before drawStats reads it, further down the same step
     for (i = 0; i < 4; i++) {
         graze.side[i].power = 0;
     }
@@ -2376,6 +2400,9 @@ function drawGrazeMeter() {
     ctx.fillStyle = "#ff00ff"; // the title's magenta: 3.14:1 on white, where the HUD's other cyan would vanish
     for (var i = 0; i < GRAZE_MAX; i++) {
         var part = i < graze.charges ? 1 : (i == graze.charges ? graze.fill : 0);
+        if (i == graze.charges - 1 && graze.burn > 0) {
+            part = 1 - graze.burn; // the top one is part spent: Focus has been living off it
+        }
         ctx.globalAlpha = 0.35; // the empty slot: an outline, so the bank's size is visible before it is full
         ctx.fillRect(x, y, GRAZE_SLOT_W, 1);
         ctx.fillRect(x, y + GRAZE_SLOT_H - 1, GRAZE_SLOT_W, 1);
@@ -3885,6 +3912,9 @@ function updateGameArea() {
                 addScore(1);
             }
         } else if (speed == speed_slow) { // FOCUS
+            if (graze.burning && gameArea.frameNo % GRAZE_BURN_EVERY == 0) {
+                addScore(1); // a charge is paying: the level keeps moving, at half the rate and a quarter the risk
+            }
             if (showFrame) {
                 ctx.globalAlpha = 0.75;
                 drawBanners(40, 30);

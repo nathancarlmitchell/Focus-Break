@@ -9,9 +9,11 @@ DONE
 	Touch button side: the power buttons and the pause icon sit against the left or right edge.
 		The level name, the grid's gutter and the graze blade all follow them across
 	Scoreboard: the top stripe fills as the score walks toward the level's limit
-	Graze system: a pass banks charge for how close it was. Held charges add 25% each to the score
-		rate, a Break spends one instead of costing 250, and charges carry into the next level but
-		not past a death. Measured in the game, not the effects, because it pays
+	Graze system: a pass banks charge for how close it was. Charges have three uses - held, each
+		adds 25% to the rate; a Break spends one instead of costing 250; and Focus burns one to keep
+		scoring while it is slowed, which is the only one of the three you press on purpose. Charges
+		carry into the next level but not past a death. Measured in the game, not the effects,
+		because it pays
 	Visual flare: graze sparks and their particle emitters, the vaporwave horizon grid, per-level
 		palette drift, CRT scanlines and a rolling bar, powerup pickup rings, the Break shockwave,
 		the score-hundreds flourish, the level-name typewriter and its glitch-out, the big-block
@@ -60,9 +62,6 @@ IDEAS, NOT YET PICKED UP
 	Death stats. The graze system measures every pass precisely and then throws it away. The death
 		screen could say how many grazes, how close the closest was, how many charges were spent.
 		Right now a death is a red number and nothing else
-	A charge spent on purpose. Holding charges raises the score rate and a Break spends one, but both
-		are automatic - there is no moment where you decide to burn one. A deliberate spend (a short
-		window of a smaller hitbox, or of double score) would make the meter something you watch
 	Per-level score limit. scoreLimit is one global at 1000, so every level is exactly the same
 		length. Making it per-level is a one-variable change and a free pacing lever - it would do
 		real work on "increase difficulty on 14 and 15" above, which has no mechanism proposed yet
@@ -87,5 +86,17 @@ NOTES ON WHAT IS BUILT
 		so going dark for Afterlife needs the obstacles recoloured first - its own job, not a tuning
 		pass. SPAWN_RULES hardcodes black and red in nine places
 	The level-name typewriter is English only. The Japanese second line was specced and not built
+	Score is not a total. It resets every level, scoreLimit is always 1000, and the finish screen
+		reports time and deaths only - so score is a progress bar, and a "score multiplier" means the
+		level ends sooner, not that you have more points. Which means it means a better time, which
+		only became worth anything once records existed
+	What the three graze uses are worth, at the normal 50/sec and a 1000-point level:
+		hold one charge for a whole level - 20s becomes 16s, so it saves 4 seconds
+		spend one on a Break - saves the 250 points you would re-fly, so 5 seconds
+		burn one in Focus - 3 seconds at half rate, about 2 seconds of progress, but flown at a
+			quarter of the danger, since Focus slows the world to 0.25x
+		Holding and Breaking came out level, which is why neither felt like a decision: spending was
+		never worse, so the only strategy was hold until forced. The burn is deliberately the worst
+		of the three in raw progress. You are buying safety and paying a premium for it
 	Effects off is the big performance lever on a phone: 60fps at 4x CPU throttle and 45 at 8x,
 		against 41 and 19 on full
