@@ -58,7 +58,8 @@ var musicVolume = 0.2;
 
 
 // Screens (start, level transitions, finish, pause) are laid out for a LAYOUT_W x LAYOUT_H window and scaled to fit
-// the actual window, centered, so they never run off screen. Gameplay stays in window pixels.
+// the actual window, centered, so they never run off screen. Gameplay stays in window pixels. Only the start screen
+// fills the whole frame; the rest are fitted to the band they actually use instead -- see fitBand and useBand below.
 var LAYOUT_W = 1280;
 var LAYOUT_H = 800;
 
@@ -266,6 +267,44 @@ function useWindow() { // draw in window pixels (gameplay, banners)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
+// Most of the LAYOUT_W x LAYOUT_H frame is empty on every screen but the start screen, so fitting the whole of it into
+// a phone shrinks the part that matters -- a 844x390 window was giving the messages 0.487 when they had room for
+// nearly full size. A screen that only fills a band says how big that band is and gets that fitted instead. The cap is
+// what fitting the whole frame would have given, so a window with room to spare is left exactly as it was.
+var SCREEN_MARGIN = 0.075; // of the window kept clear around a band, so it never runs into the edges
+var BANNER_REACH = 66; // how far in from each edge the stripes on a laid-out screen come, in layout pixels
+
+function bandRoom() { // the width and height a band has, once the margins and the banner stripes are kept clear
+    return { w: gameArea.canvas.width * (1 - 2 * SCREEN_MARGIN),
+        // on a short window the stripes come further in than the margin does, and a band under one is unreadable
+        h: gameArea.canvas.height - 2 * Math.max(SCREEN_MARGIN * gameArea.canvas.height, BANNER_REACH * bannerScale()) };
+}
+
+function fitBand(w, h) { // the scale a w x h band drawn around the middle of the layout gets on this window
+    var room = bandRoom();
+    return Math.min(Math.max(1, layoutFrame().scale), room.w / w, room.h / h);
+}
+
+function bandFrame(band) { // scale and offset that put a band, centred band.dy below the layout centre, on this window
+    var s = fitBand(band.w, band.h);
+    return { scale: s, x: (gameArea.canvas.width - LAYOUT_W * s) / 2,
+        y: gameArea.canvas.height / 2 - s * (LAYOUT_H / 2 + band.dy) };
+}
+
+function useBand(band) { // layout coordinates again, with that band fitted in place of the whole frame
+    var f = bandFrame(band);
+    ctx.setTransform(f.scale, 0, 0, f.scale, f.x, f.y);
+}
+
+// the bands each of them fills, measured rather than guessed: the settings screen and the two pause panels
+const OPTIONS_BAND = { w: 656, h: 472, dy: -10 };
+const PAUSE_BAND = { w: 440, h: 160, dy: 10 };
+const TOUCH_PAUSE_BAND = { w: 560, h: 240, dy: 0 };
+
+function screenFrame() { // the frame the screen that is up was drawn in, so a click lands where its buttons are
+    return optionsOpen ? bandFrame(OPTIONS_BAND) : layoutFrame();
+}
+
 function hudScale() { // the in-game HUD keeps its size unless the window is too short or narrow for it
     // between the top banner (ends at 70px) and the level name (baseline 60px from the bottom) it needs 240px of
     // stats plus 30px of level name, and 600px across for the FOCUS/BREAK/DANGER text
@@ -278,7 +317,7 @@ function useHud() { // draw the top-left HUD, shrunk toward the top banner if ne
 }
 
 function buttonAt(px, py) { // name of the start-screen button at a window point, or ""
-    var f = layoutFrame();
+    var f = screenFrame();
     if (!(f.scale > 0)) {
         return "";
     }
@@ -392,7 +431,7 @@ function highlightControl() { // Flashing colors on the hovered control button (
     if (b && (b.setting || b.back)) { // a settings row carries a reading, so flash its edge instead of its label
         var s = geom(hoveredButton);
         var sx = LAYOUT_W / 2 + s.dx, sy = LAYOUT_H / 2 + s.dy;
-        useLayout();
+        useBand(OPTIONS_BAND); // the row is on the settings screen, which is fitted to its own band
         ctx.globalAlpha = 0.9;
         ctx.fillStyle = getRandomColor();
         ctx.fillRect(sx, sy, s.w, 2);
@@ -601,7 +640,7 @@ function drawOptionsScreen() { // the settings, on a screen of their own
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, x, y);
 
-    useLayout();
+    useBand(OPTIONS_BAND); // a menu of rows to read and tap, so it is sized for the screen rather than for the frame
     ctx.globalAlpha = 1.0;
     ctx.textAlign = "center";
     ctx.font = "70px Arial";
@@ -758,9 +797,8 @@ function startNextLevel() {
 // about 865 by 337 in the middle of that frame -- and showed them at 0.487 when there was room for nearly full size.
 // The lines were centred by eye too, which left the finish screen sitting 134px to the left of the middle.
 // A message is now collected line by line, measured, and drawn as one block: every line truly centred, the block
-// centred on the screen, and the whole thing scaled to fill it -- but never past the scale the whole-layout fit would
-// have given it, so a window with room to spare shows the messages at exactly the size they have always been.
-var MSG_FILL = 0.85; // how much of the screen a block may cover; the rest is margin, and the room the banners sit in
+// centred on the screen, and the whole thing scaled to fill it. It is the one band that has to be measured at draw
+// time rather than written down, because the lines it holds depend on the level, the score and the deaths.
 var msgBlock = []; // the lines queued so far, measured and drawn by showMessage
 
 function centerText(text, dy, passes) { // queue a line dy from the block's baseline, in the font and fill set now;
@@ -782,9 +820,7 @@ function showMessage() { // draw the queued lines centred and as large as this s
         top = Math.min(top, line.dy - m.actualBoundingBoxAscent);
         bottom = Math.max(bottom, line.dy + m.actualBoundingBoxDescent + line.passes - 1);
     }
-    var grown = Math.max(1, layoutFrame().scale); // a monitor bigger than the layout used to scale the messages up
-    var s = Math.min(grown, MSG_FILL * gameArea.canvas.width / (right - left), // with it, so it still does: only the
-                            MSG_FILL * gameArea.canvas.height / (bottom - top)); // screens too small for the frame move
+    var s = fitBand(right - left, bottom - top);
     var dx = -(left + right) / 2;
     var dy = -(top + bottom) / 2; // the lines sit mostly above their baseline, so the block has to come down to the middle
     ctx.setTransform(s, 0, 0, s, gameArea.canvas.width / 2, gameArea.canvas.height / 2);
@@ -1058,7 +1094,8 @@ function drawPauseScreen(countdown) { // drawn once over the frozen frame; count
         drawTouchPauseScreen(countdown);
         return;
     }
-    useLayout();
+    useBand(PAUSE_BAND); // the panel, not the whole frame, which on a small window shrank it along with the 800px
+    // of height it never used
     var centerX = LAYOUT_W / 2;
     var centerY = LAYOUT_H / 2;
     ctx.globalAlpha = 0.85;
@@ -1080,7 +1117,7 @@ function drawPauseScreen(countdown) { // drawn once over the frozen frame; count
 
 function drawTouchPauseScreen(countdown) { // touch play: tap anywhere to resume (steering is relative, so nothing to line up)
     drawLevel(); // a clean frame under the panel: no hint or power message left over from the last one
-    useLayout();
+    useBand(TOUCH_PAUSE_BAND);
     var centerX = LAYOUT_W / 2;
     var centerY = LAYOUT_H / 2;
     ctx.globalAlpha = 0.85;
