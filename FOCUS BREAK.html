@@ -372,7 +372,150 @@ function geom(name) { // a live button's rectangle, or null if it isn't on the s
     return style == "classic" ? (b.touchOnly ? null : b) : b[style];
 }
 
-// start screen animation, stopped when the game starts (same-delay timers run in creation order)
+// The menu glitches. Every so often a piece of the start screen tears, ghosts or gets crushed for a moment, and then
+// the screen is drawn clean again. All three kinds are self-copies of what is already on the canvas -- nothing is
+// redrawn from the model, so whatever a piece looked like is what tears.
+// Its randomness is fxHash off a counter, not Math.random, for the reason the effects have that rule: Math.random
+// is the stream the spawns come out of, and this runs on a timer, so how many draws it takes before a run starts
+// depends on how long the start screen sat there. The flashers already burned a few dozen that way; this would have
+// burned a thousand, which is enough to make a seeded run unreproducible.
+var GLITCH_EVERY = 220; // ms between rolls
+// The menu arrives broken and settles. It comes up glitching hard for about the first two seconds, eases off
+// over those rolls, and then sits at a rate you notice rather than watch: roughly one every six seconds.
+var GLITCH_ARRIVE = 0.9; // how many rolls break something on the very first one
+var GLITCH_CHANCE = 0.035; // and how many once it has settled
+var GLITCH_SETTLE = 10; // rolls it takes to get from one to the other, about two seconds
+var GLITCH_HOLD = 90; // ms the damage stays up before a clean redraw takes it away
+var GLITCH_SHOVE = 26; // px a torn band can slide, in layout units
+var GLITCH_BAND = 26; // and how thick a torn or tinted band is. Absolute, not a fraction of what it is breaking:
+                      // sized by the victim, a glitch on a button tears and the same one on the whole screen
+                      // came out as three giant slabs instead
+var glitchClear = null; // the timer that will draw it clean
+var glitchNo = 0; // which roll this is; everything about it is hashed off this and a slot number
+var glitchSeed = Date.now() & 0xffff; // so two loads don't break in exactly the same places. A clock, not
+                                      // Math.random: that one belongs to the spawns. Tests pin it to 0
+
+function glitchRand(slot) { // repeatable within a load, and out of the spawns' way
+    return fxHash(glitchSeed + glitchNo, slot);
+}
+
+function glitchChance() { // hot on arrival, easing to rare over the first couple of seconds
+    var settled = Math.min(1, (glitchNo - 1) / GLITCH_SETTLE);
+    return GLITCH_ARRIVE + (GLITCH_CHANCE - GLITCH_ARRIVE) * settled;
+}
+
+function glitchTargets() { // the pieces it can pick on, in layout coordinates
+    var out = [
+        { x: 110, y: 135, w: 620, h: 200 }, // the title, and the Japanese line under it
+        { x: 90, y: 85, w: 420, h: 50 }, // the slogan
+        { x: 0, y: 70, w: LAYOUT_W, h: LAYOUT_H - 140 }, // and sometimes the lot, inside the banners
+    ];
+    ["start", "break", "focus", "warp", "difficulty", "options"].forEach(function (name) {
+        var g = geom(name);
+        if (g) {
+            out.push({ x: LAYOUT_W / 2 + g.dx - 6, y: LAYOUT_H / 2 + g.dy - 6, w: g.w + 12, h: g.h + 12 });
+        }
+    });
+    if (recordsLine()) {
+        out.push(startLayout() == "classic" ? { x: 230, y: 552, w: 400, h: 34 } : { x: 180, y: 660, w: 440, h: 44 });
+    }
+    return out;
+}
+
+function glitchShove(x, y, w, h, dx) { // slide a band sideways, and leave white where it was
+    x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h); dx = Math.round(dx);
+    if (w <= 0 || h <= 0 || dx == 0) {
+        return;
+    }
+    ctx.drawImage(gameArea.canvas, x, y, w, h, x + dx, y, w, h);
+    ctx.fillStyle = "#ffffff"; // the strip the band left behind, in the screen's own white
+    ctx.fillRect(dx > 0 ? x : x + w + dx, y, Math.abs(dx), h);
+}
+
+function glitchTear(r, s) { // the piece comes apart in bands, each sliding its own way
+    var bands = Math.max(2, Math.min(14, Math.round(r.h / Math.max(3, GLITCH_BAND * s))));
+    var bh = r.h / bands;
+    for (var i = 0; i < bands; i++) {
+        if (glitchRand(10 + i * 2) < 0.3) {
+            continue; // not every band moves, or it reads as a wobble rather than a break
+        }
+        glitchShove(r.x, r.y + i * bh, r.w, bh, (glitchRand(11 + i * 2) - 0.5) * 2 * GLITCH_SHOVE * s);
+    }
+}
+
+function glitchGhost(r, s) { // a second copy pulls out sideways, tinted: the two colours the screen already wears
+    var dx = Math.round((glitchRand(40) < 0.5 ? -1 : 1) * (3 + glitchRand(41) * 7) * s);
+    var x = Math.round(r.x), y = Math.round(r.y), w = Math.round(r.w), h = Math.round(r.h);
+    if (w <= 0 || h <= 0 || dx == 0) {
+        return;
+    }
+    ctx.globalAlpha = 0.45;
+    ctx.drawImage(gameArea.canvas, x, y, w, h, x + dx, y, w, h);
+    ctx.globalAlpha = 0.22; // tinted in bands rather than as one flat box, so it reads as colour noise
+    ctx.fillStyle = dx < 0 ? "#00FFFF" : "#ff00ff";
+    for (var i = 0; i < 4; i++) {
+        var bh = Math.min(h, Math.round(GLITCH_BAND * s * (0.3 + glitchRand(42 + i * 2) * 0.7)));
+        ctx.fillRect(x + dx, Math.round(y + glitchRand(43 + i * 2) * Math.max(0, h - bh)), w, bh);
+    }
+    ctx.globalAlpha = 1;
+}
+
+function glitchCrush(r, s) { // one band squashed into a shorter one, with white under it: a dropped scanline run
+    var bh = Math.max(6, Math.min(r.h, GLITCH_BAND * s * (1.5 + glitchRand(50) * 1.5)));
+    var by = Math.round(r.y + glitchRand(51) * Math.max(0, r.h - bh));
+    var x = Math.round(r.x), w = Math.round(r.w);
+    bh = Math.round(bh);
+    var nh = Math.max(2, Math.round(bh * (0.35 + glitchRand(52) * 0.4)));
+    if (w <= 0 || bh <= 0) {
+        return;
+    }
+    ctx.drawImage(gameArea.canvas, x, by, w, bh, x, by, w, nh);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x, by + nh, w, bh - nh);
+}
+
+function menuGlitch(force) { // break a piece of the start screen for a moment
+    if (gameStart || optionsOpen || fxLook() != "full") {
+        return; // not the start screen, or the player asked for less motion: this is the noisiest thing on it
+    }
+    glitchNo++; // every roll, fired or not, so two in a row are never the same damage
+    if (force === undefined && glitchRand(1) > glitchChance()) { // kind 0 is a kind, not an absence of one
+        return;
+    }
+    var f = layoutFrame();
+    if (!(f.scale > 0)) {
+        return; // a window with no size to speak of: nothing to copy from
+    }
+    drawStartScreen(); // clean first, so a clear that ran late can never let two of them pile up
+    var targets = glitchTargets();
+    var t = targets[Math.floor(glitchRand(2) * targets.length)];
+    var r = { x: f.x + f.scale * t.x, y: f.y + f.scale * t.y, w: f.scale * t.w, h: f.scale * t.h };
+    ctx.save();
+    useWindow(); // a self-copy is in canvas pixels, whatever the layout was drawn at
+    var kind = force === undefined ? Math.floor(glitchRand(3) * 3) : force;
+    if (kind == 0) {
+        glitchTear(r, f.scale);
+    } else if (kind == 1) {
+        glitchGhost(r, f.scale);
+    } else {
+        glitchCrush(r, f.scale);
+    }
+    ctx.restore();
+    if (glitchClear) {
+        clearTimeout(glitchClear);
+    }
+    glitchClear = setTimeout(function () { // whatever it broke, the next clean draw puts back
+        glitchClear = null;
+        if (!gameStart) {
+            drawStartScreen();
+        }
+    }, GLITCH_HOLD);
+}
+
+// start screen animation, stopped when the game starts (same-delay timers run in creation order).
+// This array is built while the script runs, so every delay in it has to be a value that already exists:
+// GLITCH_EVERY was declared below this once, which made it undefined here, and setInterval read that as 0 --
+// the glitches rolled 250 times a second instead of four and a half
 const startScreenIntervals = [
     setInterval(updateSloganText, 3000),
     setInterval(focus_break_colors, 100),
@@ -661,135 +804,6 @@ function highlightControl() { // Flashing colors on the hovered control button (
     drawControlLabel(hoveredButton);
     ctx.globalAlpha = 1.0;
     useWindow();
-}
-
-// The menu glitches. Every so often a piece of the start screen tears, ghosts or gets crushed for a moment, and then
-// the screen is drawn clean again. All three kinds are self-copies of what is already on the canvas -- nothing is
-// redrawn from the model, so whatever a piece looked like is what tears.
-// Its randomness is fxHash off a counter, not Math.random, for the reason the effects have that rule: Math.random
-// is the stream the spawns come out of, and this runs on a timer, so how many draws it takes before a run starts
-// depends on how long the start screen sat there. The flashers already burned a few dozen that way; this would have
-// burned a thousand, which is enough to make a seeded run unreproducible.
-var GLITCH_EVERY = 220; // ms between rolls
-var GLITCH_CHANCE = 0.45; // and how many of those rolls actually break something
-var GLITCH_HOLD = 90; // ms the damage stays up before a clean redraw takes it away
-var GLITCH_SHOVE = 26; // px a torn band can slide, in layout units
-var GLITCH_BAND = 26; // and how thick a torn or tinted band is. Absolute, not a fraction of what it is breaking:
-                      // sized by the victim, a glitch on a button tears and the same one on the whole screen
-                      // came out as three giant slabs instead
-var glitchClear = null; // the timer that will draw it clean
-var glitchNo = 0; // which glitch this is; everything about it is hashed off this and a slot number
-
-function glitchRand(slot) { // repeatable, and out of the spawns' way
-    return fxHash(glitchNo, slot);
-}
-
-function glitchTargets() { // the pieces it can pick on, in layout coordinates
-    var out = [
-        { x: 110, y: 135, w: 620, h: 200 }, // the title, and the Japanese line under it
-        { x: 90, y: 85, w: 420, h: 50 }, // the slogan
-        { x: 0, y: 70, w: LAYOUT_W, h: LAYOUT_H - 140 }, // and sometimes the lot, inside the banners
-    ];
-    ["start", "break", "focus", "warp", "difficulty", "options"].forEach(function (name) {
-        var g = geom(name);
-        if (g) {
-            out.push({ x: LAYOUT_W / 2 + g.dx - 6, y: LAYOUT_H / 2 + g.dy - 6, w: g.w + 12, h: g.h + 12 });
-        }
-    });
-    if (recordsLine()) {
-        out.push(startLayout() == "classic" ? { x: 230, y: 552, w: 400, h: 34 } : { x: 180, y: 660, w: 440, h: 44 });
-    }
-    return out;
-}
-
-function glitchShove(x, y, w, h, dx) { // slide a band sideways, and leave white where it was
-    x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h); dx = Math.round(dx);
-    if (w <= 0 || h <= 0 || dx == 0) {
-        return;
-    }
-    ctx.drawImage(gameArea.canvas, x, y, w, h, x + dx, y, w, h);
-    ctx.fillStyle = "#ffffff"; // the strip the band left behind, in the screen's own white
-    ctx.fillRect(dx > 0 ? x : x + w + dx, y, Math.abs(dx), h);
-}
-
-function glitchTear(r, s) { // the piece comes apart in bands, each sliding its own way
-    var bands = Math.max(2, Math.min(14, Math.round(r.h / Math.max(3, GLITCH_BAND * s))));
-    var bh = r.h / bands;
-    for (var i = 0; i < bands; i++) {
-        if (glitchRand(10 + i * 2) < 0.3) {
-            continue; // not every band moves, or it reads as a wobble rather than a break
-        }
-        glitchShove(r.x, r.y + i * bh, r.w, bh, (glitchRand(11 + i * 2) - 0.5) * 2 * GLITCH_SHOVE * s);
-    }
-}
-
-function glitchGhost(r, s) { // a second copy pulls out sideways, tinted: the two colours the screen already wears
-    var dx = Math.round((glitchRand(40) < 0.5 ? -1 : 1) * (3 + glitchRand(41) * 7) * s);
-    var x = Math.round(r.x), y = Math.round(r.y), w = Math.round(r.w), h = Math.round(r.h);
-    if (w <= 0 || h <= 0 || dx == 0) {
-        return;
-    }
-    ctx.globalAlpha = 0.45;
-    ctx.drawImage(gameArea.canvas, x, y, w, h, x + dx, y, w, h);
-    ctx.globalAlpha = 0.22; // tinted in bands rather than as one flat box, so it reads as colour noise
-    ctx.fillStyle = dx < 0 ? "#00FFFF" : "#ff00ff";
-    for (var i = 0; i < 4; i++) {
-        var bh = Math.min(h, Math.round(GLITCH_BAND * s * (0.3 + glitchRand(42 + i * 2) * 0.7)));
-        ctx.fillRect(x + dx, Math.round(y + glitchRand(43 + i * 2) * Math.max(0, h - bh)), w, bh);
-    }
-    ctx.globalAlpha = 1;
-}
-
-function glitchCrush(r, s) { // one band squashed into a shorter one, with white under it: a dropped scanline run
-    var bh = Math.max(6, Math.min(r.h, GLITCH_BAND * s * (1.5 + glitchRand(50) * 1.5)));
-    var by = Math.round(r.y + glitchRand(51) * Math.max(0, r.h - bh));
-    var x = Math.round(r.x), w = Math.round(r.w);
-    bh = Math.round(bh);
-    var nh = Math.max(2, Math.round(bh * (0.35 + glitchRand(52) * 0.4)));
-    if (w <= 0 || bh <= 0) {
-        return;
-    }
-    ctx.drawImage(gameArea.canvas, x, by, w, bh, x, by, w, nh);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(x, by + nh, w, bh - nh);
-}
-
-function menuGlitch(force) { // break a piece of the start screen for a moment
-    if (gameStart || optionsOpen || fxLook() != "full") {
-        return; // not the start screen, or the player asked for less motion: this is the noisiest thing on it
-    }
-    glitchNo++; // every roll, fired or not, so two in a row are never the same damage
-    if (force === undefined && glitchRand(1) > GLITCH_CHANCE) { // kind 0 is a kind, not an absence of one
-        return;
-    }
-    var f = layoutFrame();
-    if (!(f.scale > 0)) {
-        return; // a window with no size to speak of: nothing to copy from
-    }
-    drawStartScreen(); // clean first, so a clear that ran late can never let two of them pile up
-    var targets = glitchTargets();
-    var t = targets[Math.floor(glitchRand(2) * targets.length)];
-    var r = { x: f.x + f.scale * t.x, y: f.y + f.scale * t.y, w: f.scale * t.w, h: f.scale * t.h };
-    ctx.save();
-    useWindow(); // a self-copy is in canvas pixels, whatever the layout was drawn at
-    var kind = force === undefined ? Math.floor(glitchRand(3) * 3) : force;
-    if (kind == 0) {
-        glitchTear(r, f.scale);
-    } else if (kind == 1) {
-        glitchGhost(r, f.scale);
-    } else {
-        glitchCrush(r, f.scale);
-    }
-    ctx.restore();
-    if (glitchClear) {
-        clearTimeout(glitchClear);
-    }
-    glitchClear = setTimeout(function () { // whatever it broke, the next clean draw puts back
-        glitchClear = null;
-        if (!gameStart) {
-            drawStartScreen();
-        }
-    }, GLITCH_HOLD);
 }
 
 function onLoad() {

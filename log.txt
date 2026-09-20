@@ -30,8 +30,9 @@ DONE
 		transition rather than a reset. Out of lives, a death wipes the score as it always did
 	Menu glitches: a piece of the start screen tears, ghosts or gets crushed for a moment, then is
 		drawn clean. Picks its victim from the title, the slogan, any button, the records line or the
-		whole screen. Full effects only - a glitching menu is what reduced motion is asking you not
-		to do, so the Effects setting turns it off
+		whole screen. The menu arrives broken and settles - about five of them in the first two
+		seconds, easing off over that, then one every five seconds or so. Full effects only, since a
+		glitching menu is what reduced motion is asking you not to do, so Effects turns it off
 	Records: best run time and what it cost, a best split for each level, and the furthest level
 		reached for a run that never finishes. Kept per difficulty, or EASY would set times TRUE
 		could never beat. On the start screen, on every cleared-level screen,
@@ -106,6 +107,11 @@ NOTES ON WHAT IS BUILT
 		Holding and Breaking came out level, which is why neither felt like a decision: spending was
 		never worse, so the only strategy was hold until forced. The burn is deliberately the worst
 		of the three in raw progress. You are buying safety and paying a premium for it
+	setInterval delays in the startScreenIntervals array are read while the script runs, so every one
+		of them has to be a value that already exists. GLITCH_EVERY was declared below the array,
+		which made it undefined there, which setInterval reads as 0: the glitches rolled about 250
+		times a second instead of four and a half for a whole commit. It looked like a design
+		problem and was a declaration-order one. Measure the rate, don't read the constant
 	Anything on the start screen that runs on a timer must not touch Math.random - it is the stream
 		the spawns come from, and how many draws it takes before a run starts then depends on how
 		long the menu sat there. The title flasher already does this and burns a few dozen; the menu
