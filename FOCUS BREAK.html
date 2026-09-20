@@ -212,6 +212,7 @@ var focused = false;
 var pause = false;
 
 var score = 0;
+var scoreBank = 0; // fractional score carried between steps, so the graze multiplier needn't land on whole points
 var scoreLimit = 1000;
 var powerupScoreBonus = 50;
 var scorePenalty = 250; // point deduction for break
@@ -521,6 +522,7 @@ function windowResize() {
             gameArea.y = cy;
         }
         fitObstaclesToWindow();
+        grazeDrop(); // the square may have been moved: it didn't fly whatever it is next to now
         if (moved) { // clear anything the square was moved onto: it couldn't be dodged (steering waits for the resume)
             obstacleLists().forEach(function (objects) {
                 for (var i = objects.length - 1; i >= 0; i--) {
@@ -978,16 +980,192 @@ function setMode(isFocused, newSpeed, musicRate) { // normal speed, Focus or War
     setMusicRate(musicRate);
 }
 
+function addScore(points) { // score for staying alive, at whatever rate the banked graze charges are worth.
+    // With nothing banked the rate is 1 and the bank stays empty, so this is the bare score++ it replaced
+    scoreBank += points * grazeRate();
+    var whole = Math.floor(scoreBank);
+    scoreBank -= whole;
+    score += whole;
+}
+
 function resumeSpeed() { setMode(false, 1, 1.0); }
 function setSlowSpeed() { setMode(true, speed_slow, 0.75); } // FOCUS
 function setFastSpeed() { setMode(true, speed_fast, 1.2); } // WARP
+
+// The graze system. The square is grazing whenever an obstacle comes within GRAZE_PX of one of its sides without
+// touching it, and the closer the pass the more it counts. The measurement used to live in the effects, where it only
+// fed the sparks; it is game state now, because it pays -- the effects are switchable and must never change what the
+// game does, so anything that scores has to be on this side of the line. The sparks read it, as they read everything.
+//
+// A pass banks charge for how close it got: hold charges and the score rate climbs, spend one and a Break is free
+// instead of costing 250. That is the whole loop -- flying tight is worth something, and cashing it in costs you the
+// rate you built. Before this a graze was purely decorative and Warp's double rate was the only scoring lever.
+var GRAZE_PX = 10; // how close, per axis, counts as a graze; also the farthest the world moves in a step (hyper in Warp)
+const GRAZE_RAMP = { full: GRAZE_PX }; // reads a gap as 0..1 through fxEase, so closeness eases like every fade
+var GRAZE_GAIN = 0.4; // charge for a pass with no gap left at all; a pass pays gain * closeness squared, so a 2px
+                      // pass is worth three 5px ones and seventy 8px ones. Flying tight has to beat flying near
+var GRAZE_MAX = 3; // charges held at once: past this a pass still lights the square, it just has nowhere to bank
+var GRAZE_CLEAR = 10; // steps a side must be clear before the next thing along it counts as a new pass and pays again
+var GRAZE_BOOST = 0.25; // score rate added per charge held: three charges is +75%, and a Break is what spends them
+var GRAZE_LIT = 30; // steps a charge landing keeps the meter marked, so it isn't missed mid-dodge
+
+var graze = {
+    charges: 0, // whole charges banked
+    fill: 0, // progress toward the next one, 0..1
+    lit: GRAZE_LIT, // steps since one landed, for the meter's mark
+    free: false, // a charge paid for the Break that is running
+    side: [], // this step's closest pass per side (0 top, 1 right, 2 bottom, 3 left), so the scan allocates nothing
+};
+while (graze.side.length < 4) {
+    graze.side.push({ power: 0, x: 0, y: 0, v: 0, peak: 0, clear: GRAZE_CLEAR });
+}
+
+function grazeDrop() { // no pass in progress: the next thing along a side starts a fresh one and pays again
+    for (var i = 0; i < 4; i++) {
+        var s = graze.side[i];
+        s.power = s.peak = 0;
+        s.clear = GRAZE_CLEAR;
+    }
+}
+
+function grazeClear() { // a level, a death or a restart: nothing banked carries over, as nothing else does
+    graze.charges = 0;
+    graze.fill = 0;
+    graze.lit = GRAZE_LIT;
+    graze.free = false;
+    scoreBank = 0;
+    grazeDrop();
+}
+
+function grazeRate() { // what the banked charges are worth: the multiplier on the score for staying alive
+    return 1 + GRAZE_BOOST * graze.charges;
+}
+
+function grazeEarn(amount) { // bank a pass, carrying whole charges out of the meter
+    if (graze.charges >= GRAZE_MAX) {
+        return; // nowhere to put it: spend one, or the pass is only a spark
+    }
+    graze.fill += amount;
+    while (graze.fill >= 1) {
+        graze.fill -= 1;
+        graze.charges++;
+        graze.lit = 0;
+        playSound(aud_menuSound);
+        if (graze.charges >= GRAZE_MAX) {
+            graze.fill = 0; // full: the overflow is lost rather than sitting there waiting for a spend
+            break;
+        }
+    }
+}
+
+function grazeBank(side) { // one side's pass: pay for how much closer it got than it has already been paid for
+    var s = graze.side[side];
+    if (s.power <= 0) {
+        s.clear++;
+        if (s.clear >= GRAZE_CLEAR) {
+            s.peak = 0; // clear for long enough that whatever comes next is a new pass
+        }
+        return;
+    }
+    s.clear = 0;
+    if (s.power > s.peak) { // only the tightening is new, so one pass pays gain * its closest moment, once
+        grazeEarn(GRAZE_GAIN * (s.power * s.power - s.peak * s.peak));
+        s.peak = s.power;
+    }
+}
+
+function grazeConsider(side, power, x, y, v) { // this step's closest pass on each side wins the slot
+    var c = graze.side[side];
+    if (power > c.power) {
+        c.power = power;
+        c.x = x;
+        c.y = y;
+        c.v = v;
+    }
+}
+
+function grazeHidden(x1, x2) { // does this span sit inside a level 13/14 bar, where a block of the bar's color is
+    // camouflaged? The sparks don't outline what the level is hiding, and a pass the player couldn't see doesn't pay
+    if (level != 13 && level != 14) {
+        return false;
+    }
+    var w = gameArea.canvas.width / 1920; // the bars' own units, from drawLevelName
+    if (x1 >= 900 * w && x2 <= 1000 * w) {
+        return true;
+    }
+    return level == 14 && x1 >= 1100 * w;
+}
+
+function grazeStep() { // each step, after everything has moved: how close did the square just come to anything, and
+    // what has that earned. This is the one moment the gaps are the ones the player actually flew
+    var i;
+    graze.lit = Math.min(graze.lit + 1, GRAZE_LIT);
+    for (i = 0; i < 4; i++) {
+        graze.side[i].power = 0;
+    }
+    if (invincible) { // Break: movePiece skips collisions, so obstacles sit on the square all through it
+        grazeDrop();
+        return;
+    }
+    var left = gamePiece.x, top = gamePiece.y;
+    var right = left + gamePiece.width, bottom = top + gamePiece.height;
+    var W = gameArea.canvas.width, H = gameArea.canvas.height;
+    for (var lane in OBSTACLE_SPEEDS) {
+        var objects = obstacles[lane], v = OBSTACLE_SPEEDS[lane];
+        for (var k = 0; k < objects.length; k++) {
+            var o = objects[k];
+            if (o.width <= 0 || o.height <= 0) {
+                continue; // nothing drawn, so nothing to pass close to (as crashWith's own guard has it)
+            }
+            if (o.x >= W || o.x + o.width <= 0 || o.y >= H || o.y + o.height <= 0) {
+                continue; // off screen: if the player can't see it, they didn't dodge it
+            }
+            var gx = Math.max(o.x - right, left - (o.x + o.width)); // the gap per axis, the quantity crashWith splits on
+            if (gx >= GRAZE_PX) {
+                continue; // one subtract and a compare turn away almost everything
+            }
+            var gy = Math.max(o.y - bottom, top - (o.y + o.height));
+            if (gy >= GRAZE_PX) {
+                continue;
+            }
+            var sep = Math.max(gx, gy);
+            if (sep <= 0) {
+                continue; // touching is a hit, not a graze
+            }
+            if (grazeHidden(o.x, o.x + o.width)) {
+                continue; // levels 13 and 14: what the level is hiding neither lights up nor pays
+            }
+            var p = fxEase(GRAZE_PX - sep, GRAZE_RAMP); // fxEase is the file's smoothstep, not an effect
+            var px = Math.max(gx, 0), py = Math.max(gy, 0);
+            var share = px / (px + py); // at a corner the pass belongs to both sides, in proportion
+            if (share > 0) { // a vertical side: the shared extent runs along y
+                var lo = Math.max(top, o.y), hi = Math.min(bottom, o.y + o.height);
+                var my = hi >= lo ? (lo + hi) / 2 : (o.y > bottom ? bottom : top);
+                grazeConsider(o.x > left ? 1 : 3, p * share, o.x > left ? right : left, my, v);
+            }
+            if (share < 1) { // a horizontal side: the shared extent runs along x
+                var lx = Math.max(left, o.x), hx = Math.min(right, o.x + o.width);
+                var mx = hx >= lx ? (lx + hx) / 2 : (o.x > right ? right : left);
+                grazeConsider(o.y > top ? 2 : 0, p * (1 - share), mx, o.y > top ? bottom : top, v);
+            }
+        }
+    }
+    for (i = 0; i < 4; i++) {
+        grazeBank(i);
+    }
+}
 
 function setBreak(penalty){
     if (!invincible) {
         powerups.break = []; // destroy powerups on break
         powerups.score = [];
         invincible = true;
-        score += -penalty;
+        if (graze.charges > 0) { // a banked charge pays for it instead of the score -- and the rate goes down with it,
+            graze.charges--; // so the choice is a Break now against a faster score for the rest of the level
+            graze.free = true;
+        } else {
+            score += -penalty;
+        }
         fxWave(); // a shockwave off the square, for the one moment nothing can touch you
     }
 }
@@ -1496,6 +1674,7 @@ function onTouchEnd(e) { // touchend and touchcancel
 function endBreak() { // back to normal after a Break
     invincible = false;
     invincibleTime = 0;
+    graze.free = false;
     gamePiece.color = gamePieceColor;
 }
 
@@ -1664,6 +1843,7 @@ var gameArea = {
         this.canvas.style.cursor = "none"; // hide the original cursor
         this.frameNo = 0;
         this.spawnClock = 0; // game time for spawning, advanced by the game speed each step
+        grazeClear(); // charges are earned inside a level and don't carry, the same as the score
         fxReset(); // no fade, trail or echo carried into the level
         this.stop(); // never run two loops
         this.running = true;
@@ -1995,6 +2175,46 @@ function drawStats(color, scoreColor) { // deaths, level and score in the top-le
     fxDrawMilestone(50, 100); // the hundreds, behind the number and in the same place, so nothing moves
     ctx.fillStyle = scoreColor || color;
     ctx.fillText(score, 50, 100); // show score
+    drawGrazeMeter();
+}
+
+// The graze meter, under the score: a slot per charge, the next one filling, and what the bank is worth. It is
+// the HUD and not an effect, because the charges score -- a player with the effects off still has to see them.
+var GRAZE_HUD_X = 160; // beside the score rather than under it: the number it multiplies, and the one place
+var GRAZE_HUD_Y = 80; // both HUD layouts leave clear -- the touch one packs the deaths and level lines up close
+var GRAZE_SLOT_W = 24, GRAZE_SLOT_H = 10, GRAZE_SLOT_GAP = 5;
+
+function drawGrazeMeter() {
+    if (graze.charges == 0 && graze.fill <= 0) {
+        return; // nothing earned yet, so the HUD is exactly the one the game has always drawn
+    }
+    var y = GRAZE_HUD_Y, x = GRAZE_HUD_X;
+    ctx.save();
+    ctx.fillStyle = "#ff00ff"; // the title's magenta: 3.14:1 on white, where the HUD's other cyan would vanish
+    for (var i = 0; i < GRAZE_MAX; i++) {
+        var part = i < graze.charges ? 1 : (i == graze.charges ? graze.fill : 0);
+        ctx.globalAlpha = 0.35; // the empty slot: an outline, so the bank's size is visible before it is full
+        ctx.fillRect(x, y, GRAZE_SLOT_W, 1);
+        ctx.fillRect(x, y + GRAZE_SLOT_H - 1, GRAZE_SLOT_W, 1);
+        ctx.fillRect(x, y, 1, GRAZE_SLOT_H);
+        ctx.fillRect(x + GRAZE_SLOT_W - 1, y, 1, GRAZE_SLOT_H);
+        if (part > 0) {
+            ctx.globalAlpha = 1;
+            ctx.fillRect(x + 2, y + 2, (GRAZE_SLOT_W - 4) * part, GRAZE_SLOT_H - 4);
+        }
+        x += GRAZE_SLOT_W + GRAZE_SLOT_GAP;
+    }
+    if (graze.lit < GRAZE_LIT) { // a charge just landed: rule the meter for a moment, fading out
+        ctx.globalAlpha = 1 - graze.lit / GRAZE_LIT;
+        var w = GRAZE_MAX * (GRAZE_SLOT_W + GRAZE_SLOT_GAP) - GRAZE_SLOT_GAP + 6;
+        ctx.fillRect(GRAZE_HUD_X - 3, y - 4, w, 2);
+        ctx.fillRect(GRAZE_HUD_X - 3, y + GRAZE_SLOT_H + 2, w, 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.font = "16px Arial";
+    ctx.fillText(graze.free ? "FREE 無料" : (graze.charges > 0 ? "x" + grazeRate().toFixed(2) : "GRAZE"),
+        x + 6, y + GRAZE_SLOT_H - 1);
+    ctx.restore();
 }
 
 function fxDrawProgress() { // the top stripe filling as the score walks toward the level's limit
@@ -2107,10 +2327,8 @@ var FX_GRID_STALL = 40; // steps behind before the grid's ink is fully shed: sce
 // different from clearing it by 40. The threshold is absolute, so each level the flawless streak shrinks the hitbox
 // (20px down to 8), every line already flown measures further out and goes quiet.
 var FX_GRAZE_ON = true; // graze sparks at all: one switch back to the picture without them
-var FX_GRAZE_PX = 10; // how close, per axis, counts as a graze; also the farthest the world moves in a step (hyper in Warp)
 const FX_GRAZE = { full: 100, up: 100, down: 5 }; // a spark's life: filled in one step, out over 20 (200ms), landing on 0
 const FX_GRAZE_CALM = { full: 100, up: 100, down: 2 }; // reduced motion: out over 50 steps, so sparks breathe, not blink
-const FX_GRAZE_RAMP = { full: FX_GRAZE_PX }; // reads a gap as 0..1 through fxEase, so closeness eases like every fade
 var FX_GRAZE_STRIKE = 0.1; // the rise in closeness that counts as a new pass (about 0.67px at the ramp's middle)
 var FX_GRAZE_HIT = 12; // steps of flare after a strike, finished at the maximum: the same 12 as Warp's kick
 var FX_GRAZE_DIM = 0.45; // the faintest spark: a magenta hairline at 2:1 on white, still legible
@@ -2122,7 +2340,7 @@ var FX_GRAZE_OVER = 4; // px the blade overhangs each end in the flare, along th
                        // across is the axis the player judges gaps on. With LIFT and BLADE the envelope is always 5px
 var FX_GRAZE_MINLEN = 10; // the shortest blade, px: never near-square, even on an 8px hitbox
 var FX_GRAZE_TICKAT = 0.104; // the closeness that throws sparks: a gap under 8px of the 10px band. The band itself is
-                             // the ceiling on this -- past FX_GRAZE_PX nothing registers as a graze at all
+                             // the ceiling on this -- past GRAZE_PX nothing registers as a graze at all
 
 // The sparks a graze throws off, in place of the three fixed dashes this used to drop. A pool, so emitting allocates
 // nothing; fxHash rather than Math.random, so a replay of the same run draws the same sparks; and streaks rather than
@@ -2261,8 +2479,8 @@ var fx = {
               // and a spark's own vx the lane of the block that made it. Don't unify them
     stall: 0, // steps the machine has been behind: sheds the grid's ink rather than stuttering. Ink only, never geometry
     next: 0, count: 0, samples: [], // the square's recent positions: a ring of reused { x, y, size, scroll } records
-    graze: [], gz: [], // a spark per side of the square (0 top, 1 right, 2 bottom, 3 left), and this step's best
-                       // candidate for each, so the scan over the obstacles allocates nothing
+    graze: [], // a spark per side of the square (0 top, 1 right, 2 bottom, 3 left); how close each pass was is the
+               // game's own measurement now, in graze.side, and these are only what the sparks made of it
     ring: [], // a powerup ring per kind (0 break, 1 score): { age, x, y }, spent once age reaches FX_POP
     wave: { age: FX_WAVE, x: 0, y: 0 }, // the Break shockwave, off the square
     mile: { age: FX_MILE, at: 0 }, // the score flourish, and the hundred it last marked (it follows the score down too)
@@ -2278,7 +2496,6 @@ while (fx.samples.length < FX_HISTORY) {
 }
 while (fx.graze.length < 4) {
     fx.graze.push({ lit: 0, power: 0, struck: 0, hit: FX_GRAZE_HIT, sx: 0, sy: 0, vx: 0, seed: 0 });
-    fx.gz.push({ power: 0, x: 0, y: 0, v: 0 });
 }
 while (fx.ring.length < 2) {
     fx.ring.push({ age: FX_POP, x: 0, y: 0 });
@@ -2747,74 +2964,17 @@ function fxRecord() { // each step, after the square has moved: remember where i
     fxGraze(); // everything has moved now, so this is the one moment the gaps are the ones the player actually flew
 }
 
-function fxGraze() { // each step, after everything has moved: how close did the square just come to anything
-    if (!FX_GRAZE_ON || invincible) { // Break: movePiece skips collisions, so obstacles sit on the square all through it
+function fxGraze() { // the sparks follow the game's own graze measurement: this step's closest pass on each side
+    if (!FX_GRAZE_ON || invincible) { // Break: grazeStep leaves the sides clear all through it anyway
         return;
     }
-    var i;
-    for (i = 0; i < 4; i++) {
-        fx.gz[i].power = 0;
-    }
-    var left = gamePiece.x, top = gamePiece.y;
-    var right = left + gamePiece.width, bottom = top + gamePiece.height;
-    var W = gameArea.canvas.width, H = gameArea.canvas.height;
-    for (var lane in OBSTACLE_SPEEDS) {
-        var objects = obstacles[lane], v = OBSTACLE_SPEEDS[lane];
-        for (var k = 0; k < objects.length; k++) {
-            var o = objects[k];
-            if (o.width <= 0 || o.height <= 0) {
-                continue; // nothing drawn, so nothing to pass close to (as crashWith's own guard has it)
-            }
-            if (o.x >= W || o.x + o.width <= 0 || o.y >= H || o.y + o.height <= 0) {
-                continue; // off screen: if the player can't see it, they didn't dodge it
-            }
-            var gx = Math.max(o.x - right, left - (o.x + o.width)); // the gap per axis, the quantity crashWith splits on
-            if (gx >= FX_GRAZE_PX) {
-                continue; // one subtract and a compare turn away almost everything
-            }
-            var gy = Math.max(o.y - bottom, top - (o.y + o.height));
-            if (gy >= FX_GRAZE_PX) {
-                continue;
-            }
-            var sep = Math.max(gx, gy);
-            if (sep <= 0) {
-                continue; // touching is a hit, not a graze
-            }
-            if (fxHidden(o.x, o.x + o.width)) {
-                continue; // levels 13 and 14: don't outline a block the level is hiding
-            }
-            var p = fxEase(FX_GRAZE_PX - sep, FX_GRAZE_RAMP);
-            var px = Math.max(gx, 0), py = Math.max(gy, 0);
-            var share = px / (px + py); // at a corner the pass belongs to both sides, in proportion
-            if (share > 0) { // a vertical side: the shared extent runs along y
-                var lo = Math.max(top, o.y), hi = Math.min(bottom, o.y + o.height);
-                var my = hi >= lo ? (lo + hi) / 2 : (o.y > bottom ? bottom : top);
-                fxGrazeConsider(o.x > left ? 1 : 3, p * share, o.x > left ? right : left, my, v);
-            }
-            if (share < 1) { // a horizontal side: the shared extent runs along x
-                var lx = Math.max(left, o.x), hx = Math.min(right, o.x + o.width);
-                var mx = hx >= lx ? (lx + hx) / 2 : (o.x > right ? right : left);
-                fxGrazeConsider(o.y > top ? 2 : 0, p * (1 - share), mx, o.y > top ? bottom : top, v);
-            }
-        }
-    }
-    for (i = 0; i < 4; i++) {
+    for (var i = 0; i < 4; i++) {
         fxGrazeApply(i);
     }
 }
 
-function fxGrazeConsider(side, power, x, y, v) { // this step's closest pass on each side wins the slot
-    var c = fx.gz[side];
-    if (power > c.power) {
-        c.power = power;
-        c.x = x;
-        c.y = y;
-        c.v = v;
-    }
-}
-
 function fxGrazeApply(side) { // light the side, and flare if this is a new pass or a real tightening of an old one
-    var g = fx.graze[side], c = fx.gz[side];
+    var g = fx.graze[side], c = graze.side[side];
     if (c.power <= 0) {
         return; // nothing near this side: leave power where it was and let lit cool
     }
@@ -2833,17 +2993,6 @@ function fxGrazeApply(side) { // light the side, and flare if this is a new pass
     }
     g.power = c.power; // closeness now: the blade's brightness follows the live gap, not the gap back at the strike
     g.lit = fxFade(g.lit, true, fxGrazeFade()); // full life again while anything is near
-}
-
-function fxHidden(x1, x2) { // does this span sit inside a level 13/14 bar, where a block of the bar's color is camouflaged
-    if (level != 13 && level != 14) {
-        return false;
-    }
-    var w = gameArea.canvas.width / 1920; // the bars' own units, from drawLevelName
-    if (x1 >= 900 * w && x2 <= 1000 * w) {
-        return true;
-    }
-    return level == 14 && x1 >= 1100 * w;
 }
 
 function fxGradients() { // made once in unit space (1 is the middle of an edge); setTransform fits them to any screen
@@ -3525,6 +3674,7 @@ function updateGameArea() {
             gameOver();
             return;
         }
+        grazeStep(); // everything has moved: how close the square just came, and what that has banked
         fxRecord(); // where the square is now, for the Warp trail and Focus echoes
         fxDrawAfterimages(); // over the obstacles and the level's bars, under the HUD, touch buttons and square
         if (showFrame) {
@@ -3548,7 +3698,7 @@ function updateGameArea() {
         }
         if (speed == 1) {
             if (gameArea.frameNo % 2 == 0){
-                score++;
+                addScore(1);
             }
         } else if (speed == speed_slow) { // FOCUS
             if (showFrame) {
@@ -3580,7 +3730,7 @@ function updateGameArea() {
                 ctx.fillText("+", 120, 100);
                 ctx.fillText(score, 50, 100);
             }
-            score += 1;
+            addScore(1); // Warp's double rate, itself multiplied by whatever grazing has banked
         }
         if (showFrame) {
             if (inputMode == "touch" && level == 1 && gameArea.frameNo < 200) { // first seconds of a touch run
