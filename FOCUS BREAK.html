@@ -164,6 +164,102 @@ function cycleSetting(name) { // a settings button: step to its next value and r
     playSound(aud_click);
     drawStartScreen();
 }
+// Records. The game timed a run to the second, printed it on the finish screen and then threw it away: nothing about
+// a run survived it, so a flawless fifteen levels and a scrappy one left the same trace, which was none. Kept as one
+// JSON blob beside the settings and read the same defensive way -- a private window throws rather than returning null,
+// and a half-written or hand-edited value must not be what stops the game starting.
+var RECORDS_STORE = "focusbreak.records";
+var RUN_LEVELS = 15; // levels in a full run; level 16 is the finish screen, not a level
+
+var records = {
+    run: null, // fastest completed run, in ms
+    runDeaths: 0, // and what it cost
+    level: {}, // fastest clear of each level, in ms: the split
+    reached: 0, // furthest level started, so a run that never finishes still leaves a mark
+};
+var levelStart = 0; // when the level being played began (ms), moved forward by time spent paused, as startTime is
+var levelBeat = 0; // how long the level just cleared took, and whether that is the best it has been
+var levelRecord = false;
+
+var RECORD_MAX_MS = 86400000; // a day: past this a stored time is not a run, and printing it would look broken
+
+function storedTime(v) { // a stored number we are willing to believe
+    return typeof v == "number" && isFinite(v) && v > 0 && v <= RECORD_MAX_MS ? v : null;
+}
+
+function loadRecords() { // whatever previous runs left, if the browser will tell us
+    try {
+        var got = JSON.parse(window.localStorage.getItem(RECORDS_STORE));
+        if (!got || typeof got != "object") {
+            return;
+        }
+        records.run = storedTime(got.run);
+        records.runDeaths = storedTime(got.runDeaths) || 0;
+        records.reached = Math.min(RUN_LEVELS, storedTime(got.reached) || 0);
+        records.level = {}; // what was stored replaces what is held, rather than merging into it
+        if (got.level && typeof got.level == "object") {
+            for (var n = 1; n <= RUN_LEVELS; n++) {
+                var split = storedTime(got.level[n]);
+                if (split) {
+                    records.level[n] = split;
+                }
+            }
+        }
+    } catch (e) { // blocked storage, a private window, or something that isn't JSON: play without them
+    }
+}
+
+function saveRecords() {
+    try {
+        window.localStorage.setItem(RECORDS_STORE, JSON.stringify(records));
+    } catch (e) { // nothing to do: the records still hold for this session
+    }
+}
+
+function reachedLevel(n) { // a level began: the furthest one reached is a record of its own for a run that never ends
+    if (n > records.reached && n <= RUN_LEVELS) {
+        records.reached = n;
+        saveRecords();
+    }
+}
+
+function recordLevel(n) { // a level was cleared: its split, and whether that is the fastest it has been flown
+    levelBeat = Date.now() - levelStart;
+    levelRecord = !records.level[n] || levelBeat < records.level[n];
+    if (levelRecord) {
+        records.level[n] = levelBeat;
+        saveRecords();
+    }
+}
+
+function recordRun(ms, cost) { // all fifteen cleared: the run's time, against the best there has been
+    var beat = !records.run || ms < records.run;
+    if (beat) {
+        records.run = ms;
+        records.runDeaths = cost;
+        saveRecords();
+    }
+    return beat;
+}
+
+function splitText(ms) { // a level takes seconds, not minutes: m:ss would round away the difference between two runs
+    return (ms / 1000).toFixed(1) + "s";
+}
+
+function mistakes(n) {
+    return n + (n == 1 ? " mistake" : " mistakes");
+}
+
+function recordsLine() { // what the start screen has to say about how this has gone before, or "" the first time
+    if (records.run) {
+        return "BEST " + millisToMinutesAndSeconds(records.run) + "   " + mistakes(records.runDeaths);
+    }
+    if (records.reached > 1) {
+        return "FURTHEST   Level " + records.reached;
+    }
+    return "";
+}
+
 var hoveredButton = ""; // start-screen button under the mouse (or finger)
 
 function startLayout() { // "classic" (the original mouse layout) or "touch" (bigger, centered buttons)
@@ -470,6 +566,7 @@ function highlightControl() { // Flashing colors on the hovered control button (
 
 function onLoad() {
     loadSettings(); // before anything is drawn, so the start screen opens on the settings that are in force
+    loadRecords(); // and on whatever previous runs left behind
     gameArea.load();
     updateSloganText();
     playSound(aud_startup); // startup sound; browsers usually block it until the first click
@@ -624,8 +721,21 @@ function drawStartScreen() { // draw the start screen, or the settings screen st
         }
     }
 
+    drawRecords();
     drawSettingButtons();
     useWindow();
+}
+
+function drawRecords() { // low on the start screen, under the start button; nothing at all before there is any
+    var line = recordsLine();
+    if (!line) {
+        return; // a first run sees the screen the game has always opened on
+    }
+    var classic = startLayout() == "classic";
+    ctx.globalAlpha = 1.0;
+    ctx.font = (classic ? "24px" : "30px") + " Arial";
+    ctx.fillStyle = "#ff00ff"; // 3.14:1 on the screen's white, and the colour the title and slogan already use
+    ctx.fillText(line, classic ? 240 : 190, classic ? 545 : 600);
 }
 
 function drawSettingButtons() { // the OPTIONS button on the start screen, which opens the settings screen
@@ -746,6 +856,9 @@ function startGame(e) {
     gameArea.start();
     gameStart = true;
     alive = true;
+    levelStart = Date.now(); // the split clock; startTime keeps running across the whole run
+    levelBeat = 0;
+    reachedLevel(level);
     restFrame = null; // the next transition screen gets a fresh copy
     pause = false;
     var cx = gamePiece.x + gamePiece.width / 2;
@@ -825,6 +938,25 @@ function centerText(text, dy, passes) { // queue a line dy from the block's base
     msgBlock.push({ text: text, dy: dy, passes: passes || 1, font: ctx.font, fill: ctx.fillStyle });
 }
 
+function msgBottom() { // the lowest line queued so far, so another can be put under whatever a branch put up
+    var low = 0;
+    for (let i = 0; i < msgBlock.length; i++) {
+        low = Math.max(low, msgBlock[i].dy);
+    }
+    return low;
+}
+
+function showSplit() { // the level's time under the message, and what it was before, on every cleared screen
+    if (levelBeat <= 0) {
+        return; // nothing timed: a level that was never played can't have a split
+    }
+    var best = records.level[level - 1]; // recordLevel has already taken it, and level has already moved on
+    ctx.font = "30px Arial";
+    ctx.fillStyle = levelRecord ? "#48D1CC" : "black";
+    centerText(splitText(levelBeat) + (levelRecord ? "   NEW BEST" : "   best " + splitText(best)),
+        msgBottom() + 80);
+}
+
 function showMessage() { // draw the queued lines centred and as large as this screen allows, and return that scale
     if (!msgBlock.length) {
         return 1;
@@ -878,22 +1010,29 @@ function gameOver() { // the level was cleared or the player died
     ctx.fillStyle = "red";
     gameArea.canvas.style.cursor = "default";
     if (levelCleared) { // Next level
+        recordLevel(level); // the split for the one just flown, before level moves on
         level++;
         if (level == 16){ // true finish
-            centerText("Time: " + millisToMinutesAndSeconds(Date.now() - startTime), 0);
+            var runMs = Date.now() - startTime;
+            var runBest = recordRun(runMs, deaths);
+            centerText("Time: " + millisToMinutesAndSeconds(runMs), 0);
             if (deaths == 0){
                 centerText("Flawless Victory", -175);
             } else {
                 centerText("Can you continue?", -175);
                 centerText(deaths + " mistakes", -87);
             }
+            ctx.font = "30px Arial";
+            ctx.fillStyle = runBest ? "#48D1CC" : "black";
+            centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(records.run)
+                + "   " + mistakes(records.runDeaths), 45);
             ctx.fillStyle = "black";
             if (inputMode == "touch") {
                 ctx.font = "40px Arial";
-                centerText("Tap to play again", 87);
+                centerText("Tap to play again", 100);
             } else {
                 ctx.font = "30px Arial";
-                centerText("Click or press R to play again", 87);
+                centerText("Click or press R to play again", 100);
             }
             showMessage();
             runFinished = true;
@@ -905,6 +1044,7 @@ function gameOver() { // the level was cleared or the player died
             ctx.fillStyle = "Black";
             centerText("Victory is a state of mind", -175);
             centerText("勝利は心の状態です", -75);
+            showSplit();
             showMessage();
             drawBanners(40, 20, bannerScale());
             wait(5000);
@@ -914,6 +1054,7 @@ function gameOver() { // the level was cleared or the player died
             ctx.font = "80px Arial";
             centerText("WARNING 警告", -175, 3);
             centerText("多数の敵が接近する", -75, 3);
+            showSplit();
             showMessage();
             drawBanners(40, 30, bannerScale());
             wait(3500);
@@ -926,6 +1067,7 @@ function gameOver() { // the level was cleared or the player died
                 centerText("ヒットボックスを減らす!", 50);
             }
             centerText("+ Perfect 完全 +", -175, 3);
+            showSplit();
             showMessage();
             drawBanners(40, 20, bannerScale());
             wait(3000);
@@ -933,6 +1075,7 @@ function gameOver() { // the level was cleared or the player died
             centerText("Enemies Approaching", -175);
             centerText("非常に大きな敵に接近する危険!", -50);
             centerText("慎重に進んでください!", 25);
+            showSplit();
             showMessage();
             wait(3000);
         }
@@ -1236,8 +1379,9 @@ function setPause(paused) { // pause or resume play; only while alive
             sound.currentTime = 0;
         });
         drawPauseScreen();
-    } else { // exclude paused time from the completion timer
+    } else { // exclude paused time from the completion timer, and from the level's split
         startTime += Date.now() - pauseStart;
+        levelStart += Date.now() - pauseStart;
         if (pausedSong) {
             playSound(pausedSong);
             pausedSong = null;

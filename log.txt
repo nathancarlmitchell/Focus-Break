@@ -20,6 +20,10 @@ DONE
 		fitted to the band they actually fill instead of to the 1280x800 frame, so a phone stops
 		showing them at half the size it has room for. Every line is centred for real
 	Mobile frame rate: draw once a frame rather than once a step, and bake the reduced-motion glow
+	Records: best run time and what it cost, a best split for each level, and the furthest level
+		reached for a run that never finishes. On the start screen, on every cleared-level screen,
+		and on the finish screen. Kept beside the settings in localStorage, and nothing is drawn
+		until there is something to draw
 
 GAMEPLAY STILL TO DO
 	Level 10: add a bonus to the total score; slowly increase spawns as the level goes on
@@ -43,6 +47,36 @@ PRESENTATION STILL TO DO
 	Circle?
 	Independent sizing - what did this mean?
 	Resize screen on mouse move - what did this mean?
+
+IDEAS, NOT YET PICKED UP
+	Seeded runs. The simulation is deterministic: the test harness replaces Math.random with a seeded
+		one and gets the same spawns, the same score and the same obstacle positions every time. So a
+		run can be named by a seed - a daily one, or a code handed to someone else so they fly the
+		same fifteen levels. With the records above that is a leaderboard shape and no server
+	Endless past 15. SPAWN_RULES is a data table and its `from: 15` rules already have no `to`, so
+		they would keep applying. A mode that runs past 15 with `every` tightening as the level
+		climbs is a small change to something already table-driven, and gives the records somewhere
+		to go once the game is cleared
+	Death stats. The graze system measures every pass precisely and then throws it away. The death
+		screen could say how many grazes, how close the closest was, how many charges were spent.
+		Right now a death is a red number and nothing else
+	A charge spent on purpose. Holding charges raises the score rate and a Break spends one, but both
+		are automatic - there is no moment where you decide to burn one. A deliberate spend (a short
+		window of a smaller hitbox, or of double score) would make the meter something you watch
+	Per-level score limit. scoreLimit is one global at 1000, so every level is exactly the same
+		length. Making it per-level is a one-variable change and a free pacing lever - it would do
+		real work on "increase difficulty on 14 and 15" above, which has no mechanism proposed yet
+	A powerup that grants a graze charge. The two kinds today are Break and score; a third fits the
+		system that was just added
+	Obstacle shapes with gaps, rather than solid bars. Changes what dodging means without needing the
+		art that "sprites" implies
+
+RISK, NOT CHECKED
+	The game is red and black on white, and red against black is the pair that has to be told apart:
+		they ride different lanes, so they move at different speeds. Under protanopia red darkens
+		toward black. A player who can't separate them can't predict speed, which is the mechanic
+		rather than the paint. Worth simulating before it is a bug report. It may be fine - the two
+		also differ in size and behaviour
 
 NOTES ON WHAT IS BUILT
 	The effects follow house rules: no red or black, no filled squares, no Math.random (fxHash
