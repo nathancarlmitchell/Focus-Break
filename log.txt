@@ -30,9 +30,10 @@ DONE
 		transition rather than a reset. Out of lives, a death wipes the score as it always did
 	Continuous audio: nothing silences the album any more. A pause used to stop the playing track and
 		four sound effects with it, and the level 9 approach turned every song's volume to zero for
-		its siren. Both are gone; the siren now plays over the music, being the louder of the two.
-		The only thing a pause still does to the audio is put the playback rate back to 1, since a
-		track left pitched down by Focus or up by Warp would drone at that speed for the whole pause
+		its siren. The pause stops nothing at all now, and level 9 ducks the music to 0.07 under the
+		siren's 0.3 rather than muting it, back up when the level starts. The only thing a pause
+		still does to the audio is put the playback rate back to 1, since a track left pitched down
+		by Focus or up by Warp would drone at that speed for the whole pause
 	Instructions: two pages, CONTROLS and SCORING, off a HELP button on the start screen and out of a
 		pause - H on a keyboard, a button on the touch pause panel. The wording follows the input
 		mode and the button-side setting, so it says what this player actually has. One page would
@@ -113,9 +114,11 @@ NOTES ON WHAT IS BUILT
 		Holding and Breaking came out level, which is why neither felt like a decision: spending was
 		never worse, so the only strategy was hold until forced. The burn is deliberately the worst
 		of the three in raw progress. You are buying safety and paying a premium for it
-	The level 9 approach used to cut the music dead for its WARNING screen, which was the game's best
-		audio beat. Continuous audio took it out. If it is wanted back, duck the album rather than
-		mute it - one setMusicVolume either side of the wait, at something like a third
+	A test harness that crashes prints nothing that a word-grep for FAIL or PAGEERROR would catch, so
+		it reads as a pass. parts.js was broken for four commits that way: the graze scan moved into
+		the game, and it was still calling fxRecord without grazeStep. The runner checks exit codes
+		now. It does not check for ": false" - several of these tests report false as the expected
+		answer, and that heuristic flagged four passing tests instead
 	There is one menu screen variable, not a flag per screen: menuScreen is "", "options" or "help",
 		and buttonTable, geom, screenFrame and drawStartScreen all key off it. A new menu screen is a
 		band, a button table and a draw function. The instructions are the only one that can come up

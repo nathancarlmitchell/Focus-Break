@@ -55,6 +55,8 @@ const aud_pickupCoin = sfx("fx_pickupCoin", 0.1);
 const aud_click = sfx("fx_click", 0.1);
 const aud_startup = sfx("fx11");
 var musicVolume = 0.2;
+var MUSIC_DUCK = 0.35; // the album under level 9's siren: down far enough to let it through, not out from under
+                       // it. The siren is at 0.3, so ducked the music sits about a quarter of its level
 
 
 // Screens (start, level transitions, finish, pause) are laid out for a LAYOUT_W x LAYOUT_H window and scaled to fit
@@ -1317,6 +1319,7 @@ function restartRun() { // after the finish screen, start a fresh run from level
 function startNextLevel() {
     gameArea.clear();
     startGame();
+    setMusicVolume(musicVolume); // back up from level 9's duck; every other transition is already at full
 }
 
 // The death and between-levels messages used to be laid out inside the same 1280x800 frame as the start screen and
@@ -1444,7 +1447,8 @@ function gameOver() { // the level was cleared or the player died
             drawBanners(40, 20, bannerScale());
             wait(5000);
         } else if (level == 9){
-            playSound(aud_bomb); // over the album rather than in place of it: the siren is the louder of the two
+            setMusicVolume(musicVolume * MUSIC_DUCK); // the album drops under the siren for the warning, and
+            playSound(aud_bomb); // comes back up when the level starts. It is ducked, never stopped
             ctx.font = "80px Arial";
             centerText("WARNING 警告", -175, 3);
             centerText("多数の敵が接近する", -75, 3);
