@@ -548,7 +548,6 @@ var x = window.innerWidth;
 var y = window.innerHeight;
 var startTime; // when the run started (ms); moved forward by time spent paused
 var pauseStart;
-var pausedSong = null; // song to resume when unpausing
 var restFrame = null; // uncropped copy of the between-levels screen, for redrawing after resizes
 var gamePiece;
 var gamePieceColor = "blue";
@@ -1318,7 +1317,6 @@ function restartRun() { // after the finish screen, start a fresh run from level
 function startNextLevel() {
     gameArea.clear();
     startGame();
-    setMusicVolume(musicVolume);
 }
 
 // The death and between-levels messages used to be laid out inside the same 1280x800 frame as the start screen and
@@ -1389,8 +1387,7 @@ function showMessage() { // draw the queued lines centred and as large as this s
 function gameOver() { // the level was cleared or the player died
     alive = false;
     endBreak(); // a level can end mid-break
-    resumeSpeed();
-    setMusicVolume(musicVolume);
+    resumeSpeed(); // which also puts the music's rate back, whatever power the level ended under
     gameArea.stop();
     var levelCleared = score >= scoreLimit || scoreLimitReached;
     scoreLimitReached = false;
@@ -1447,8 +1444,7 @@ function gameOver() { // the level was cleared or the player died
             drawBanners(40, 20, bannerScale());
             wait(5000);
         } else if (level == 9){
-            setMusicVolume(0.0);
-            playSound(aud_bomb);
+            playSound(aud_bomb); // over the album rather than in place of it: the siren is the louder of the two
             ctx.font = "80px Arial";
             centerText("WARNING 警告", -175, 3);
             centerText("多数の敵が接近する", -75, 3);
@@ -1804,24 +1800,15 @@ function setPause(paused) { // pause or resume play; only while alive
     if (pause) {
         pauseStart = Date.now();
         pauseNo++;
-        pausedSong = all_songs.find(function (song) { return !song.paused; }) || null;
-        if (pausedSong) {
-            pausedSong.pause();
-        }
-        aud_danger.pause();
-        [aud_bomb, aud_death, aud_menuSound].forEach(function (sound) { // cut transition sounds short; rewind so they replay from the start
-            sound.pause();
-            sound.currentTime = 0;
-        });
+        // nothing is silenced here any more: the album plays through a pause, and so does whatever sound was
+        // mid-way. Only the rate goes back to normal, because a track left pitched down by Focus or up by Warp
+        // would drone at that speed for as long as the pause lasts. applyHeldSpeed puts it back on the way out
+        setMusicRate(1.0);
         drawPauseScreen();
     } else { // exclude paused time from the completion timer, and from the level's split
         startTime += Date.now() - pauseStart;
         levelStart += Date.now() - pauseStart;
-        if (pausedSong) {
-            playSound(pausedSong);
-            pausedSong = null;
-        }
-        applyHeldSpeed(); // pick up anything pressed or released while paused
+        applyHeldSpeed(); // pick up anything pressed or released while paused, and with it the music's rate
     }
 }
 
