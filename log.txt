@@ -68,6 +68,20 @@ PRESENTATION STILL TO DO
 	Independent sizing - what did this mean?
 	Resize screen on mouse move - what did this mean?
 
+CODE STILL TO DO
+	Separate the code into multiple files. It is one 4477-line HTML file, 217KB, with 4440 lines
+		inside a single script tag and 223 top-level functions. The obvious first cut is already there:
+		the effects are 1552 of those lines and 62 of those functions, they all start with fx, and they
+		only ever read the game, never write to it. Everything before them - state, levels, spawns,
+		input, the loop and the screens - is the other 2888.
+		Two things constrain how: the game is opened straight off disk as often as it is served, and a
+		file:// page can load plain script src files but not ES modules, which CORS blocks. So plain
+		scripts and globals, not import/export. That also keeps every test harness working unchanged,
+		since they all reach in through window. And the split has to preserve load order - the
+		GLITCH_EVERY bug was exactly that, a constant used by an array built above it.
+		The artifact publishes supporting files by path, so a split build still publishes as one page
+		plus its scripts.
+
 IDEAS, NOT YET PICKED UP
 	Seeded runs. The simulation is deterministic: the test harness replaces Math.random with a seeded
 		one and gets the same spawns, the same score and the same obstacle positions every time. So a
