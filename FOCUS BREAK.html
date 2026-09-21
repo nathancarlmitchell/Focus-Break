@@ -1276,6 +1276,7 @@ function startGame(e) {
     levelStart = Date.now(); // the split clock; startTime keeps running across the whole run
     levelBeat = 0;
     reachedLevel(level);
+    armLore(); // plays only the first time this run sees the level, so a death does not retell the story
     restFrame = null; // the next transition screen gets a fresh copy
     pause = false;
     var cx = gamePiece.x + gamePiece.width / 2;
@@ -1332,6 +1333,7 @@ function restartRun() { // after the finish screen, start a fresh run from level
     startRunRations();
     scoreLimitReached = false;
     startTime = Date.now();
+    loreReset();
     setPieceSize(pieceSize());
     startNextLevel();
 }
@@ -2723,6 +2725,29 @@ const LEVEL_NAMES = [null, "Breath Easy", "Clear Your Mind", "Looking Inward", "
     ["Seeking Perfection", "Past mistakes"], "Looking Outward", "Memory Advance", "Self Destruct",
     ["Perfection", "Remains"], "Afterlife", "Desolation", "Rebirth", "..."];
 
+// PLACEHOLDER TEXT -- this is the list to rewrite. One entry per level, indexed by level number the way LEVEL_NAMES
+// above is (index 0 is unused, and so is anything past level 15). An entry is that level's card: one string a line,
+// drawn top to bottom. Give a level [] for no card at all. Nothing else needs touching when the words change -- the
+// card is measured from whatever is here, so lines can be added, removed or rewritten freely. Keep the lines short:
+// the longest one sets the size of the whole card, because a narrow window scales the card down to fit it.
+const LEVEL_LORE = [null,
+    ["You sit down to practice.", "Nothing is chasing you yet."],                                    // 1
+    ["The first thought arrives.", "It is larger than it needs to be."],                             // 2
+    ["Smaller thoughts now. More of them.", "None are important.", "All of them are quick."],        // 3
+    ["Something red among the rest.", "You notice that you noticed."],                               // 4
+    ["You reach for the next thing.", "The next thing reaches back."],                               // 5
+    ["No mistakes so far.", "Keeping it that way is its own noise."],                                // 6
+    ["The room is louder than the practice.", "You keep your eyes open anyway."],                    // 7
+    ["Old moments arrive out of order.", "You have been here before.", "You were faster then."],     // 8
+    ["Something is coming.", "You cannot sit through this one.", "The music steps back to make room."], // 9
+    ["Halfway is not a destination.", "Keep breathing."],                                            // 10
+    ["The practice continues without you.", "You watch it from somewhere else."],                    // 11
+    ["Nothing here is looking for you.", "That is the hardest part."],                               // 12
+    ["You are put back together wrong.", "It still works."],                                         // 13
+    ["There is nothing left to name.", "Only the moving."],                                          // 14
+    ["One last thought.", "Let it pass."],                                                           // 15
+];
+
 function drawLevelName() { // level name in the bottom-left corner (level 13 also draws a red bar, level 14 two black bars)
     ctx.fillStyle = "black";
     ctx.font = "40px Arial";
@@ -2822,6 +2847,144 @@ function fxDrawNameGlitch(name, x, y, maxWidth, out) { // the name tearing itsel
         fxNameText(name, x + shove, y, maxWidth);
         ctx.restore(); // puts back the alpha, the fill color and the clip together
     }
+}
+
+// The lore card: the level's lines typing themselves out under the top banner, in the same voice as the level name
+// and on the same clock (gameArea.frameNo, which holds while paused, so a paused redraw holds the card too).
+// The one thing it does not share with the name is repetition. gameArea.start() zeroes frameNo on every death as
+// well as every level, so the name retypes each time the level is retried; the story is told once and then left
+// alone. loreShown remembers how far the telling has got, and only a fresh run winds it back.
+var loreShown = 0; // the highest level whose card has already played this run
+var lorePlaying = false; // is the level on screen showing one
+var loreWide = 0; // its widest line in card pixels, measured once when it is armed rather than every frame
+var loreAt = { s: 0, cx: 0, y: 0, w: 0, h: 0, mode: "", side: "" }; // where it is drawn, and what that was worked
+// out for: the window size, the input mode and the side the touch cluster is on. Anything else about the game can
+// change without moving the card, so the fit below is redone when one of those does and not once a frame
+
+function armLore() { // a level is beginning: play its card if this is the first time the run has seen the level
+    lorePlaying = level > loreShown && !!(LEVEL_LORE[level] && LEVEL_LORE[level].length);
+    loreShown = Math.max(loreShown, level);
+    loreWide = 0;
+    loreAt.w = loreAt.h = 0; // a new card is a new size to fit: the old placing does not carry over
+    if (!lorePlaying) {
+        return;
+    }
+    ctx.font = FX_LORE_FONT + "px Arial"; // the width is in card pixels, so a resize changes the scale it is drawn
+    var lines = LEVEL_LORE[level]; // at but never this: measuring here instead of per frame is safe as well as cheap
+    for (var i = 0; i < lines.length; i++) {
+        loreWide = Math.max(loreWide, ctx.measureText(lines[i]).width);
+    }
+}
+
+function loreReset() { // a fresh run starts the story over
+    loreShown = 0;
+    lorePlaying = false;
+}
+
+function loreSpan(lines) { // the whole card's length in characters, counting the pause at each line break as its own
+    var n = 0;
+    for (var i = 0; i < lines.length; i++) {
+        n += lines[i].length + (i < lines.length - 1 ? FX_LORE_BREAK : 0);
+    }
+    return n;
+}
+
+function loreOut(lines) { // how far the card is through leaving: 0 while it is up, 1 once it has gone
+    var typed = FX_LORE_HOLD + loreSpan(lines) * FX_LORE_STEP; // when the last character lands
+    var t = (gameArea.frameNo - typed - FX_LORE_LINGER) / FX_LORE_FADE;
+    if (!FX_LORE_ON || fxLook() == "off") {
+        return t <= 0 ? 0 : 1; // no motion at all in that look: the card is there, and then it is not. It still goes,
+    } // unlike the name -- a name is three words in a corner, a card is three lines across the top of the play area
+    return t <= 0 ? 0 : (t >= 1 ? 1 : t);
+}
+
+// Where the card goes. The HUD is a narrow column in mouse play and a wide, short block in touch play (see
+// FX_LORE_HUD above), so "beside the stats" is roomy in one layout and useless in the other, and "under the stats"
+// is the other way round. Both are worked out. In touch play the power cluster is then carved out of each, once by
+// stopping short of its top and once by stopping short of its side, because which of those leaves more depends on
+// whether the cluster is a corner (landscape) or a column up the edge (portrait). The card is drawn in whichever
+// of the candidates fits it largest, never larger than the HUD's own scale, and a tie goes to the first -- which
+// is the higher and more central one. Ties are the normal case on a desktop window, where everything fits.
+function loreFit() {
+    var W = gameArea.canvas.width, H = gameArea.canvas.height, s0 = hudScale(), touch = inputMode == "touch";
+    if (loreAt.w == W && loreAt.h == H && loreAt.mode == inputMode && loreAt.side == TOUCH_SIDE) {
+        return loreAt; // nothing that moves it has changed
+    }
+    var lines = LEVEL_LORE[level];
+    var cardW = loreWide, cardH = (lines.length - 1) * FX_LORE_LINE + FX_LORE_FONT;
+    // under the banner and its progress stripe, and under the score and graze meter row, whichever is lower
+    var top = Math.max(BANNER_REACH * bannerScale(), 70 * (1 - s0) + FX_LORE_HUD_Y * s0) + FX_LORE_AIR;
+    var bottom = H - 60 - 34 * s0 - FX_LORE_AIR; // over the level name, which keeps the bottom left corner
+    var statsLow = 70 * (1 - s0) + (touch ? TOUCH_STAT_LEVEL : 300) * s0 + FX_LORE_AIR; // under the last stats line
+    var right = W - FX_LORE_PAD;
+    var boxes = [
+        [FX_LORE_PAD + (touch ? FX_LORE_HUD_TOUCH : FX_LORE_HUD) * s0, top, right, bottom], // beside the stats
+        [FX_LORE_PAD, statsLow, right, bottom], // under them
+    ];
+    if (touch) {
+        var tb = touchButtons();
+        for (var i = 0; i < 2; i++) {
+            var c = boxes[i];
+            boxes.push([c[0], c[1], c[2], Math.min(c[3], tb.box.top - FX_LORE_AIR)]); // stopping above the cluster
+            boxes.push(tb.side == "left" // ...or stopping beside it, running past it on the other hand
+                ? [Math.max(c[0], tb.box.right + FX_LORE_AIR), c[1], c[2], c[3]]
+                : [c[0], c[1], Math.min(c[2], tb.box.left - FX_LORE_AIR), c[3]]);
+        }
+        boxes.splice(0, 2); // the uncarved pair would put the card over the buttons
+    }
+    loreAt.s = 0;
+    for (var j = 0; j < boxes.length; j++) {
+        var b = boxes[j], bw = b[2] - b[0], bh = b[3] - b[1];
+        if (bw <= 0 || bh <= 0 || cardW <= 0) {
+            continue; // a window with no room for this candidate at all
+        }
+        var s = Math.min(s0, bw / cardW, bh / cardH);
+        if (s > loreAt.s + 0.001) { // the tie band: a candidate has to be meaningfully bigger to move the card
+            loreAt.s = s;
+            loreAt.cx = Math.max(b[0] + cardW * s / 2, Math.min(W / 2, b[2] - cardW * s / 2)); // centred, then
+            loreAt.y = b[1]; // pushed inside the box if the middle of the window is not in it. Cards sit at the top
+        }
+    }
+    loreAt.w = W; loreAt.h = H; loreAt.mode = inputMode; loreAt.side = TOUCH_SIDE;
+    return loreAt;
+}
+
+function drawLore() { // the card, one character at a time, in the roomiest place the layout leaves for it
+    if (!lorePlaying || !loreWide) {
+        return; // a level being replayed after a death, or a level with nothing to say
+    }
+    var lines = LEVEL_LORE[level];
+    var out = loreOut(lines);
+    if (out >= 1) {
+        return; // gone
+    }
+    var left; // characters still to place, spent line by line below
+    if (FX_LORE_ON && fxLook() != "off") {
+        left = Math.floor((gameArea.frameNo - FX_LORE_HOLD) / FX_LORE_STEP);
+    } else {
+        left = gameArea.frameNo < FX_LORE_HOLD ? -1 : Infinity; // no typing: the whole card, or not yet
+    }
+    if (left <= 0) {
+        return; // still holding, before the first character
+    }
+    var at = loreFit();
+    if (!(at.s > 0)) {
+        return; // a window with nowhere to put it: the play area comes first
+    }
+    ctx.save();
+    ctx.setTransform(at.s, 0, 0, at.s, at.cx, at.y); // the card's own frame: centred on cx, top edge at y
+    ctx.textAlign = "center";
+    ctx.font = FX_LORE_FONT + "px Arial";
+    ctx.fillStyle = FX_LORE_INK;
+    ctx.globalAlpha = 1 - out * out * (3 - 2 * out); // the smoothstep the level name's reduced fade uses
+    for (var i = 0; i < lines.length; i++) {
+        if (left <= 0) {
+            break; // this line has not started, and nor has anything under it
+        }
+        ctx.fillText(left >= lines[i].length ? lines[i] : lines[i].slice(0, left), 0, FX_LORE_RISE + i * FX_LORE_LINE);
+        left -= lines[i].length + FX_LORE_BREAK; // the break's pause is spent before the next line starts
+    }
+    ctx.restore(); // puts back the transform, the alignment, the font, the ink and the alpha together
 }
 
 // On a phone the stats are the same size as on a desktop but the screen is a third of the height, so the column ran
@@ -3105,6 +3268,27 @@ var FX_NAME_BANDS = 7; // horizontal slices the name tears into
 var FX_NAME_STUTTER = 3; // steps each jitter is held for, so it stutters instead of shimmering
 var FX_NAME_SHOVE = 26; // px a slice can jump sideways once it is fully broken up
 var FX_NAME_SPLIT = 5; // px the cyan and magenta copies pull apart by
+var FX_LORE_ON = true; // the level's lore card typing itself in. The words themselves are in LEVEL_LORE
+var FX_LORE_HOLD = 90; // steps before its first character (0.9s): the level name goes in first and is read first
+var FX_LORE_STEP = 2; // steps a character, against the name's 4: there is a lot more of it to get through
+var FX_LORE_BREAK = 20; // a line break costs this many characters' worth of pause before the next line starts
+var FX_LORE_LINGER = 420; // steps the finished card stays up (4.2s)
+var FX_LORE_FADE = 120; // steps it fades out over (1.2s). A card fades in every look rather than tearing the way
+// the level name does in the full one: the tear is the name's signature, and this is the quieter voice
+var FX_LORE_LINE = 44; // px between baselines
+var FX_LORE_FONT = 30; // px of type, against the level name's 40
+var FX_LORE_RISE = 24; // px from the top of the card to its first baseline: the ascent of 30px Arial, plus a little
+var FX_LORE_PAD = 40; // px of window kept clear at the sides...
+var FX_LORE_AIR = 14; // ...and of clearance from everything inside it the card is fitted around
+// How far right the HUD reaches across the rows a card sits in, in the HUD's own frame, with the HUD at its very
+// widest: a four-digit score, a full graze bank, a two-digit death count, level 15 and hard mode's power ration.
+// Measured 93 in mouse play, where the stats are a narrow column, and 385 in touch play, where the same three
+// readouts are packed up into exactly those rows. The difference is why the card has two places it can go.
+var FX_LORE_HUD = 120, FX_LORE_HUD_TOUCH = 400;
+var FX_LORE_HUD_Y = 120; // and the HUD row a card starts below: the score and the graze meter share the row above
+// it, and the meter reaches 291 across -- far past either reach above, but only for those forty or so rows
+var FX_LORE_INK = "#555555"; // grey: 7.46:1 on white and 6.45:1 on the level 14 tint, and neither of the two colors
+// an obstacle can be, so a card never reads as something to dodge
 var FX_TELL_ON = true; // the screen-high block telegraph
 var FX_TELL_STEPS = 60; // how far ahead one is announced (600ms at normal speed)
 var FX_TELL_W = 6; // the mark's width at the right edge, px
@@ -4262,6 +4446,7 @@ function drawLevel() { // draw the level as it stands, without moving anything (
     gameArea.clear();
     fxDrawBackdrop(); // the power effects as they stood when play stopped
     drawLevelName();
+    drawLore();
     [powerups.break, powerups.score].concat(obstacleLists()).forEach(function (objects) {
         objects.forEach(function (obj) {
             obj.update();
@@ -4314,6 +4499,7 @@ function updateGameArea() {
 
         if (showFrame) {
             drawLevelName();
+            drawLore();
         }
         // Object Spawning
         if (clockDue(250) && !focused) { // powerup (none during Focus or Warp), even odds of each kind

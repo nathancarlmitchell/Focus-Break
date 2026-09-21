@@ -53,6 +53,15 @@ DONE
 		could never beat. On the start screen, on every cleared-level screen,
 		and on the finish screen. Kept beside the settings in localStorage, and nothing is drawn
 		until there is something to draw
+	Lore cards: a level's story types itself out the way its name does, a few lines under the banner.
+		Once per level and never again - a death retypes the name but not the card, since the level
+		is being retried and the story has already been told. The words are a placeholder list,
+		LEVEL_LORE, sitting next to LEVEL_NAMES to be rewritten. Grey rather than black, so a card
+		never reads as something to dodge, and it fades out in every look instead of tearing: the
+		tear is the level name's signature and this is the quieter voice. It is fitted into whichever
+		of four boxes the layout leaves biggest, because the HUD is a narrow column in mouse play and
+		a wide, short block in touch play, so beside the stats and under them are each roomy in one
+		layout and useless in the other
 
 GAMEPLAY STILL TO DO
 	Level 10: add a bonus to the total score; slowly increase spawns as the level goes on
