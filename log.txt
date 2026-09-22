@@ -64,6 +64,39 @@ DONE
 		layout and useless in the other
 
 GAMEPLAY STILL TO DO
+	A short grace at the start of a level the run has not seen before, so the lore card can be read
+		before anything spawns. The condition already exists: lorePlaying is exactly "first time this
+		run has reached this level", so a death replaying the level gets no grace and no card, which is
+		the same rule twice. How long it needs, from the cards as written: 2.34s at level 1, 3.42s at
+		level 9, 1.88s at level 15 - hold plus typing, worst case 3.42s
+		Two things have to move, not one. spawnDue returns true on frameNo == 1 as well as on the spawn
+			clock, so without touching that the whole opening volley still lands on the first step and
+			only the refills are delayed
+		And the scoring. Score is a clock, not a reward for dodging, so a grace with the score still
+			running does not make the level shorter - except under Warp, which doubles the rate and
+			would be completely safe for the whole grace. 3.4s of free Warp is 340 of the 1000 needed,
+			a third of level 9 banked before anything can touch you, and the splits are records now
+			The clean version is a pre-roll: nothing spawns, nothing scores, and levelStart is set when
+				the grace ends rather than when the level does, so the split is honest and there is
+				nothing to farm. The player reads the card over an empty field, which for a game whose
+				first level is called Breath Easy is the right thing to be doing anyway
+	Tune the mobile difficulty. Not an illusion - measured, and there are two separate effects, both
+		against the player, because obstacle speeds are absolute px per step and never scaled:
+			Time to cross the whole field, which is all the warning there is. A fast block takes 4.80s
+				on a 1920 window, 3.20s at 1280, 2.11s on an 844-wide landscape phone and 1.67s on a
+				667. So a phone gives two thirds of a 1280 desktop's warning and 44% of a fullscreen
+				one. "They move across the screen faster" is exactly right: screens per second is
+				what changed, and it is the number the player actually reacts to
+			Room to dodge into. A 25x25 block is 2.3% of a 1080-tall field and 6.4% of a 390-tall one,
+				and the square goes from 1.9% to 5.1%. Nearly three times as much of the screen is
+				taken up by the thing you are avoiding and the thing you are avoiding it with
+		One thing is already easier on a phone, and it is worth not undoing: the bar pair gap is an
+			absolute 85-125px, so on a short screen it is 22-32% of the height against 8-12% fullscreen
+		What already scales with the window: bar pair heights, the big blocks (heightScaledBlock takes
+			a fraction of the height), the HUD, the grid's gutter. What does not: OBSTACLE_SPEEDS, the
+			25x25 and 10x10 blocks, the 10x50 oblongs, the 20px bar width, pieceSize, the bar gap,
+			GRAZE_PX, scoreLimit, every spawn rule's `every`, FX_TELL_STEPS. So the fix is a decision
+			about which of those become fractions of the window, not a tuning pass on any one of them
 	Level 10: add a bonus to the total score; slowly increase spawns as the level goes on
 	Break could destroy all obstacles, or just those near the square
 	Other difficulty elements: forced hyperspeed, limited ability uses, some hard-mode only
@@ -72,6 +105,24 @@ GAMEPLAY STILL TO DO
 	Horizontal black bars blocking visibility of vertical black bars
 
 PRESENTATION STILL TO DO
+	Update the visuals on the break meter and the powerup pickup. Both are original code that the rest
+		of the game has since grown past:
+			The break meter is a bare fillRect in updateGameArea: 200px wide, shrinking and sliding
+				right as invincibleTime climbs, anchored to the square. It is drawn in whatever
+				fillStyle the last step happened to leave set - fxDrawBackdrop's own comment says so -
+				so its colour is not chosen anywhere. It is also a filled rectangle, which is the one
+				shape the effects are not allowed to draw because that is what a powerup looks like
+			Touch play already has the version this should be: drawTouchControls rings the BREAK button
+				and drains the ring as the break runs out. Mouse play gets the sliding rect instead
+			The break powerup is a 15x15 square recoloured by getRandomColor every single step. Of the
+				4096 colours that can produce, 44% are under 3:1 against a white ground and 51% against
+				the level 13+ violet; 3.1% are dark enough to read as a black obstacle and another 3.1%
+				red enough to read as a red one. So the one pickup that saves you is, a few frames in
+				every hundred, invisible or disguised as the thing that kills you
+			The score powerup does not have that problem: getRandomColorGold is bounded to hue 25-100
+				at full saturation and half lightness, so it is always legible. Whatever the break
+				powerup becomes should be bounded the same way. It already has a ring, a shockwave and,
+				for the score one, a +50 that rises off it - the pickups are the part left behind
 	Check the visual discrepancies on the menu buttons. The same button -- cyan frame, black inner,
 		magenta Arial label -- is built four separate times, each copy hand-tuned rather than shared:
 			drawSettingButtons, the start screen's own row: 22px mouse / 34px touch, nudge +8 / +12,
