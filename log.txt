@@ -161,6 +161,63 @@ IDEAS, NOT YET PICKED UP
 			third line that types in under the finished block on the lore card's clock and in its grey.
 			That also gives the level 10 screen's five seconds a job: banner line, Japanese line, then
 			a quiet grey sentence arriving late to say it is not over
+	Lore for an introduction, before level one. The theme is the title: sometimes the best way to take
+		a break from your thoughts is to focus, and when you need to focus it is sometimes best to take
+		a break for a while. The game already argues it without saying so - FOCUS slows the world and
+		stops the score, so it is literally a break from progress, and BREAK costs 250, so it is what
+		you pay to get your focus back. GRAZE pays you for passing close to the thing you are avoiding
+		How long it can be, measured through the real fit code rather than guessed. A card of n lines
+			is (n-1)*44 + 30 card pixels tall, and the intro competes with the HUD like any other:
+				3 lines - 30px on a desktop, 21.3 on a landscape phone, 19.5 in portrait, 3.0s to type
+				5 lines - 30px, 14.5, 19.5, 5.0s
+				7 lines - 30px, 9.8, 14.9, 8.1s. Unreadable on a phone
+			So "longer" has to mean two or three short beats in sequence, not one tall card. Which is
+				lucky: the thesis is a chiasmus, it has a fold in the middle, and playing it as two
+				beats is that fold
+		A - the thesis, split where the sentence splits. Beat two is beat one run backwards, which
+			is the whole idea. One: "When you cannot stop thinking, / stop trying to rest. / Pick
+			one thing and hold it." Two, after a pause: "And when you cannot hold it any longer, / stop
+			trying to focus. / Let go for a while." Then optionally a third beat of two words - "Focus.
+			Break." - the two buttons, named as the two halves of the thesis they already are
+		B - the clinic voice. Matches the level names (Breath Easy, Clear Your Mind, Looking Inward)
+			and can stay calm all the way to Self Destruct, where calm-becoming-wrong frightens.
+			"Welcome. / Find somewhere you will not be interrupted." "The exercise is simple. / Nothing
+			may touch you." "Thoughts will arrive. That is what they do. / You are not asked to stop
+			them. / You are asked to be somewhere they are not." The chiasmus then arrives later as an
+			instruction rather than a statement: "If you lose the thread, do not chase it. Put it down
+			and pick it up again."
+		C - the two words as received advice. The most direct, and it uses the title as the argument.
+			"Two things people tell you when your head is loud. / Take a break. Focus up." "They sound
+			like opposites. / They are the same instruction, said from either end." "Fifteen levels to
+			find out which one you needed."
+		D - second person, the day you have had. Closest to the level cards' own voice, given room.
+			"You have been trying to stop thinking all day. / It has not worked." "So you are going to
+			try the opposite. / One square. One rule. Nothing touches it." "The thoughts keep coming.
+			Let them come. / You are only responsible for the square."
+		E - the session voice. Colder. Sets up Self Destruct, Afterlife and "How did this happen?"
+			better than the others, and makes the Japanese pairings read as system output rather than
+			decoration. "SESSION 1 OF 15 / Subject reports intrusive thoughts." "Prescribed: sustained
+			attention. / Duration: until the subject stops noticing the duration." "始めてください"
+		F - the shortest version that still says it, if the intro should get out of the way fast.
+			"Focus is a break from thinking. / A break is how you get back to focus." "Try not to need
+			either one."
+		Point the intro at the mechanics. Ending on "You will find that focusing stops the clock, and
+			that a break costs you something. Both of those are true outside this window too." earns
+			the whole design retroactively, because all three of those statements are literally true of
+			FOCUS, BREAK and the graze meter
+		Bookend it with the finish screen, above. The strongest version is the intro stating the thesis
+			one way round and level 16 stating it the other. Intro: "When you cannot stop thinking,
+			stop trying to rest." Finish: "Nothing is chasing you. You can stop now." Level 1's card
+			already says "Nothing is chasing you yet", and taking the yet off is the arc closing
+		Practical, if it gets built:
+			Its own list, INTRO_LORE, since it is beats rather than lines. LEVEL_LORE[0] is null and
+				unused if it should all live in one place instead
+			A longer FX_LORE_HOLD than the level cards use - "Breath Easy" is typing itself into the
+				bottom left corner at the same time
+			A bigger gap between beats than FX_LORE_BREAK's twenty characters. A real pause, about a
+				second, so beat two reads as an answer to beat one rather than a continuation
+			Every run, or the first run only? rec().reached already persists, so the long intro the
+				first time and beat one alone after that costs nothing to know
 
 RISK, NOT CHECKED
 	The game is red and black on white, and red against black is the pair that has to be told apart:
