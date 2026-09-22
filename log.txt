@@ -113,6 +113,54 @@ IDEAS, NOT YET PICKED UP
 		system that was just added
 	Obstacle shapes with gaps, rather than solid bars. Changes what dodging means without needing the
 		art that "sprites" implies
+	Lore on the two victory screens. Neither has any yet, and both are the wrong shape to leave that
+		way. What they say today: the level 10 screen is "Victory is a state of mind / 勝利は心の状態です"
+		for five seconds over banners, with the split under it; the level 16 finish is "Flawless
+		Victory" or "Can you continue?" plus a mistake count, then the time, the best line and the
+		restart prompt, and it sits there until the player restarts
+		Level 10 - the victory that is lying. It is the strongest narrative slot in the game because it
+			is not the end: five levels follow it, named Perfection or Remains, Afterlife, Desolation,
+			Rebirth and "...". Three ways to play that:
+			Premature congratulation, contradicted a moment later. "You have finished. / 終わりました",
+				flat and unearned. "This is where it ended, the first time." "Thank you for practising.
+				/ ご清聴ありがとうございました", the closing-ceremony register. "Please close the
+				window." - an instruction the game has no business giving
+			Name the level it is about to hand over to. Level 10's name already branches on deaths == 0
+				(Perfection, or Remains), so the screen can branch on the same test and set it up.
+				Flawless: "Nothing has gone wrong yet." / "That is not the same as finished."
+				Otherwise: "Something of you is still here." / "残り"
+			Keep the line and undercut it. Leave "Victory is a state of mind" where it is and put a
+				third line under it in the lore card's grey rather than the banner's black: "So is
+				everything else." "States of mind do not last." "You will want that back."
+		Level 16 - the true finish. Terminal, so it can be slower and longer than anything else in the
+			game. The job is closing the loop the lore cards open: level 1's card is "You sit down to
+			practice. / Nothing is chasing you yet.", and the finish is where the yet comes off.
+			"Nothing is chasing you." "You can stop now." / "If you want to." "The practice is over.
+			The practice is never over." "You may leave the room. / 部屋を出てもよい"
+			Branching on how the run got here. Everything needed is already in scope at that point:
+				deaths == 0 - "You never once flinched." / "That should worry you."
+				deaths == 0 and runBest - "Nobody has done this better. Including you."
+				deaths high - "You were wrong twenty-three times and here you are anyway."
+				runBest - "Faster than you have ever been." / "Faster than you will be again."
+				not runBest - "Slower than the one you remember.", which has teeth because rec().run is
+					right there on the same screen
+				difficulty true - "No powers. No lives. No excuses." / "真"
+				difficulty easy with runLives left - "You did not need all of them."
+				perfectClear == 7 - "You made yourself as small as you could."
+				graze.charges > 0 - "You finished holding something you never spent."
+			A second-playthrough line. rec().reached already persists, so the screen can know this
+				is not the first time the player has seen it. A line that only appears the second
+				time is cheap and lands hard: "You came back." "You have seen this screen before."
+			Replacing "Can you continue?", which reads as the arcade continue prompt and is a different
+				register from everything else on the screen. "You continued." in the past tense, since
+				they already did. Or "It cost you N.", folding the mistake count into the sentence
+				instead of giving it a line of its own
+		The structural catch. Both screens draw through centerText and showMessage, which measures the
+			queued lines and puts the whole block up at once - so lore there would appear instantly,
+			not type itself in like the in-level cards. If it should type, the cleanest version is a
+			third line that types in under the finished block on the lore card's clock and in its grey.
+			That also gives the level 10 screen's five seconds a job: banner line, Japanese line, then
+			a quiet grey sentence arriving late to say it is not over
 
 RISK, NOT CHECKED
 	The game is red and black on white, and red against black is the pair that has to be told apart:
