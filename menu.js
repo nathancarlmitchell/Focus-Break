@@ -317,8 +317,42 @@ var sloganText = "";
 var sloganY = 120;
 var sloganX = 100;
 
+// one of these sits over the title, picked again every three seconds. The room it has is about 420 layout px at
+// 40px Arial: eighteen Latin characters, or nine Japanese. "Bug Free!" is the one drawStartScreen prints bold
 const SLOGANS = ["TOO HARD", "Now in Color!", "Vegan!", "Siezure inducing!", "Advanced!", "Fresh!", "Spicy!", "Gotta Go Fast!",
-    "Classic", "Coming Soon!", "4K 1080p", "Lite", "今は日本語です！", "Version 2", "Bug Free!", "Not Lame!", "...", "ULTRA", ""];
+    "Classic", "Coming Soon!", "4K 1080p", "Lite", "今は日本語です！", "Version 2", "Bug Free!", "Not Lame!", "...", "ULTRA", "",
+    "Now with lore!", "Free to play!", "No ads!", "Handmade", "Award winning*", "Certified organic", "Gluten free",
+    "As seen on TV", "Limited edition", "Contains pixels", "Made with math", "Since 2019", "F11 recommended",
+    "Press H for help", "Warp responsibly", "Zero deaths!",
+    "Do not flinch", "Let it pass", "Nothing chases you", "State of mind",
+    "頑張って！", "集中して", "休憩中", "無理", "難しすぎる", "新登場！", "深呼吸", "焦らないで", "続けますか？",
+    // cryptic: the cards' voice, and things that are true of the game said with no context
+    "Only the moving", "Out of order", "Still works", "The room is louder", "Halfway is nowhere", "Score is a clock",
+    "Victory is a lie", "So is everything", "Remains",
+    "Not the first time", "It knows you paused", "Do not chase it", "Self destruct in 3",
+    // spicy: aimed at the player
+    "Skill issue", "Git gud", "You will die", "Touching counts", "It was 1px", "Blame the mouse", "Therapy, but worse",
+    "TRUE", "EASY mode", "Not bug free",
+    "Back so soon?", "Stop reading this", "This changes in 3s", "Music by Cavalier",
+    // and both, in Japanese
+    "死ぬよ", "諦めろ", "まだ生きてる？", "逃げるな", "誰もいない", "触れるな", "赤に注意", "嘘です", "終わりはない",
+    "また君か", "考えるな", "何も来ない", "練習しろ", "下手",
+    // splash lines
+    "Loading...", "100% square", "Now with more red", "Fewer bugs!", "Patent pending", "Not sponsored", "Works offline",
+    "No install", "Runs in a tab", "Multiplayer soon", "REMASTERED", "Director's cut", "Tested on humans",
+    // the cards, one line at a time
+    "You noticed", "Eyes open anyway", "Been here before", "Keep breathing", "From somewhere else", "The hardest part",
+    "One last thought", "Sit down", "Not chasing you yet", "Larger than needed", "None are important", "Music steps back",
+    "Put back wrong", "Be somewhere else", "Lose the thread", "Pick it up again", "Thoughts arrive", "Session 1 of 15",
+    "Duration: unknown", "Something is coming", "The one you needed", "Stop trying to rest", "Let go for a while",
+    "The yet comes off",
+    // at the player, and at the slogan itself
+    "Dodge better", "That was a wall", "You saw it coming", "Read the help", "Nice try", "Almost", "Not even close",
+    "Try Focus", "Break earlier", "You paused a lot", "Rage is not focus", "It's just pixels", "Insert coin", "Roll again",
+    "Over 100 slogans!", "40px Arial", "#ff00ff", "No black, no red",
+    // and in Japanese
+    "上手くなれ", "見てる", "赤は速い", "一つだけ", "壁だ", "惜しい", "全然ダメ", "もう一回", "二回目", "十五面",
+    "眠るな", "夢じゃない", "戻れない", "戻ってきた", "休め"];
 
 function updateSloganText() { // pick a random slogan and redraw the start screen
     sloganText = SLOGANS[Math.floor(Math.random() * SLOGANS.length)];
@@ -518,7 +552,7 @@ function helpLines() { // the page now showing: a heading is a line of its own, 
         { t: "each one you hold adds 25% to your score rate" },
         { t: "a Break spends one instead of costing 250 score" },
         { t: "Focus burns one to keep scoring while it is slowed" },
-        { t: "Gold pickups are worth 50. The other kind is a free Break." },
+        { t: "Gold pickups are worth 50. The flashing kind is a free Break." },
     ];
 }
 

@@ -170,6 +170,13 @@ var FX_WAVE = 36; // the Break shockwave lives a little longer and goes a lot fu
 var FX_WAVE_R0 = 12, FX_WAVE_R1 = 150;
 var FX_POP_W = 3; // ring line width at birth, tapering to 1
 var FX_POP_ALPHA = 0.55;
+var FX_BEACON_ON = true; // a printed ring breathing around every Break pickup on the field: the one pickup that saves you
+                         // is found by it, and read as a pickup by it on the steps its flash lands on black or red
+var FX_BEACON_R = 13; // px from the pickup's centre, clear of the 15px square's corners
+var FX_BEACON_PULSE = 3; // px it breathes in and out by, in the full look only
+var FX_BEACON_STEPS = 50; // steps a breath takes
+var FX_BEACON_W = 2;
+var FX_BEACON_ALPHA = 0.6;
 var FX_COIN_PARTS = 14; // gold sparks thrown when a score powerup is taken: it is the one pickup that pays, so it gets the most
 var FX_COIN_V = 2.8; // px a step they leave at, before the jitter
 var FX_COIN_INNER = 0.42; // the second, tighter ring, as a fraction of the outer one's reach
@@ -298,15 +305,15 @@ function fxPop(kind, objects) { // a powerup was taken: a ring where it was sitt
             r.age = 0;
             r.x = objects[i].x + objects[i].width / 2;
             r.y = objects[i].y + objects[i].height / 2;
-            if (kind == 1) { // the score powerup also throws gold, seeded off where it was so a replay throws the same
-                fxCoinBurst(r.x, r.y, Math.round(r.x) * 31 + Math.round(r.y));
-            }
+            // and it throws sparks, seeded off where it was so a replay throws the same: gold off a coin, the
+            // cyan and magenta pair off a Break pickup
+            fxPopBurst(r.x, r.y, Math.round(r.x) * 31 + Math.round(r.y), kind == 1 ? 1 : 0);
             return;
         }
     }
 }
 
-function fxCoinBurst(x, y, seed) { // a score powerup was taken: gold thrown out in every direction, not vented off an edge
+function fxPopBurst(x, y, seed, warm) { // a powerup was taken: sparks thrown out in every direction, not vented off an edge
     if (!FX_PART_ON || fx.look != "full") {
         return; // reduced motion keeps the rings, which expand rather than stream, and skips the spray
     }
@@ -328,7 +335,7 @@ function fxCoinBurst(x, y, seed) { // a score powerup was taken: gold thrown out
         p.life = Math.round(FX_PART_LIFE * (ember ? FX_PART_EMBER_LIFE : 0.7 + 0.6 * fxHash(seed, k + 128)));
         p.w = ember ? FX_PART_W_EMBER : FX_PART_W * (0.7 + 0.6 * fxHash(seed, k + 160));
         p.curl = (fxHash(seed, k + 192) - 0.5) * 2 * FX_PART_CURL;
-        p.warm = 1; // gold, like the coin it came off
+        p.warm = warm; // gold off a coin; the cyan and magenta pair off a Break pickup
     }
 }
 
@@ -1194,17 +1201,17 @@ function fxDrawRing(x, y, age, max, r0, r1, inner, outer) { // an expanding outl
     ctx.beginPath(); // leave no path behind: the next fill would paint it
 }
 
-function fxDrawCoinText(x, y, age) { // what the coin was actually worth, which the game has never said anywhere
+function fxDrawPopText(x, y, age, text, ink) { // what the pickup was actually worth, which the game had never said
     var t = age / FX_POP;
     ctx.save();
     ctx.globalAlpha = FX_COIN_TEXT_A * (1 - t) * (1 - t);
     ctx.font = "bold " + FX_COIN_TEXT + "px Arial";
     ctx.textAlign = "center";
     var ty = y - FX_COIN_RISE * (1 - (1 - t) * (1 - t)); // climbing fast and slowing, the way the rings expand
-    ctx.fillStyle = "#ff00ff"; // the magenta print first, offset, then the gold over it, as the title does
-    ctx.fillText("+" + powerupScoreBonus, x + 2, ty + 2);
-    ctx.fillStyle = "#FFD700";
-    ctx.fillText("+" + powerupScoreBonus, x, ty);
+    ctx.fillStyle = "#ff00ff"; // the magenta print first, offset, then the ink over it, as the title does
+    ctx.fillText(text, x + 2, ty + 2);
+    ctx.fillStyle = ink;
+    ctx.fillText(text, x, ty);
     ctx.restore();
 }
 
@@ -1214,15 +1221,42 @@ function fxDrawPops() { // the powerup rings and the Break shockwave
         // a second, tighter ring inside it: one pop with some depth to it rather than a single hoop
         fxDrawRing(fx.ring[1].x, fx.ring[1].y, fx.ring[1].age, FX_POP, FX_POP_R0 * 0.4, FX_POP_R1 * FX_COIN_INNER,
                    "#ff00ff", "#FFD700");
-        fxDrawCoinText(fx.ring[1].x, fx.ring[1].y, fx.ring[1].age);
+        fxDrawPopText(fx.ring[1].x, fx.ring[1].y, fx.ring[1].age, "+" + powerupScoreBonus, "#FFD700");
     }
-    if (fx.ring[0].age < FX_POP) { // a Break powerup taken while one was already running: it refilled, nothing opened
+    if (fx.ring[0].age < FX_POP) { // a Break pickup, whether it opened a Break or refilled one: its ring, a tighter one
+        // inside it, and what it was worth, in the seconds a Break runs for
         fxDrawRing(fx.ring[0].x, fx.ring[0].y, fx.ring[0].age, FX_POP, FX_POP_R0, FX_POP_R1, "#00FFFF", "#ff00ff");
+        fxDrawRing(fx.ring[0].x, fx.ring[0].y, fx.ring[0].age, FX_POP, FX_POP_R0 * 0.4, FX_POP_R1 * FX_COIN_INNER,
+                   "#ff00ff", "#00FFFF");
+        fxDrawPopText(fx.ring[0].x, fx.ring[0].y, fx.ring[0].age, "+" + Math.round(invincibleTimeMax * STEP_MS / 1000) + "s", "#00FFFF");
     }
     if (fx.wave.age < FX_WAVE) {
         fxDrawRing(fx.wave.x, fx.wave.y, fx.wave.age, FX_WAVE, FX_WAVE_R0, FX_WAVE_R1, "#00FFFF", "#ff00ff");
     }
     ctx.globalAlpha = 1;
+}
+
+function fxDrawBeacons() { // a Break pickup on the field: a printed ring around it, breathing, so the one pickup that
+    // saves you can be found across the field and read as a pickup whatever colour its flash has landed on. Under
+    // the obstacles, like every mark here, so it can never hide the thing that kills you. The breath is motion, so
+    // the reduced look keeps the ring still
+    var breath = fx.look == "full" ? Math.sin(2 * Math.PI * gameArea.frameNo / FX_BEACON_STEPS) : 0;
+    var r = FX_BEACON_R + FX_BEACON_PULSE * breath;
+    ctx.lineWidth = FX_BEACON_W;
+    ctx.globalAlpha = FX_BEACON_ALPHA;
+    for (var i = 0; i < powerups.break.length; i++) {
+        var cx = powerups.break[i].x + powerups.break[i].width / 2, cy = powerups.break[i].y + powerups.break[i].height / 2;
+        ctx.strokeStyle = "#00FFFF"; // printed twice: cyan a pixel up and left, magenta over it
+        ctx.beginPath();
+        ctx.arc(cx - 1, cy - 1, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#ff00ff";
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); // leave no path behind
 }
 
 function fxTelegraph() { // steps until the next screen-high block, or -1 if none is on the way
@@ -1353,14 +1387,14 @@ function fxDrawSparks() { // the sparks a graze vented, printed twice like every
     ctx.beginPath(); // leave no path behind
 }
 
-function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under the Break bar, the level's bars, the objects and the HUD
+function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under the level's bars, the objects and the HUD
     // the look is resolved here, not read from fx.look: fxStep doesn't run on the paused redraw, so fx.look can be a
     // level behind (it is still "off" on the first frame of a run, and it never updates if effects are switched while paused)
     var look = fxLook();
-    if (look == "off" || fxOverdrawn() || !(FX_TINT_ON || FX_GRID_ON || FX_TELL_ON || fxShowing() || fxFlourishing())) {
+    if (look == "off" || fxOverdrawn() || !(FX_TINT_ON || FX_GRID_ON || FX_TELL_ON || FX_BEACON_ON || fxShowing() || fxFlourishing())) {
         return; // nothing to add: the picture is exactly what it was without effects
     }
-    ctx.save(); // puts every drawing setting back after (the Break bar is drawn in whatever fill color the last step left)
+    ctx.save(); // puts every drawing setting back after
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (FX_TINT_ON) {
         fxDrawTint(); // the ground, under everything including the grid
@@ -1373,6 +1407,9 @@ function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under th
     }
     if (FX_POP_ON) {
         fxDrawPops();
+    }
+    if (FX_BEACON_ON) {
+        fxDrawBeacons(); // around the Break pickups on the field, under the obstacles
     }
     if (fx.focus > 0) {
         fxDrawVignette(fxEase(fx.focus, FX_FADE.focus), look);

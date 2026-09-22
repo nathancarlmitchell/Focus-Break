@@ -52,9 +52,8 @@ function detectCollision(objects) { // is gamePiece touching anything in this li
 function collectPowerUps() { // apply any powerup gamePiece is touching
     if (detectCollision(powerups.break)) {
         playSound(aud_powerUp);
-        if (invincible) {
-            fxPop(0, powerups.break); // a refill opens no break, so it gets its own ring; setBreak's shockwave covers the rest
-        }
+        fxPop(0, powerups.break); // its ring, its sparks and what it was worth, off where it sat; a fresh Break adds
+        // its shockwave from setBreak, a refill has only these
         powerups.break = [];
         if (invincible) {
             invincibleTime = 0; // refill an active break instead of wasting the powerup
@@ -160,6 +159,13 @@ function spawnDue(every) { // obstacles: on the level's first played frame, then
 
 function edgeBlock(w, h, color, xOffset) { // block entering at the right edge (plus xOffset) at a random height
     return new component(w, h, color, gameArea.canvas.width + (xOffset || 0), Math.random() * gameArea.canvas.height);
+}
+
+function powerupBlock(size, color) { // a powerup entering at the right edge, whole: its height is drawn from the range
+    // that keeps all of it on screen, where an obstacle may come in part off the bottom. One draw, as edgeBlock
+    // makes, so the spawn stream is exactly what it was
+    var y = Math.random() * Math.max(0, gameArea.canvas.height - size);
+    return new component(size, size, color, gameArea.canvas.width, y);
 }
 
 function spawnBarPair() { // a vertical black bar pair with a gap to pass through

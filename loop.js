@@ -158,6 +158,7 @@ function drawLevel() { // draw the level as it stands, without moving anything (
     drawProgress();
     drawTouchControls();
     gamePiece.update();
+    drawBreakMeter();
     useHud();
     drawStats("black");
     useWindow();
@@ -198,10 +199,7 @@ function updateGameArea() {
         fxStep(); // power effects: fade toward the power in use
         fxDrawBackdrop(); // Focus's vignette and Warp's speed lines, under everything drawn below
 
-        if (invincible) {
-            if (showFrame) {
-                ctx.fillRect((gamePiece.x + gamePiece.width / 2 - 50 + invincibleTime / 2), (gamePiece.y + gamePiece.height / 2 - 25),(invincibleTimeMax - invincibleTime), (15)); // display invincible progress
-            }
+        if (invincible) { // what is left of it is the ring drawBreakMeter draws around the square, below
             invincibleTime += focused ? 2 : 1;
             gamePiece.color = getRandomColor();
             if (invincibleTime >= invincibleTimeMax) {
@@ -216,9 +214,11 @@ function updateGameArea() {
         // Object Spawning
         if (clockDue(250) && !focused) { // powerup (none during Focus or Warp), even odds of each kind
             if (Math.random() >= 0.5) {
-                powerups.break.push(edgeBlock(15, 15, getRandomColor()));
+                powerups.break.push(powerupBlock(15, getRandomColor())); // any colour, and a new one every step below:
+                // the ring the effects breathe around it (fxDrawBeacons) is what makes it findable, and readable as
+                // a pickup, on the steps its flash lands on something an obstacle could be
             } else {
-                powerups.score.push(edgeBlock(20, 20, getRandomColorGold()));
+                powerups.score.push(powerupBlock(20, getRandomColorGold()));
             }
         }
         SPAWN_RULES.forEach(function (rule) {
@@ -315,6 +315,7 @@ function updateGameArea() {
             drawTouchControls(); // over the HUD and the power stripes, under the square
             useWindow();
             gamePiece.update();
+            drawBreakMeter(); // and the Break's ring around it, while one is running
         }
         fxDrawScreen(fx.look); // the CRT last, over everything. Before the level-cleared check below, whose gameOver
                                // clears the canvas anyway and draws the between-levels message on a clean one

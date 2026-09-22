@@ -9,6 +9,13 @@ var FX_BAR_ON = true;
 var FX_BAR_TOP = 40, FX_BAR_H = 20; // the magenta banner's own slot, so this reads as that stripe filling up
 var FX_BAR_ALPHA = 0.45;
 var FX_BAR_TRACK = 0.10; // the unfilled remainder, just enough to show how far there is left to go
+var FX_BAR_READ = 0.45; // while a level is being read (the pre-roll), the stripe fills in the track's own magenta as the
+                        // reading goes, so the level begins the moment it is full...
+var FX_BAR_READ_FADE = 60; // ...and it lets go of that over these steps of play, under the score's cyan starting from nothing
+var BREAK_RING_GAP = 6; // px between the square's edge and the Break ring around it
+var BREAK_RING_W = 3; // the ring's weight; the white halo under it is 2px wider
+var BREAK_RING_TRACK = 0.25; // the whole circle, faint, so what is left reads as a fraction of what there was
+var BREAK_RING_ALPHA = 0.9;
 
 // On a phone the stats are the same size as on a desktop but the screen is a third of the height, so the column ran
 // three quarters of the way down it, through the middle of the play area. In touch play the two secondary readouts
@@ -75,7 +82,8 @@ function drawGrazeMeter() {
     ctx.restore();
 }
 
-function drawProgress() { // the top stripe filling as the score walks toward the level's limit
+function drawProgress() { // the top stripe filling as the score walks toward the level's limit, and before that, as
+    // the level's reading walks toward its end
     if (!FX_BAR_ON || fxLook() == "off") {
         return;
     }
@@ -88,8 +96,56 @@ function drawProgress() { // the top stripe filling as the score walks toward th
     ctx.globalAlpha = FX_BAR_TRACK;
     ctx.fillStyle = "#ff00ff";
     ctx.fillRect(0, y, w, h);
+    if (graceSpan > 0) { // a level opened with a reading: the introduction on level 1, a card elsewhere. frameNo
+        // holds while paused, so the fill holds with it, as the card does
+        var read = inGrace() ? gameArea.frameNo / graceSpan : 1;
+        var hold = inGrace() ? 1 : Math.max(0, 1 - playFrame() / FX_BAR_READ_FADE);
+        if (hold > 0) {
+            ctx.globalAlpha = FX_BAR_READ * hold;
+            ctx.fillRect(0, y, w * read, h);
+        }
+    }
     ctx.globalAlpha = FX_BAR_ALPHA;
     ctx.fillStyle = "#00FFFF";
     ctx.fillRect(0, y, w * done, h);
     ctx.restore();
+}
+
+function drawBreakMeter() { // a Break running: a ring around the square, draining clockwise from the top as the Break
+    // runs out, printed twice like everything the game marks, over a faint whole circle so what is left reads as a
+    // fraction. It is the touch BREAK button's own drain, brought to the square, where mouse play never had one: the
+    // sliding bar it replaces was a filled rectangle in whatever colour the last thing drawn had left set
+    if (!invincible) {
+        return;
+    }
+    var cx = gamePiece.x + gamePiece.width / 2, cy = gamePiece.y + gamePiece.height / 2;
+    var r = gamePiece.width / 2 + BREAK_RING_GAP;
+    var left = Math.max(0, 1 - invincibleTime / invincibleTimeMax);
+    ctx.save();
+    useWindow();
+    ctx.lineWidth = BREAK_RING_W + 2; // a white halo under it, so it shows on a black column as it does on the ground
+    ctx.strokeStyle = "white";
+    ctx.globalAlpha = BREAK_RING_ALPHA;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = BREAK_RING_W;
+    ctx.globalAlpha = BREAK_RING_TRACK;
+    ctx.strokeStyle = "#ff00ff";
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    if (left > 0) {
+        ctx.globalAlpha = BREAK_RING_ALPHA;
+        ctx.strokeStyle = "#00FFFF"; // cyan a pixel up and left, magenta over it, as the title is printed
+        ctx.beginPath();
+        ctx.arc(cx - 1, cy - 1, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left);
+        ctx.stroke();
+        ctx.strokeStyle = "#ff00ff";
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left);
+        ctx.stroke();
+    }
+    ctx.restore();
+    ctx.beginPath(); // leave no path behind: a live arc is what the grid's fill would paint next
 }
