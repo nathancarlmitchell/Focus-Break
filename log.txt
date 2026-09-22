@@ -72,6 +72,31 @@ GAMEPLAY STILL TO DO
 	Horizontal black bars blocking visibility of vertical black bars
 
 PRESENTATION STILL TO DO
+	Check the visual discrepancies on the menu buttons. The same button -- cyan frame, black inner,
+		magenta Arial label -- is built four separate times, each copy hand-tuned rather than shared:
+			drawSettingButtons, the start screen's own row: 22px mouse / 34px touch, nudge +8 / +12,
+				label width g.w - 16
+			drawOptionsScreen, the settings rows: 30px, or 36px for BACK, nudge +10, width b.w - 20
+			drawHelpScreen, the instructions: 32px, nudge +11, width b.w - 20
+			drawTouchPauseScreen, the pause panel's HELP: 26px, nudge +9, width h.w - 12
+		What that has cost, measured off the canvas at scale 1 rather than read off the numbers:
+			The settings BACK label sits 3px high in its box: 19px of air above it, 25px below. It is
+				36px type carrying the +10 nudge worked out for the 30px rows around it. Everything
+				else measures centred to within half a pixel, so this is the one real mis-centring
+			In touch play the start screen's OPTIONS button has 9px of air to its left where HELP,
+				beside it in the same row, has 20. "OPTIONS 設定" at 34px is 182px wide in a 200px
+				box against a 184px maxWidth, so it is squeezed to fit rather than fitted
+			Two BACK buttons, two sizes: 340x70 at 36px on the settings screen, 280x66 at 32px on
+				the instructions. Same word, same job, different button
+		And two that are discrepancies of kind rather than of measurement:
+			The start screen's control buttons (BREAK, FOCUS, WARP) are a different species: 40px
+				Impact at 0.5 alpha over a plain cyan box, no black inner. They predate the rest
+			Hover does two things. highlightControl flashes the EDGE of a settings or back button and
+				fills the BOX AND LABEL of a control button, so crossing the start screen changes
+				what highlighting means halfway along
+		The fix is one drawButton taking a box, a label and a font, deriving the baseline from the font
+			rather than a hand-picked number, and picking a size that fits the box instead of leaving
+			fillText's maxWidth to squash it. Four call sites collapse into it
 	Sprites
 	Circle?
 	Independent sizing - what did this mean?
