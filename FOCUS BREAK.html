@@ -1277,6 +1277,7 @@ function startGame(e) {
     levelBeat = 0;
     reachedLevel(level);
     armLore(); // plays only the first time this run sees the level, so a death does not retell the story
+    graceSpan = loreGrace(); // ...and that same first visit is the one that gets a pre-roll to read it in
     restFrame = null; // the next transition screen gets a fresh copy
     pause = false;
     var cx = gamePiece.x + gamePiece.width / 2;
@@ -1576,6 +1577,9 @@ function setMode(isFocused, newSpeed, musicRate) { // normal speed, Focus or War
 
 function addScore(points) { // score for staying alive, at whatever rate the banked graze charges are worth.
     // With nothing banked the rate is 1 and the bank stays empty, so this is the bare score++ it replaced
+    if (inGrace()) {
+        return; // the card is still being read: the level has not started, so neither has its clock
+    }
     scoreBank += points * grazeRate();
     var whole = Math.floor(scoreBank);
     scoreBank -= whole;
@@ -1808,8 +1812,9 @@ var pauseNo = 0; // counts pauses (and cut-short countdowns): a finger lifted du
 var layoutClick = false; // this mouse press switched the start screen to the mouse layout; its click only shows it
 var rotated = false; // a phone or tablet held upright: the game is drawn turned a quarter clockwise, so it always plays landscape
 
-function canAct() { // powers only work while playing and unpaused
-    return alive && !pause;
+function canAct() { // powers only work while playing, unpaused, and past the pre-roll -- a Focus over an
+    // empty field would spend a rationed activation and burn a graze charge for nothing
+    return alive && !pause && !inGrace();
 }
 
 function setPause(paused) { // pause or resume play; only while alive
@@ -2666,8 +2671,8 @@ function clockDue(every) { // true once per 2 * every frames of normal-speed tim
     return Math.floor(gameArea.spawnClock / period) > Math.floor(gameArea.lastSpawnClock / period);
 }
 
-function spawnDue(every) { // obstacles: on a level's first frame, then on the spawn clock
-    return gameArea.frameNo == 1 || clockDue(every);
+function spawnDue(every) { // obstacles: on the level's first played frame, then on the spawn clock
+    return playFrame() == 1 || clockDue(every);
 }
 
 function edgeBlock(w, h, color, xOffset) { // block entering at the right edge (plus xOffset) at a random height
@@ -2985,6 +2990,35 @@ function drawLore() { // the card, one character at a time, in the roomiest plac
         left -= lines[i].length + FX_LORE_BREAK; // the break's pause is spent before the next line starts
     }
     ctx.restore(); // puts back the transform, the alignment, the font, the ink and the alpha together
+}
+
+// The pre-roll. A level the run has not reached before opens with its card typing itself out over an empty
+// field, and the level proper begins when the last character lands. Nothing spawns and nothing scores until
+// then. The scoring half is not caution: score is a clock rather than a reward for dodging, so a grace with
+// it still running would not shorten the level -- except under Warp, which doubles the rate and would be
+// completely safe for the whole pre-roll. Three and a half seconds of that is a third of a level banked
+// before anything can touch you, against splits that are records now. levelStart is set when the pre-roll
+// ends for the same reason: the split times the level, not the reading.
+// A death replays the level without a card, so it gets no pre-roll either. One flag decides both.
+var graceSpan = 0; // steps of pre-roll this level opened with, 0 for a level being replayed
+
+function loreGrace() { // how long the card takes to finish typing, in steps: the pre-roll's length.
+    // Built from the text and the constants alone and never from fxLook -- the look changes how a card
+    // arrives, not how long it takes, and the simulation has to be identical with the effects off
+    if (!FX_LORE_ON || !lorePlaying) {
+        return 0;
+    }
+    var lines = LEVEL_LORE[level];
+    return lines && lines.length ? FX_LORE_HOLD + loreSpan(lines) * FX_LORE_STEP : 0;
+}
+
+function inGrace() { // is the level still being read rather than played
+    return gameArea.frameNo <= graceSpan;
+}
+
+function playFrame() { // steps of the level actually played, which is what frameNo was before this existed.
+    // The card and the level name keep their own clock on frameNo: they are what the pre-roll is for
+    return gameArea.frameNo - graceSpan;
 }
 
 // On a phone the stats are the same size as on a desktop but the screen is a third of the height, so the column ran
@@ -4481,8 +4515,14 @@ function updateGameArea() {
             gameArea.clear();
         }
         gameArea.frameNo += 1;
+        if (graceSpan > 0 && playFrame() == 1) { // the pre-roll just ended, on this step
+            levelStart = Date.now(); // the split times the level, not the reading
+            applyHeldSpeed(); // and a power held through it takes effect now, as one held through a pause does
+        }
         gameArea.lastSpawnClock = gameArea.spawnClock;
-        gameArea.spawnClock += speed;
+        if (!inGrace()) {
+            gameArea.spawnClock += speed; // held through the pre-roll, so nothing spawns and nothing is due
+        }
         fxStep(); // power effects: fade toward the power in use
         fxDrawBackdrop(); // Focus's vignette and Warp's speed lines, under everything drawn below
 
@@ -4595,7 +4635,7 @@ function updateGameArea() {
             addScore(1); // Warp's double rate, itself multiplied by whatever grazing has banked
         }
         if (showFrame) {
-            if (inputMode == "touch" && level == 1 && gameArea.frameNo < 200) { // first seconds of a touch run
+            if (inputMode == "touch" && level == 1 && playFrame() < 200) { // first seconds of a touch run
                 ctx.fillStyle = "black";
                 ctx.font = "30px Arial";
                 ctx.fillText("DRAG ANYWHERE TO STEER", 200, 260, gameArea.canvas.width / hudScale() - 220); // squeezed to fit a narrow window
