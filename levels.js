@@ -18,6 +18,7 @@ function startGame(e) {
         startRunRations(); // the difficulty is locked in from here: its button only lives on the start screen
         var size = pieceSize();
         gamePiece = new component(size, size, gamePieceColor, e.pageX - size / 2, e.pageY - size / 2); // centered on the cursor
+        gamePiece.update = function () { fxDrawPiece(this); }; // and drawn by the effects: torn, while a Break runs
     }
     gameArea.start();
     gameStart = true;
@@ -105,10 +106,19 @@ function startNextLevel() {
 var msgBlock = []; // the lines queued so far, measured and drawn by showMessage
 var msgLore = null; // the lore slot showMessage laid out under the last block, if one was queued: where it is, in the
                     // block's own frame, and the beats that go in it. fxNextStart takes it and types them in
+var msgTally = null; // and the score's tally slot, likewise: where it is and the score. fxNextStart takes it and counts
+                     // it up; when there is no animation to do that, drawDeathMessage draws it whole at once
 
 function centerText(text, dy, passes) { // queue a line dy from the block's baseline, in the font and fill set now;
     // passes > 1 repeats it 1px down and right for a bold look
     msgBlock.push({ text: text, dy: dy, passes: passes || 1, font: ctx.font, fill: ctx.fillStyle });
+}
+
+var PRINT_TRAIL = 8; // copies a printed line trails: the title trails ten at 80px
+
+function printText(text, dy) { // queue a line printed as the title is: cyan copies trailing up and left, a pixel apart,
+    // and magenta over them, in the font set now
+    msgBlock.push({ text: text, dy: dy, passes: 1, font: ctx.font, fill: "#ff00ff", print: "#00FFFF", trail: PRINT_TRAIL });
 }
 
 function msgBottom() { // the lowest line queued so far, so another can be put under whatever a branch put up
@@ -148,8 +158,48 @@ function loreSlot(beats) { // queue a screen's lore under whatever is queued so 
     msgBlock.push({ lore: beats, dy: msgBottom() + FX_SCREEN_DROP, rows: rows, wide: wide, font: ctx.font });
 }
 
+// The score on the death screen: a number printed twice, as the title is, counting up to what it was. It replaces a
+// red "Score: N" in the message's own font
+var TALLY_DY = -54; // its baseline in the block: the number sits centred between the "Try Again" above and the Japanese
+                    // line below, box to box, to within a pixel. The headline's box ends 17px under its baseline at
+                    // -175, the Japanese line's begins 51px over its at 45, and the digits reach 58px above theirs and
+                    // 1px below, which leaves 46 above the number and 47 below it
+var TALLY_FONT = 80; // px of the number, against the message's 60
+var TALLY_GAP = 47; // px from the number's baseline to the box of the life line when that comes straight under it: the
+                    // Japanese line's distance, so that screen is spaced as the Try Again one is
+
+function tallySlot(value, dy) { // queue the score's tally with the message: as wide as the number, and laid out with the
+    // block so the whole thing shrinks together on a small window. Drawn by the death screen's animation, which counts
+    // it up, or whole at once by drawDeathMessage when there is none
+    ctx.font = TALLY_FONT + "px Arial";
+    msgBlock.push({ tally: value, dy: dy, wide: ctx.measureText(String(value)).width, font: ctx.font });
+}
+
+function drawTally(at, shown, flourish) { // the tally as it stands: `shown` on its way to the score, and the flourish
+    // the landing gets, 1 as it lands and 0 once it has faded
+    ctx.save();
+    ctx.setTransform(at.s, 0, 0, at.s, at.cx, at.cy); // the block's own frame, as showMessage drew it
+    ctx.textAlign = "center";
+    ctx.font = TALLY_FONT + "px Arial";
+    var text = String(shown);
+    if (flourish > 0) { // the hundreds' own flourish, as the HUD prints one: stacked copies trailing up and left
+        ctx.globalAlpha = FX_MILE_ALPHA * flourish * flourish;
+        for (var i = FX_MILE_PASSES; i > 0; i--) {
+            ctx.fillStyle = i * 2 <= FX_MILE_PASSES ? "#ff00ff" : "#00FFFF";
+            ctx.fillText(text, at.x - i, at.y - i);
+        }
+        ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = "#00FFFF"; // printed twice: cyan up and left, magenta over it
+    ctx.fillText(text, at.x - 3, at.y - 3);
+    ctx.fillStyle = "#ff00ff";
+    ctx.fillText(text, at.x, at.y);
+    ctx.restore();
+}
+
 function showMessage() { // draw the queued lines centred and as large as this screen allows, and return that scale
     msgLore = null;
+    msgTally = null;
     if (!msgBlock.length) {
         return 1;
     }
@@ -165,11 +215,20 @@ function showMessage() { // draw the queued lines centred and as large as this s
             bottom = Math.max(bottom, line.dy + (line.rows - 1) * FX_LORE_LINE + reach.actualBoundingBoxDescent);
             continue;
         }
+        if (line.tally !== undefined) { // the tally slot: the number's reach above and below its baseline
+            var digit = ctx.measureText("0");
+            left = Math.min(left, -line.wide / 2);
+            right = Math.max(right, line.wide / 2);
+            top = Math.min(top, line.dy - digit.actualBoundingBoxAscent);
+            bottom = Math.max(bottom, line.dy + digit.actualBoundingBoxDescent);
+            continue;
+        }
         var m = ctx.measureText(line.text);
         left = Math.min(left, -m.width / 2);
         right = Math.max(right, m.width / 2 + line.passes - 1); // the bold passes reach 1px further for each repeat
-        top = Math.min(top, line.dy - m.actualBoundingBoxAscent);
-        bottom = Math.max(bottom, line.dy + m.actualBoundingBoxDescent + line.passes - 1);
+        top = Math.min(top, line.dy - m.actualBoundingBoxAscent - (line.trail || 0)); // and a print's trail reaches up
+        bottom = Math.max(bottom, line.dy + m.actualBoundingBoxDescent + line.passes - 1); // and left, as far as it is long
+        left = Math.min(left, -m.width / 2 - (line.trail || 0));
     }
     var s = fitBand(right - left, bottom - top);
     var dx = -(left + right) / 2;
@@ -182,7 +241,17 @@ function showMessage() { // draw the queued lines centred and as large as this s
             msgLore = { s: s, cx: gameArea.canvas.width / 2, cy: gameArea.canvas.height / 2, x: dx, y: l.dy + dy, beats: l.lore };
             continue;
         }
+        if (l.tally !== undefined) { // likewise for the tally
+            msgTally = { s: s, cx: gameArea.canvas.width / 2, cy: gameArea.canvas.height / 2, x: dx, y: l.dy + dy, value: l.tally };
+            continue;
+        }
         ctx.font = l.font;
+        if (l.trail) { // a printed line: the copies trailing up and left first, then the line over them
+            ctx.fillStyle = l.print;
+            for (let q = l.trail; q > 0; q--) {
+                ctx.fillText(l.text, dx - q, l.dy + dy - q);
+            }
+        }
         ctx.fillStyle = l.fill;
         for (let p = 0; p < l.passes; p++) {
             ctx.fillText(l.text, dx + p, l.dy + dy + p);
@@ -227,9 +296,9 @@ function gameOver() { // the level was cleared or the player died
     if (!shattering) {
         fxGroundClear(); // and with no frame held under the message, the ground it sits on is the page's white
     }
-    ctx.font = "60px Arial";
-    ctx.fillStyle = "red";
-    gameArea.canvas.style.cursor = "default";
+    gameArea.canvas.style.cursor = "default"; // every screen below sets its own font. All of them are printed as the
+    // title is, in the game's own ink, the death and the finish included, but one: the level 9 warning is an alarm,
+    // and keeps the obstacles' red
     if (levelCleared) { // Next level
         recordLevel(level); // the split for the one just flown, before level moves on
         level++;
@@ -237,13 +306,16 @@ function gameOver() { // the level was cleared or the player died
             var runMs = Date.now() - startTime;
             var seenBefore = finishedBefore(); // before this run is recorded, or it would always have been
             var runBest = recordRun(runMs, deaths);
-            centerText("Time: " + millisToMinutesAndSeconds(runMs), 0);
+            ctx.font = "80px Arial"; // the headline at the title's size, printed as the title is, like the death's
             if (deaths == 0){
-                centerText("Flawless Victory", -175);
+                printText("Flawless Victory", -175);
             } else { // in the past tense, since they did: "Can you continue?" read as the arcade's continue prompt
-                centerText("You continued.", -175);
-                centerText("It cost you " + mistakes(deaths) + ".", -87);
+                printText("You continued.", -175);
+                ctx.font = "60px Arial";
+                printText("It cost you " + mistakes(deaths) + ".", -87);
             }
+            ctx.font = "60px Arial";
+            printText("Time: " + millisToMinutesAndSeconds(runMs), 0);
             ctx.font = "30px Arial";
             ctx.fillStyle = runBest ? "#48D1CC" : "black";
             centerText(runBest ? "NEW BEST" : "best " + millisToMinutesAndSeconds(rec().run)
@@ -265,41 +337,49 @@ function gameOver() { // the level was cleared or the player died
             fxNextStart(0, true); // the words, for as long as the screen is up: no wait ends this one, the restart does
             return;
         } else if (level == 10){ // you win
-            ctx.fillStyle = "Black";
-            centerText("Victory is a state of mind", -175);
-            centerText("勝利は心の状態です", -75);
+            ctx.font = "80px Arial";
+            printText("Victory is a state of mind", -175);
+            ctx.font = "60px Arial";
+            printText("勝利は心の状態です", -75);
             showSplit();
             loreSlot(VICTORY_LORE); // and under it, late and in grey, that it is not over
             showMessage();
+            ctx.fillStyle = "#ff00ff"; // the stripes in the same ink, rather than in whatever the last line left set
             drawBanners(40, 20, bannerScale());
             wait(5000);
         } else if (level == 9){
             setMusicVolume(musicVolume * MUSIC_DUCK); // the album drops under the siren for the warning, and
             playSound(aud_bomb); // comes back up when the level starts. It is ducked, never stopped
-            ctx.font = "80px Arial";
+            ctx.font = "80px Arial"; // the one screen in the obstacles' red, on purpose: it is an alarm, and the
+            ctx.fillStyle = "red"; // siren under it says so too
             centerText("WARNING 警告", -175, 3);
             centerText("多数の敵が接近する", -75, 3);
             showSplit();
             showMessage();
+            ctx.fillStyle = "red"; // and its stripes with it, which used to take the split line's colour instead
             drawBanners(40, 30, bannerScale());
             wait(3500);
         } else if (deaths == 0) { // perfect clear
             playSound(aud_menuSound);
-            ctx.fillStyle = "#48D1CC";
+            ctx.font = "60px Arial";
             if (perfectClear < 7){ // decrease hitbox size
                 perfectClear++;
-                centerText("Hitbox size decreased!", -75);
-                centerText("ヒットボックスを減らす!", 50);
+                printText("Hitbox size decreased!", -75);
+                printText("ヒットボックスを減らす!", 50);
             }
-            centerText("+ Perfect 完全 +", -175, 3);
+            ctx.font = "80px Arial";
+            printText("+ Perfect 完全 +", -175);
             showSplit();
             showMessage();
+            ctx.fillStyle = "#ff00ff";
             drawBanners(40, 20, bannerScale());
             wait(3000);
         } else { // normal clear
-            centerText("Enemies Approaching", -175);
-            centerText("非常に大きな敵に接近する危険!", -50);
-            centerText("慎重に進んでください!", 25);
+            ctx.font = "80px Arial";
+            printText("Enemies Approaching", -175);
+            ctx.font = "60px Arial";
+            printText("非常に大きな敵に接近する危険!", -50);
+            printText("慎重に進んでください!", 25);
             showSplit();
             showMessage();
             wait(3000);
@@ -329,28 +409,41 @@ function gameOver() { // the level was cleared or the player died
 
 function drawDeathMessage(shown) { // the message after a death. Takes the score because with the shatter running it is
     // drawn after gameOver has already reset it
-    ctx.font = "60px Arial";
-    ctx.fillStyle = "red";
-    centerText("Score: " + shown, -75);
+    tallySlot(shown, TALLY_DY); // the score: counted up by the screen's animation, or drawn whole at the end of this
     var deathSlogan = { 69: "😂", 420: "blaze it", 666: "😈", 911: "TOO SOON", 999: "TOO HARD" }[shown]; // special scores
-    var sloganRow = 25; // the row under the score, which only the ordinary scores have anything in
-    if (shown >= 900) {
-        centerText("So Close", -175);
+    var sloganRow = 45; // the row under the score, which only the ordinary scores have anything in
+    var numberLast = true; // is the number the lowest thing queued, so the life line, if there is one, goes straight under it
+    ctx.font = "80px Arial"; // the headline: the title's size, and printed as the title is, in the game's own ink
+    if (shown >= 900) { // rather than the red the obstacles wear
+        printText("So Close", -175);
     } else if (shown <= 100) {
-        centerText("...", -175);
+        printText("...", -175);
     } else {
-        centerText("Try Again", -175);
-        centerText("再試行する", 25);
-        sloganRow = 125; // taken: centred, the slogan would land straight on top of it instead of beside it
+        printText("Try Again", -175);
+        ctx.font = "60px Arial";
+        printText("再試行する", 45);
+        sloganRow = 145; // taken: centred, the slogan would land straight on top of it instead of beside it
+        numberLast = false;
     }
-    if (deathSlogan) {
+    if (deathSlogan) { // the joke, in the same magenta, plainly: an emoji takes no ink, and would double up printed
+        ctx.font = "60px Arial";
+        ctx.fillStyle = "#ff00ff";
         centerText(deathSlogan, sloganRow);
+        numberLast = false;
     }
     if (lifeSpent) {
         ctx.font = "30px Arial";
         ctx.fillStyle = "#48D1CC";
-        centerText("LIFE SPENT   score kept   " + runLives + " left", msgBottom() + 80);
+        var lifeRow = msgBottom() + 80; // under the Japanese line or the slogan, at the drop the split takes on the other screens
+        if (numberLast) { // straight under the number, at the Japanese line's distance from it, box to box (msgBottom is no
+            lifeRow = TALLY_GAP + TALLY_DY + ctx.measureText("LIFE SPENT").actualBoundingBoxAscent; // use here: it floors at 0)
+        }
+        centerText("LIFE SPENT   score kept   " + runLives + " left", lifeRow);
     }
     showMessage();
     useWindow();
+    if (!fxNextStart(0, true)) { // no animation to count it up (the look with no motion, or no canvas to hold): whole
+        drawTally(msgTally, shown, 0);
+        msgTally = null;
+    }
 }

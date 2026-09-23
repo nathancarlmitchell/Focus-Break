@@ -18,8 +18,9 @@ var FX_LORE_HOLD = 90; // steps before its first character (0.9s): the level nam
 var FX_LORE_STEP = 2; // steps a character, against the name's 4: there is a lot more of it to get through
 var FX_LORE_BREAK = 20; // a line break costs this many characters' worth of pause before the next line starts
 var FX_LORE_LINGER = 420; // steps the finished card stays up (4.2s)
-var FX_LORE_FADE = 120; // steps it fades out over (1.2s). A card fades in every look rather than tearing the way
-// the level name does in the full one: the tear is the name's signature, and this is the quieter voice
+var FX_LORE_FADE = 120; // steps it fades out over in the reduced look (1.2s)...
+var FX_LORE_GLITCH = 60; // ...and tears itself apart over in the full one (0.6s), in bands, the way the level name goes
+var FX_LORE_BAND = 7; // px of card to a torn band, about the name's own: a one-line card tears in four bands, three lines in sixteen
 var FX_LORE_LINE = 44; // px between baselines
 var FX_LORE_FONT = 30; // px of type, against the level name's 40
 var FX_LORE_RISE = 24; // px from the top of the card to its first baseline: the ascent of 30px Arial, plus a little
@@ -182,8 +183,12 @@ function armLore() { // a level is beginning: line up its cards, if this is the 
             scripts.push(INTRO_LORE[b]);
         }
     }
-    if (LEVEL_LORE[level] && LEVEL_LORE[level].length) {
-        scripts.push(LEVEL_LORE[level]);
+    var card = LEVEL_LORE[level];
+    if (card && Array.isArray(card[0])) { // two cards, [no deaths yet, after a death], as some names have two: read
+        card = deaths == 0 ? card[0] : card[1]; // now, on the first visit, since the card plays once and the name is
+    } // drawn every frame
+    if (card && card.length) {
+        scripts.push(card);
     }
     if (!scripts.length) {
         return; // nothing to say
@@ -240,7 +245,8 @@ function loreSpan(lines) { // the whole card's length in characters, counting th
 }
 
 function loreOut(c, t) { // how far a card is through leaving at step t: 0 while it is up, 1 once it has gone
-    var k = (t - c.end - c.linger) / c.fade; // from when its last character landed and it had stayed
+    var span = FX_LORE_ON && fxLook() == "full" ? Math.min(c.fade, FX_LORE_GLITCH) : c.fade; // torn, or faded
+    var k = (t - c.end - c.linger) / span; // from when its last character landed and it had stayed
     if (!FX_LORE_ON || fxLook() == "off") {
         return k <= 0 ? 0 : 1; // no motion at all in that look: the card is there, and then it is not. It still goes,
     } // unlike the name -- a name is three words in a corner, a card is three lines across the top of the play area
@@ -255,18 +261,52 @@ function loreTyped(c, t) { // characters of the card placed by step t: none befo
     return t < c.start ? -1 : Infinity;
 }
 
-function loreDrawLines(c, left, out, x, y) { // the card's lines, the first `left` characters of them, centred on x
-    // with the first baseline at y, in whatever frame the caller has set, in the cards' grey, fading by `out`
-    ctx.textAlign = "center";
-    ctx.font = FX_LORE_FONT + "px Arial";
-    ctx.fillStyle = FX_LORE_INK;
-    ctx.globalAlpha = 1 - out * out * (3 - 2 * out); // the smoothstep the level name's reduced fade uses
+function loreLines(c, left, x, y) { // the card's lines, the first `left` characters of them, centred on x with the
+    // first baseline at y, in whatever frame, ink and alpha the caller has set
     for (var i = 0; i < c.lines.length; i++) {
         if (left <= 0) {
             break; // this line has not started, and nor has anything under it
         }
         ctx.fillText(left >= c.lines[i].length ? c.lines[i] : c.lines[i].slice(0, left), x, y + i * FX_LORE_LINE);
         left -= c.lines[i].length + FX_LORE_BREAK; // the break's pause is spent before the next line starts
+    }
+}
+
+function loreDrawLines(c, left, out, x, y, t) { // the card as it stands at step t, in the cards' grey: its lines typed
+    // `left` characters in, and on its way out by `out` -- torn apart in bands in the full look, the way the level
+    // name goes, and faded in the reduced one
+    ctx.textAlign = "center";
+    ctx.font = FX_LORE_FONT + "px Arial";
+    if (out <= 0 || fxLook() != "full") {
+        ctx.fillStyle = FX_LORE_INK;
+        ctx.globalAlpha = 1 - out * out * (3 - 2 * out); // the smoothstep the level name's reduced fade uses
+        loreLines(c, left, x, y);
+        return;
+    }
+    var tick = Math.floor(t / FX_NAME_STUTTER); // one jitter held for a few steps: a stutter, not a shimmer
+    var top = y - FX_LORE_RISE, tall = (c.lines.length - 1) * FX_LORE_LINE + FX_LORE_FONT; // the card's box
+    var bands = Math.max(4, Math.min(16, Math.round(tall / FX_LORE_BAND)));
+    var bh = tall / bands;
+    var half = c.wide / 2 + FX_NAME_SHOVE + FX_NAME_SPLIT + 8; // room either side for a band shoved and split
+    for (var i = 0; i < bands; i++) {
+        if (fxHash(tick * 16 + i, 17) < out * out) {
+            continue; // bands drop out as it goes, and by the end every one of them has
+        }
+        var shove = (fxHash(tick * 16 + i, 18) - 0.5) * 2 * FX_NAME_SHOVE * out;
+        var split = FX_NAME_SPLIT * out * (0.5 + fxHash(tick * 16 + i, 19));
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x - half, top + i * bh, half * 2, bh + 0.5);
+        ctx.clip();
+        ctx.globalAlpha = 0.8 * out; // the channels pull apart as it breaks up, and are not there at all before it
+        ctx.fillStyle = "#00FFFF";
+        loreLines(c, left, x + shove - split, y);
+        ctx.fillStyle = "#ff00ff";
+        loreLines(c, left, x + shove + split, y);
+        ctx.globalAlpha = 1 - 0.3 * out;
+        ctx.fillStyle = FX_LORE_INK; // the card's own grey: this is the card coming apart, not an overlay laid on it
+        loreLines(c, left, x + shove, y);
+        ctx.restore(); // puts back the alpha, the fill and the clip together
     }
 }
 
@@ -339,6 +379,6 @@ function drawLore() { // the card that is up, one character at a time, in the ro
     }
     ctx.save();
     ctx.setTransform(at.s, 0, 0, at.s, at.cx, at.y); // the card's own frame: centred on cx, top edge at y
-    loreDrawLines(c, left, out, 0, FX_LORE_RISE);
+    loreDrawLines(c, left, out, 0, FX_LORE_RISE, t);
     ctx.restore(); // puts back the transform, the alignment, the font, the ink and the alpha together
 }

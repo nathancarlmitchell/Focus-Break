@@ -141,6 +141,9 @@ var FX_DIE_DRAG = 0.94;
 var FX_DIE_SPIN = 0.12; // radians a frame, so the pieces tumble rather than slide
 var FX_DIE_RING = 26; // px the ring around the killing obstacle expands by
 var FX_DIE_W = 2; // outline weight: fragments are outlines, never fills, like the Focus echoes
+var FX_DIE_WASH = 0.5; // how far the held frame fades toward its own ground while the pieces fly: full by the frame the
+                       // message lands on, so the score and the words read over the obstacles rather than against
+                       // them. The ring around what got you, and the pieces, are drawn over it at full strength
 
 // The screen between levels. The message used to be drawn once onto a blank canvas and sat there for two to five
 // seconds. It now plays over the ground of the level being entered, so the transition previews the palette you are
@@ -170,13 +173,29 @@ var FX_WAVE = 36; // the Break shockwave lives a little longer and goes a lot fu
 var FX_WAVE_R0 = 12, FX_WAVE_R1 = 150;
 var FX_POP_W = 3; // ring line width at birth, tapering to 1
 var FX_POP_ALPHA = 0.55;
-var FX_BEACON_ON = true; // a printed ring breathing around every Break pickup on the field: the one pickup that saves you
-                         // is found by it, and read as a pickup by it on the steps its flash lands on black or red
-var FX_BEACON_R = 13; // px from the pickup's centre, clear of the 15px square's corners
+var FX_BEACON_ON = true; // a ring breathing around every pickup on the field: printed, cyan and magenta, around the Break
+                         // pickup, the one that saves you, which is found by it and read as a pickup by it on the steps
+                         // its flash lands on black or red; and around the score pickup in the square's own gold, the
+                         // one its flash has landed on this step, so the ring flickers through the golds with it
+var FX_BEACON_GAP = 5.5; // px beyond the square's half-width: 13 from a Break pickup's centre, clear of its 15px corners,
+                         // and 15.5 from a score pickup's, clear of its 20px ones
 var FX_BEACON_PULSE = 3; // px it breathes in and out by, in the full look only
 var FX_BEACON_STEPS = 50; // steps a breath takes
 var FX_BEACON_W = 2;
 var FX_BEACON_ALPHA = 0.6;
+var FX_PICK_ON = true; // the Break pickup torn in slices as the level name is, so the one pickup that saves you reads as a
+                       // fault in the field rather than a thing in it -- and the square itself torn the same way for as
+                       // long as a Break runs, while nothing can touch it. In the full look only, since a tear is
+                       // motion: the other looks, and this switched off, draw the plain flashing square
+var FX_PICK_BAND = 5; // px of square to a slice: three slices for the 15px pickup, four for the 20px square
+var FX_PICK_STUTTER = 4; // steps each jitter is held for, so it stutters instead of shimmering (the name holds for 3)
+var FX_PICK_SHOVE = 4; // px a slice can jump sideways when the tear is at its worst, per 15px of the square's height
+var FX_PICK_SPLIT = 2; // px the cyan and magenta copies pull apart by, at its worst, likewise
+var FX_PICK_QUIET = 0.4; // how far torn it is most of the time...
+var FX_PICK_BURST = 0.3; // ...and the odds, per window, of tearing all the way
+var FX_PICK_WINDOW = 40; // steps a burst lasts, and the clock its odds are rolled on
+var FX_PIECE_LAST = 0.3; // the last part of a Break over which the square's tear climbs from the quiet level to all the
+                         // way, as the ring around it drains: the Break ending, told by the square coming apart
 var FX_COIN_PARTS = 14; // gold sparks thrown when a score powerup is taken: it is the one pickup that pays, so it gets the most
 var FX_COIN_V = 2.8; // px a step they leave at, before the jitter
 var FX_COIN_INNER = 0.42; // the second, tighter ring, as a fraction of the outer one's reach
@@ -357,7 +376,7 @@ function fxGrazeClear() { // no spark carries across a level, a death, or a jump
 }
 
 // the death shatter's own state. It lives outside fx because it deliberately survives the fxReset that gameOver runs
-var die = { on: false, frame: null, age: 0, request: 0, then: null, parts: [], hit: null };
+var die = { on: false, frame: null, ground: null, age: 0, request: 0, then: null, parts: [], hit: null };
 while (die.parts.length < FX_DIE_PARTS) {
     die.parts.push({ x: 0, y: 0, vx: 0, vy: 0, a: 0, va: 0, size: 0 });
 }
@@ -392,6 +411,8 @@ function fxDieStart(then) { // draw and hold the frame, remember what to burst; 
         return false;
     }
     die.frame = frame;
+    die.ground = "rgb(" + fx.ground[0] + "," + fx.ground[1] + "," + fx.ground[2] + ")"; // the ground in that frame, which
+    // the wash fades it toward: pinned here, so nothing drawn in the meantime can move it
     die.hit = fxDieFatal();
     var cx = gamePiece.x + gamePiece.width / 2, cy = gamePiece.y + gamePiece.height / 2;
     var size = Math.max(4, gamePiece.width / 2);
@@ -421,6 +442,7 @@ function fxDieStop() { // let go of the held frame, whether it finished or was c
     }
     die.on = false;
     die.frame = null;
+    die.ground = null;
     die.then = null;
 }
 
@@ -442,6 +464,12 @@ function fxDieFrame() { // one frame of the shatter, over the held picture
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, gameArea.canvas.width, gameArea.canvas.height);
     ctx.drawImage(die.frame, 0, 0); // the frozen frame, redrawn each time so the pieces move over a clean copy
+    var wash = Math.min(1, moving / (FX_DIE_STEPS - 1 - FX_DIE_HOLD)); // from the moment the pieces move, full on the
+    // last frame drawn, which is the one the message lands on: the step after it stops without drawing again
+    ctx.globalAlpha = FX_DIE_WASH * wash * wash * (3 - 2 * wash); // eased in, so it neither snaps on nor trails off
+    ctx.fillStyle = die.ground;
+    ctx.fillRect(0, 0, gameArea.canvas.width, gameArea.canvas.height);
+    ctx.globalAlpha = 1;
     ctx.save();
     if (die.hit) { // ring what got them: a hard outline, growing and fading
         var g = Math.min(1, moving / 10);
@@ -480,24 +508,29 @@ function fxDieFrame() { // one frame of the shatter, over the held picture
 // the between-levels animation. Like `die` it lives outside fx, because it runs after gameOver's fxReset
 var nxt = { on: false, frame: null, age: 0, span: 0, request: 0,
     plain: false, // the frame and the words only: no ground, rings, sweep or tube (the finish, or the look with no motion)
-    lore: null, at: null }; // the beats typed in under the message, scheduled as cards, and the slot they go in
+    lore: null, at: null, // the beats typed in under the message, scheduled as cards, and the slot they go in
+    tally: null }; // and the death screen's score, counted up in its slot
 
 function fxNextStart(ms, plain) { // hold the message as drawn and play the transition under and over it. With a lore
     // slot laid out under the message (msgLore) the beats are typed into it as the frames go by, and a screen with
     // one runs even in the look with no motion, plainly: the picture exactly as it was, the words arriving whole.
     // `plain` asks for that outright, for the finish, which has no wait to end it: it runs until the run restarts
     if (nxt.on) {
-        return;
+        return false;
     }
     var lore = msgLore;
     msgLore = null; // this screen's, spent
+    var tally = FX_NEXT_ON && fxLook() != "off" ? msgTally : null; // a count is motion: the look with none draws it whole
+    if (tally) {
+        msgTally = null;
+    }
     var still = plain || !FX_NEXT_ON || fxLook() == "off";
-    if (still && !lore) {
-        return; // nothing to bring in over the picture, and nothing to bring in under it
+    if (still && !lore && !tally) {
+        return false; // nothing to bring in over the picture, and nothing to bring in under it
     }
     var frame = copyCanvas(); // the message, on the transparent canvas gameOver cleared for it
     if (!frame) {
-        return;
+        return false;
     }
     nxt.frame = frame;
     nxt.age = 0;
@@ -506,8 +539,10 @@ function fxNextStart(ms, plain) { // hold the message as drawn and play the tran
     nxt.lore = lore ? loreSchedule(lore.beats, FX_SCREEN_HOLD, FX_SCREEN_LINGER, FX_INTRO_FADE, Infinity, FX_INTRO_FADE)
                     : null; // the last beat stays for as long as the screen does
     nxt.at = lore;
+    nxt.tally = tally;
     nxt.on = true;
     nxt.request = requestAnimationFrame(fxNextFrame);
+    return true;
 }
 
 function fxNextStop() { // the level is starting, or the screen is going: let go of the held frame
@@ -520,6 +555,7 @@ function fxNextStop() { // the level is starting, or the screen is going: let go
     nxt.plain = false;
     nxt.lore = null;
     nxt.at = null;
+    nxt.tally = null;
 }
 
 function fxDrawScreenLore() { // the beat that is up, typed into the slot showMessage left under the message, on the
@@ -536,7 +572,7 @@ function fxDrawScreenLore() { // the beat that is up, typed into the slot showMe
     var at = nxt.at;
     ctx.save();
     ctx.setTransform(at.s, 0, 0, at.s, at.cx, at.cy); // the block's own frame, as showMessage drew it
-    loreDrawLines(c, left, out, at.x, at.y);
+    loreDrawLines(c, left, out, at.x, at.y, t);
     ctx.restore();
 }
 
@@ -557,6 +593,9 @@ function fxNextFrame() {
     if (nxt.lore) {
         fxDrawScreenLore(); // the words arriving under it: over the message, under the tube
     }
+    if (nxt.tally) {
+        fxDrawScreenTally(); // the death screen's score, counting up
+    }
     if (!nxt.plain) {
         fxDrawScreen(look); // and the CRT over that, as in play
     }
@@ -567,6 +606,16 @@ function fxNextFrame() {
         return;
     }
     nxt.request = requestAnimationFrame(fxNextFrame);
+}
+
+var FX_TALLY_FRAMES = 45; // frames the death screen's score takes to count up (0.75s at 60Hz): fast at first, slowing
+
+function fxDrawScreenTally() { // the score counting up to what it was, then landing with the hundreds' flourish
+    var t = Math.min(1, nxt.age / FX_TALLY_FRAMES);
+    var ease = 1 - (1 - t) * (1 - t) * (1 - t); // out fast, then coasting, the way the rings expand
+    var shown = t < 1 ? Math.round(nxt.tally.value * ease) : nxt.tally.value;
+    var flourish = t < 1 ? 0 : Math.max(0, 1 - (nxt.age - FX_TALLY_FRAMES) / FX_MILE);
+    drawTally(nxt.tally, shown, flourish);
 }
 
 function fxNextEffects(w, h, look) { // the ground coming up, the rings going out and the bar wiping across
@@ -1236,27 +1285,102 @@ function fxDrawPops() { // the powerup rings and the Break shockwave
     ctx.globalAlpha = 1;
 }
 
-function fxDrawBeacons() { // a Break pickup on the field: a printed ring around it, breathing, so the one pickup that
-    // saves you can be found across the field and read as a pickup whatever colour its flash has landed on. Under
-    // the obstacles, like every mark here, so it can never hide the thing that kills you. The breath is motion, so
-    // the reduced look keeps the ring still
-    var breath = fx.look == "full" ? Math.sin(2 * Math.PI * gameArea.frameNo / FX_BEACON_STEPS) : 0;
-    var r = FX_BEACON_R + FX_BEACON_PULSE * breath;
+function fxDrawPickup(o, kind) { // a pickup on the field, "break" or "score": its ring, then the square. The Break square
+    // is torn in slices as the level name goes, each slice shoved its own way with its cyan and magenta pulled apart
+    // under it, quietly most of the time, all the way in bursts, and every jitter held a few steps so it stutters;
+    // the score square is plain. Drawn in place of component.update for the pickups (see the spawns in
+    // updateGameArea), so a paused frame and the shatter's held one get all of it too. The colour is whatever this
+    // step's flash is: the ring and the tear are laid on top of that, not in place of it
+    if (FX_BEACON_ON && fxLook() != "off") {
+        fxDrawBeacon(o, kind == "score"); // first: under the square, and under the obstacles, which are drawn after
+    }
+    if (kind != "break" || !FX_PICK_ON || fxLook() != "full") {
+        ctx.fillStyle = o.color;
+        ctx.fillRect(o.x, o.y, o.width, o.height);
+        return;
+    }
+    var seed = Math.round(o.y) * 131; // its own tear, rather than every pickup on the field tearing in step
+    var burst = fxTearBurst(seed);
+    fxDrawTear(o, burst ? 1 : FX_PICK_QUIET, seed, burst);
+}
+
+function fxDrawPiece(o) { // the square: plain, until a Break runs, when it is torn as the Break pickup is for as long as
+    // nothing can touch it -- quietly, with the pickup's bursts, and all the way over the Break's last stretch, as
+    // the ring around it drains. Drawn in place of component.update for the square (see startGame), so a paused
+    // frame gets it too. The colour is the Break's own flash, a new one every step (see updateGameArea)
+    if (!invincible || !FX_PICK_ON || fxLook() != "full") {
+        ctx.fillStyle = o.color;
+        ctx.fillRect(o.x, o.y, o.width, o.height);
+        return;
+    }
+    var left = Math.max(0, 1 - invincibleTime / invincibleTimeMax); // of the Break, as the ring shows it
+    var out = left < FX_PIECE_LAST ? 1 - (1 - FX_PICK_QUIET) * left / FX_PIECE_LAST : FX_PICK_QUIET;
+    var burst = fxTearBurst(7919); // its own windows, not a pickup's
+    fxDrawTear(o, burst ? 1 : out, 7919, burst);
+}
+
+function fxTearBurst(seed) { // is a tear in one of its bursts this window
+    return fxHash(Math.floor(gameArea.frameNo / FX_PICK_WINDOW) + seed, 21) < FX_PICK_BURST;
+}
+
+function fxDrawTear(o, out, seed, burst) { // a square torn in slices as the level name goes: each slice shoved its own
+    // way with its cyan and magenta pulled apart under it, as far as `out` says (0 whole, 1 at its worst), every
+    // jitter held a few steps so it stutters, and in a burst the odd slice missing. The square's own colour on top:
+    // this is the thing coming apart, not an overlay laid on it
+    var tick = Math.floor(gameArea.frameNo / FX_PICK_STUTTER) * 16 + seed; // one jitter held for a few steps
+    var bands = Math.max(2, Math.round(o.height / FX_PICK_BAND));
+    var bh = o.height / bands;
+    var scale = o.height / 15; // the shove and the split are set for the 15px pickup, and grow with the square
+    var reach = (FX_PICK_SHOVE + FX_PICK_SPLIT) * scale + 1; // room either side for a slice shoved and split
+    for (var i = 0; i < bands; i++) {
+        if (burst && fxHash(tick + i, 22) < 0.25) {
+            continue; // a slice missing now and then, when it is at its worst: the ring still says where it is
+        }
+        var shove = (fxHash(tick + i, 23) - 0.5) * 2 * FX_PICK_SHOVE * scale * out;
+        var split = FX_PICK_SPLIT * scale * out * (0.5 + fxHash(tick + i, 24));
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(o.x - reach, o.y + i * bh, o.width + 2 * reach, bh + 0.5);
+        ctx.clip();
+        ctx.globalAlpha = 0.8 * out; // the channels pull apart as it breaks up
+        ctx.fillStyle = "#00FFFF";
+        ctx.fillRect(o.x + shove - split, o.y, o.width, o.height);
+        ctx.fillStyle = "#ff00ff";
+        ctx.fillRect(o.x + shove + split, o.y, o.width, o.height);
+        ctx.globalAlpha = 1 - 0.3 * out;
+        ctx.fillStyle = o.color;
+        ctx.fillRect(o.x + shove, o.y, o.width, o.height);
+        ctx.restore(); // puts back the alpha, the fill and the clip together
+    }
+}
+
+function fxDrawBeacon(o, gold) { // the ring breathing around a pickup, centred on the square where this step draws it:
+    // printed twice, cyan a pixel up and left and magenta over it, around the Break pickup, so the one that saves
+    // you can be found across the field and read as a pickup whatever colour its flash has landed on; in the square's
+    // own gold, this step's, around the score pickup. Drawn with the square rather than with the backdrop, which is
+    // laid down before the step's move and would put the ring a move's width to the right of where the square lands.
+    // Under the obstacles, which are drawn after, so it can never hide the thing that kills you. The breath is motion,
+    // so the reduced look keeps the ring still
+    var breath = fxLook() == "full" ? Math.sin(2 * Math.PI * gameArea.frameNo / FX_BEACON_STEPS) : 0;
+    var r = o.width / 2 + FX_BEACON_GAP + FX_BEACON_PULSE * breath;
+    var cx = o.x + o.width / 2, cy = o.y + o.height / 2;
+    ctx.save();
     ctx.lineWidth = FX_BEACON_W;
     ctx.globalAlpha = FX_BEACON_ALPHA;
-    for (var i = 0; i < powerups.break.length; i++) {
-        var cx = powerups.break[i].x + powerups.break[i].width / 2, cy = powerups.break[i].y + powerups.break[i].height / 2;
-        ctx.strokeStyle = "#00FFFF"; // printed twice: cyan a pixel up and left, magenta over it
+    if (gold) {
+        ctx.strokeStyle = o.color;
+    } else {
+        ctx.strokeStyle = "#00FFFF";
         ctx.beginPath();
         ctx.arc(cx - 1, cy - 1, r, 0, Math.PI * 2);
         ctx.stroke();
         ctx.strokeStyle = "#ff00ff";
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.stroke();
     }
-    ctx.globalAlpha = 1;
-    ctx.beginPath(); // leave no path behind
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore(); // puts back the alpha, the line and the colour
+    ctx.beginPath(); // and leaves no path behind
 }
 
 function fxTelegraph() { // steps until the next screen-high block, or -1 if none is on the way
@@ -1391,7 +1515,7 @@ function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under th
     // the look is resolved here, not read from fx.look: fxStep doesn't run on the paused redraw, so fx.look can be a
     // level behind (it is still "off" on the first frame of a run, and it never updates if effects are switched while paused)
     var look = fxLook();
-    if (look == "off" || fxOverdrawn() || !(FX_TINT_ON || FX_GRID_ON || FX_TELL_ON || FX_BEACON_ON || fxShowing() || fxFlourishing())) {
+    if (look == "off" || fxOverdrawn() || !(FX_TINT_ON || FX_GRID_ON || FX_TELL_ON || fxShowing() || fxFlourishing())) {
         return; // nothing to add: the picture is exactly what it was without effects
     }
     ctx.save(); // puts every drawing setting back after
@@ -1407,9 +1531,6 @@ function fxDrawBackdrop() { // Focus's vignette and Warp's speed lines: under th
     }
     if (FX_POP_ON) {
         fxDrawPops();
-    }
-    if (FX_BEACON_ON) {
-        fxDrawBeacons(); // around the Break pickups on the field, under the obstacles
     }
     if (fx.focus > 0) {
         fxDrawVignette(fxEase(fx.focus, FX_FADE.focus), look);

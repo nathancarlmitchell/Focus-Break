@@ -107,7 +107,7 @@ function windowResize() {
     var wasRotated = rotated;
     var moved = false; // the square had to be moved back on screen
     var dying = null;
-    if (nxt.on && nxt.lore) { // words still arriving: they carry on over the held frame, which is drawn at its old
+    if (nxt.on && (nxt.lore || nxt.tally)) { // words still arriving, or a score still counting: they carry on over the held frame, which is drawn at its old
         nxt.plain = true; // size exactly as restFrame would draw it. The ground, rings and sweep are given up, since
     } else { // they are sized to a window that is gone
         fxNextStop(); // the between-levels animation holds a frame at the old size; restFrame takes over from here

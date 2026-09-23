@@ -322,12 +322,12 @@ var sloganX = 100;
 const SLOGANS = ["TOO HARD", "Now in Color!", "Vegan!", "Siezure inducing!", "Advanced!", "Fresh!", "Spicy!", "Gotta Go Fast!",
     "Classic", "Coming Soon!", "4K 1080p", "Lite", "今は日本語です！", "Version 2", "Bug Free!", "Not Lame!", "...", "ULTRA", "",
     "Now with lore!", "Free to play!", "No ads!", "Handmade", "Award winning*", "Certified organic", "Gluten free",
-    "As seen on TV", "Limited edition", "Contains pixels", "Made with math", "Since 2019", "F11 recommended",
+    "As seen on TV", "Limited edition", "Contains pixels", "Made with math", "Since 2019", "F11 recommended", "AI Generated!",
     "Press H for help", "Warp responsibly", "Zero deaths!",
     "Do not flinch", "Let it pass", "Nothing chases you", "State of mind",
     "頑張って！", "集中して", "休憩中", "無理", "難しすぎる", "新登場！", "深呼吸", "焦らないで", "続けますか？",
     // cryptic: the cards' voice, and things that are true of the game said with no context
-    "Only the moving", "Out of order", "Still works", "The room is louder", "Halfway is nowhere", "Score is a clock",
+    "Only the moving", "Out of order", "Still works", "The room is louder", "Halfway is nowhere",
     "Victory is a lie", "So is everything", "Remains",
     "Not the first time", "It knows you paused", "Do not chase it", "Self destruct in 3",
     // spicy: aimed at the player
@@ -339,7 +339,7 @@ const SLOGANS = ["TOO HARD", "Now in Color!", "Vegan!", "Siezure inducing!", "Ad
     "また君か", "考えるな", "何も来ない", "練習しろ", "下手",
     // splash lines
     "Loading...", "100% square", "Now with more red", "Fewer bugs!", "Patent pending", "Not sponsored", "Works offline",
-    "No install", "Runs in a tab", "Multiplayer soon", "REMASTERED", "Director's cut", "Tested on humans",
+    "No install", "Multiplayer soon", "REMASTERED", "Director's cut", "Tested on humans",
     // the cards, one line at a time
     "You noticed", "Eyes open anyway", "Been here before", "Keep breathing", "From somewhere else", "The hardest part",
     "One last thought", "Sit down", "Not chasing you yet", "Larger than needed", "None are important", "Music steps back",
@@ -348,11 +348,12 @@ const SLOGANS = ["TOO HARD", "Now in Color!", "Vegan!", "Siezure inducing!", "Ad
     "The yet comes off",
     // at the player, and at the slogan itself
     "Dodge better", "That was a wall", "You saw it coming", "Read the help", "Nice try", "Almost", "Not even close",
-    "Try Focus", "Break earlier", "You paused a lot", "Rage is not focus", "It's just pixels", "Insert coin", "Roll again",
+    "Rage is not focus", "It's just pixels", "Insert coin",
     "Over 100 slogans!", "40px Arial", "#ff00ff", "No black, no red",
     // and in Japanese
     "上手くなれ", "見てる", "赤は速い", "一つだけ", "壁だ", "惜しい", "全然ダメ", "もう一回", "二回目", "十五面",
-    "眠るな", "夢じゃない", "戻れない", "戻ってきた", "休め"];
+    "眠るな", "夢じゃない", "戻れない", "戻ってきた", "休め",
+    "fxMode = FX_MODES[(FX_MODES.indexOf(fxMode) + 1) % FX_MODES.length] return fxMode }"];
 
 function updateSloganText() { // pick a random slogan and redraw the start screen
     sloganText = SLOGANS[Math.floor(Math.random() * SLOGANS.length)];

@@ -31,20 +31,24 @@ const LEVEL_NAME_BEYOND = "How did this happen?"; // the name of any level past 
 
 // PLACEHOLDER TEXT -- this is the list to rewrite. One entry per level, indexed by level number the way LEVEL_NAMES
 // above is (index 0 is unused, and so is anything past level 15). An entry is that level's card: one string a line,
-// drawn top to bottom. Give a level [] for no card at all. Nothing else needs touching when the words change -- the
-// card is measured from whatever is here, so lines can be added, removed or rewritten freely. Keep the lines short:
-// the longest one sets the size of the whole card, because a narrow window scales the card down to fit it.
+// drawn top to bottom. Give a level [] for no card at all. Levels 6 and 10 have two cards, [card while no deaths yet,
+// card after a death], as their names have two: the run is read once, when the level is first reached, since a card
+// plays once. Nothing else needs touching when the words change -- the card is measured from whatever is here, so
+// lines can be added, removed or rewritten freely. Keep the lines short: the longest one sets the size of the whole
+// card, because a narrow window scales the card down to fit it.
 const LEVEL_LORE = [null,
     ["You sit down to practice.", "Nothing is chasing you yet."],                                    // 1
     ["The first thought arrives.", "It is larger than it needs to be."],                             // 2
     ["Smaller thoughts now. More of them.", "None are important.", "All of them are quick."],        // 3
     ["Something red among the rest.", "You notice that you noticed."],                               // 4
     ["You reach for the next thing.", "The next thing reaches back."],                               // 5
-    ["No mistakes so far.", "Keeping it that way is its own noise."],                                // 6
+    [["No mistakes so far.", "Keeping it that way is its own noise."],                               // 6: no deaths yet,
+     ["You make mistakes.", "Mistakes don't make you.", "Notice how often you look back..."]],                         //    then after one
     ["The room is louder than the practice.", "You keep your eyes open anyway."],                    // 7
     ["Old moments arrive out of order.", "You have been here before.", "You were faster then."],     // 8
     ["Something is coming.", "You cannot sit through this one.", "The music steps back to make room."], // 9
-    ["Halfway is not a destination.", "Keep breathing."],                                            // 10
+    [["Halfway, and nothing has touched you.", "Do not hold your breath."],                          // 10: no deaths yet,
+     ["Halfway is not a destination.", "Keep breathing."]],                                          //     then after one
     ["The practice continues without you.", "You watch it from somewhere else."],                    // 11
     ["Nothing here is looking for you.", "That is the hardest part."],                               // 12
     ["You are put back together wrong.", "It still works."],                                         // 13

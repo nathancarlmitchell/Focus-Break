@@ -33,7 +33,7 @@ var scoreLimitReached = false; // level cleared, even if score later drops below
 var runFinished = false; // level 15 cleared; the finish screen is showing
 var restartArmed = false; // a click began on the finish screen
 var finishTime = 0; // when the finish screen appeared
-var level = 1;
+var level = 2;
 var speed = 1;
 var speed_slow = 0.25;
 var speed_fast = 2;
@@ -213,12 +213,17 @@ function updateGameArea() {
         }
         // Object Spawning
         if (clockDue(250) && !focused) { // powerup (none during Focus or Warp), even odds of each kind
-            if (Math.random() >= 0.5) {
-                powerups.break.push(powerupBlock(15, getRandomColor())); // any colour, and a new one every step below:
-                // the ring the effects breathe around it (fxDrawBeacons) is what makes it findable, and readable as
-                // a pickup, on the steps its flash lands on something an obstacle could be
+            var pick; // either kind brings its own draw (fxDrawPickup): the ring the effects breathe around it, and for
+            if (Math.random() >= 0.5) { // the Break kind the tear, in the full look
+                pick = powerupBlock(15, getRandomColor()); // any colour, and a new one every step below: the ring is
+                // what makes it findable, and readable as a pickup, on the steps its flash lands on something an
+                // obstacle could be
+                pick.update = function () { fxDrawPickup(this, "break"); };
+                powerups.break.push(pick);
             } else {
-                powerups.score.push(powerupBlock(20, getRandomColorGold()));
+                pick = powerupBlock(20, getRandomColorGold());
+                pick.update = function () { fxDrawPickup(this, "score"); };
+                powerups.score.push(pick);
             }
         }
         SPAWN_RULES.forEach(function (rule) {
@@ -307,11 +312,6 @@ function updateGameArea() {
             addScore(1); // Warp's double rate, itself multiplied by whatever grazing has banked
         }
         if (showFrame) {
-            if (inputMode == "touch" && level == 1 && playFrame() < 200) { // first seconds of a touch run
-                ctx.fillStyle = "black";
-                ctx.font = "30px Arial";
-                ctx.fillText("DRAG ANYWHERE TO STEER", 200, 260, gameArea.canvas.width / hudScale() - 220); // squeezed to fit a narrow window
-            }
             drawTouchControls(); // over the HUD and the power stripes, under the square
             useWindow();
             gamePiece.update();
