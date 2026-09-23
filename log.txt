@@ -112,6 +112,30 @@ GAMEPLAY STILL TO DO
 	Horizontal black bars blocking visibility of vertical black bars
 
 PRESENTATION STILL TO DO
+	The touch steering hint prints straight through the lore card. "DRAG ANYWHERE TO STEER" is drawn
+		at a fixed (200, 260) in the HUD frame, 30px black, for playFrame() < 200 on level 1 - loop.js,
+		in the showFrame block at the end of the step. It is the last thing on screen placed by a
+		hand-picked coordinate instead of fitted, and loreFit keeps the card clear of the stats column,
+		the level name and the touch cluster, none of which this is
+		It is not occasional. The hint runs for the first 200 played steps, which begin the instant the
+			pre-roll ends, and the card lingers 5.4s past that same instant (FX_LORE_LINGER 420 plus
+			FX_LORE_FADE 120). The hint's whole two seconds sit inside the card's linger, so on a phone
+			it happens on every first run rather than on some of them
+		Measured with both drawn at the step the hint goes up, as pixels of the hint on the card's ink:
+			844x390, buttons right, the default - 329px, a tenth of the hint, boxes crossing y 233-252
+			667x375 - 137px; 390x844 portrait - 10px; 760x330 - 16px
+			844x390 with the buttons LEFT - none, and 1024x768 - none. The card takes a different one
+				of loreFit's four boxes there, which is why this can look intermittent: it follows the
+				button-side setting and the window, not the level
+		Three ways out, cheapest first:
+			Hand the hint to loreFit as one more thing the card is fitted around. Smallest change, but
+				it gives a card less room on exactly the window that already has the least
+			Put the hint where a card cannot go - between the level name and the buttons, on the same
+				bottom row the name already negotiates with tb.box for
+			Or make it a beat of the introduction on touch, which is the one that fits the game. The
+				pre-roll is an empty field with nothing to dodge, the best moment there will ever be
+				to teach steering, and INTRO_LORE is already beats. The game would say it in its own
+				voice instead of printing an instruction over itself
 	Update the visuals on the break meter and the powerup pickup. Both are original code that the rest
 		of the game has since grown past:
 			The break meter is a bare fillRect in updateGameArea: 200px wide, shrinking and sliding
