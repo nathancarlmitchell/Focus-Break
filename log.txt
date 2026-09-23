@@ -112,6 +112,43 @@ GAMEPLAY STILL TO DO
 	Horizontal black bars blocking visibility of vertical black bars
 
 PRESENTATION STILL TO DO
+	Update the between-level screens. Six of them go through centerText and showMessage - the normal
+		clear, the perfect clear, level 9's WARNING, level 10's victory, the level 16 finish and the
+		death message - and showMessage measures the queued lines and puts the whole block up at once.
+		Nothing on any of them types except the lore slot, which was added later and sits under them
+		Every branch is hand-placed rather than laid out, which is the menu buttons again in another
+			corner: each picks its own dy off a list of eight (-175, -87, -75, -50, 0, 25, 45, 100),
+			its own font and passes, and its own banners. The perfect clear and level 10 call
+			drawBanners(40, 20), level 9 calls (40, 30), and the normal clear and the finish call none
+		The normal clear is the one to look at first. Three lines, no banner, no colour of its own, and
+			it is what 11 of the 15 levels end on - the screen the run is actually made of
+		These screens' own ink is what caps the transition under them. FX_NEXT_TINT_A is held at 0.55
+			because the perfect clear's turquoise is only 1.86:1 on white to begin with and a
+			full-strength ground takes it to 1.61. So recolouring them is what would let the ground
+			come up all the way, and the two jobs are really one
+	Glitch the lore out instead of fading it. This reverses a call made when the cards were built, and
+		the comment on FX_LORE_FADE still states the old one - it has to be rewritten, not left
+		One change moves both, which is either the point or the trap: loreDrawLines is the single
+			drawing path for the in-level card and for the between-level screen lore alike, and the
+			fade lives in it as globalAlpha = 1 - smoothstep(out)
+		drawNameGlitch is the tear to reuse, but it is cut for the name and not for a card: top = -34
+			and tall = 46 are the 40px glyphs measured from a baseline at y = 0, x is left-aligned,
+			there is one line, and the clip is the touch buttons' maxWidth. A card is 30px, centred,
+			two or three lines FX_LORE_LINE apart. The band rectangle and the clip have to come from
+			the card's own box, and the tear has to run per line or across the whole block
+		A tear is three times faster than a fade: the name takes FX_NAME_GLITCH 45 steps to come apart
+			and FX_NAME_FADE 150 to fade. loreOut has one c.fade for every look, so a card needs the
+			second span nameOut already has
+		Keep the three looks as they are: tear in full, fade in reduced, cut with the effects off. The
+			name already makes that call, and for the reason a card has more of - a slice glitch is
+			exactly the motion reduced motion is asking you not to draw
+		Two things to catch on the way:
+			The clocks differ. The in-level card runs on gameArea.frameNo; the screen lore runs on
+				nxt.age at 60Hz. drawNameGlitch's stutter is floor(frameNo / FX_NAME_STUTTER), so the
+				screen version needs a tick of its own or it will not stutter at all
+			The contrast. On a screen the tear's cyan and magenta land on the level's ground rather
+				than on white, where the card's grey is 7.46:1. Worth the measurement every other wash
+				in this file got before it shipped
 	The touch steering hint prints straight through the lore card. "DRAG ANYWHERE TO STEER" is drawn
 		at a fixed (200, 260) in the HUD frame, 30px black, for playFrame() < 200 on level 1 - loop.js,
 		in the showFrame block at the end of the step. It is the last thing on screen placed by a
